@@ -1,0 +1,189 @@
+name: Finish execution board
+
+# One-shot applicator. Removed after milestones, labels, and inherited-behavior
+# notes are on the existing issues. The cloud agent token cannot write issues.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/finish-execution-board.yml
+
+permissions:
+  issues: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply milestones, labels, and inherited behavior
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 << 'PY'
+          import json
+          import os
+          import subprocess
+          import textwrap
+
+          repo = os.environ["REPO"]
+
+          def api(method, path, payload=None, allow=()):
+              cmd = ["gh", "api", "--method", method, "-i", path]
+              data = None
+              if payload is not None:
+                  cmd.extend(["--input", "-"])
+                  data = json.dumps(payload)
+              result = subprocess.run(cmd, input=data, text=True, capture_output=True)
+              raw = result.stdout or ""
+              if not raw.startswith("HTTP/"):
+                  raw = (result.stderr or "") + "\n" + raw
+              if not raw.startswith("HTTP/"):
+                  raise SystemExit(
+                      f"{method} {path} failed:\n{result.stderr}\n{result.stdout}"
+                  )
+              header, _, body = raw.partition("\r\n\r\n")
+              if header == raw:
+                  header, _, body = raw.partition("\n\n")
+              status = int(header.splitlines()[0].split()[1])
+              if status not in (200, 201) and status not in allow:
+                  raise SystemExit(
+                      f"{method} {path} -> {status}\n{body}\n{result.stderr}"
+                  )
+              body = body.strip()
+              if status not in (200, 201) or not body:
+                  return None
+              return json.loads(body)
+
+          milestones = {
+              "M0 Foundation": "Reproducible Python environment, CI, configuration, and logging.",
+              "M1 Telegram Core": "aiogram application lifecycle, routers, callbacks, and error boundaries.",
+              "M2 Cat Submission": "Persistence boundaries and the cat-video submission workflow.",
+              "M3 Reply Chains": "Internal thread model and Telegram reply projection.",
+              "M4 Moderation": "Approval queue, callbacks, and audit history.",
+              "M5 Production": "PostgreSQL deployment, observability, and operational recovery.",
+          }
+          existing = api("GET", f"repos/{repo}/milestones?state=all&per_page=100") or []
+          by_title = {item["title"]: item["number"] for item in existing}
+          for title, description in milestones.items():
+              if title not in by_title:
+                  created = api(
+                      "POST",
+                      f"repos/{repo}/milestones",
+                      {"title": title, "description": description, "state": "open"},
+                  )
+                  by_title[title] = created["number"]
+                  print(f"created milestone {title} #{created['number']}")
+              else:
+                  print(f"milestone exists {title} #{by_title[title]}")
+
+          labels = {
+              "epic": ("5319e7", "Cross-phase tracking issue"),
+              "foundation": ("0e8a16", "Phase 0 foundation"),
+              "telegram": ("1d76db", "Telegram transport core"),
+              "persistence": ("006b75", "Database and repository boundaries"),
+              "domain": ("fbca04", "Cat domain model and workflow"),
+              "publishing": ("d93f0b", "Telegram publishing adapter"),
+              "moderation": ("b60205", "Moderation workflow"),
+              "production": ("0052cc", "Production hardening"),
+          }
+          for name, (color, description) in labels.items():
+              current = api("GET", f"repos/{repo}/labels/{name}", allow=(404,))
+              if current is None:
+                  api(
+                      "POST",
+                      f"repos/{repo}/labels",
+                      {"name": name, "color": color, "description": description},
+                  )
+                  print(f"created label {name}")
+              else:
+                  print(f"label exists {name}")
+
+          assignments = {
+              2: "M0 Foundation",
+              3: "M1 Telegram Core",
+              4: "M2 Cat Submission",
+              5: "M2 Cat Submission",
+              6: "M3 Reply Chains",
+              7: "M3 Reply Chains",
+              8: "M4 Moderation",
+              9: "M5 Production",
+          }
+          label_for = {
+              1: "epic",
+              2: "foundation",
+              3: "telegram",
+              4: "persistence",
+              5: "domain",
+              6: "domain",
+              7: "publishing",
+              8: "moderation",
+              9: "production",
+          }
+          api("PATCH", f"repos/{repo}/issues/1", {"milestone": None})
+          for number, title in assignments.items():
+              api("PATCH", f"repos/{repo}/issues/{number}", {"milestone": by_title[title]})
+              print(f"issue #{number} -> {title}")
+          for number, name in label_for.items():
+              api("POST", f"repos/{repo}/issues/{number}/labels", {"labels": [name]})
+              print(f"issue #{number} label {name}")
+
+          notes = {
+              1: """
+                  ## Inherited behavior
+
+                  Preserve deep-link entry into a private chat and Telegram-native `reply_to_message_id` chains.
+
+                  Do not port the anonymous-wall implementation:
+
+                  - one file that mixes handlers, services, and repositories
+                  - hard-coded channel or bot usernames
+                  - a naked `message_id` without its chat
+                  - raw user or message IDs in callback data
+                  - synchronous ORM calls inside async handlers
+                  - forwarding private messages to a dump channel
+                  - `asyncio.create_task()` around publish
+                  """,
+              3: """
+                  ## Inherited behavior
+
+                  Public channel buttons are URL deep links only: `/start cat_<opaque-token>`.
+                  Callback payloads use internal IDs (`catreply:<id>`, `catmod:approve:<id>`, `catmod:reject:<id>`), with one button action field each.
+                  Resetting FSM state when a new command arrives is explicit and tested.
+                  Private-message text is not stored by default.
+                  """,
+              4: """
+                  ## Inherited behavior
+
+                  One model owner. Async sessions only.
+                  `TelegramMessageRef(chat_id, message_id)` is the reference for every chat: channel, private, and moderation.
+                  """,
+              6: """
+                  ## Inherited behavior
+
+                  The deep link resolves to an internal parent and thread before the FSM starts.
+                  FSM state stores those internal IDs, not Telegram coordinates.
+                  """,
+              7: """
+                  ## Inherited behavior
+
+                  Publish, store the returned `TelegramMessageRef`, and acknowledge the user in one awaited flow.
+                  A child uses the parent's published `(chat_id, message_id)` only as Telegram's visible reply.
+                  """,
+              8: """
+                  ## Inherited behavior
+
+                  The moderation message is another `TelegramMessageRef`.
+                  It is not the thread identity.
+                  Approval is the gate that calls the publisher.
+                  """,
+          }
+          for number, note in notes.items():
+              issue = api("GET", f"repos/{repo}/issues/{number}")
+              body = issue.get("body") or ""
+              if "## Inherited behavior" in body:
+                  print(f"issue #{number} already has inherited behavior")
+                  continue
+              updated = body.rstrip() + "\n\n" + textwrap.dedent(note).strip() + "\n"
+              api("PATCH", f"repos/{repo}/issues/{number}", {"body": updated})
+              print(f"issue #{number} inherited behavior appended")
+          PY

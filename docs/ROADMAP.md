@@ -96,3 +96,17 @@ Handlers translate Telegram events.
 Services own decisions.
 Repositories own persistence.
 Telegram adapters own Telegram API details.
+
+## GitHub execution board
+
+The work is tracked as one coordinating epic plus small, independently verifiable child issues:
+
+- [Epic #1 — CatsChannel foundation and cat-video reply-chain platform](https://github.com/SoloMidMiram/CatsChannel/issues/1)
+- [CATS-001 — Bootstrap Python/uv/CI foundation (#2)](https://github.com/SoloMidMiram/CatsChannel/issues/2)
+- [CATS-002 — Implement aiogram application core (#3)](https://github.com/SoloMidMiram/CatsChannel/issues/3)
+- [CATS-003 — Create persistence boundaries (#4)](https://github.com/SoloMidMiram/CatsChannel/issues/4)
+- [CATS-004 — Build cat submission workflow (#5)](https://github.com/SoloMidMiram/CatsChannel/issues/5)
+- [CATS-005 — Implement reply-chain model (#6)](https://github.com/SoloMidMiram/CatsChannel/issues/6)
+- [CATS-006 — Add Telegram publishing adapter (#7)](https://github.com/SoloMidMiram/CatsChannel/issues/7)
+- [CATS-007 — Add moderation workflow (#8)](https://github.com/SoloMidMiram/CatsChannel/issues/8)
+- [CATS-008 — Production hardening (#9)](https://github.com/SoloMidMiram/CatsChannel/issues/9)
