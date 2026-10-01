@@ -6,6 +6,8 @@ Telegram cat-video reply-chain bot.
 
 Build a scalable Telegram bot that manages cat video submissions, publishing, reply chains, moderation, and future community features without coupling domain logic to Telegram transport details.
 
+Social owns the reply chain. `thread_id` and `parent_id` are the domain graph. Telegram coordinates are a `TelegramMessageRef` (`chat_id`, `message_id`). «دیوار ناشناس» is a behavioral reference for deep links and native replies, not a module to copy.
+
 ## Architecture principles
 
 - Python-first modern async stack
