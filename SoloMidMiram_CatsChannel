@@ -1,0 +1,626 @@
+## Repository inspection result
+
+I inspected the current default `main` branch of `SoloMidMiram/TelegramBot-FirstGen` at **`35eea1b8c641915f59dd2a2d6e1fa1e1f0d545b2`**. I made **no repository changes**.
+
+The important conclusion is that **«دیوار ناشناس» already contains two useful ideas for a cat-video reply chain—deep-link entry and Telegram-native reply references—but its implementation is too entangled to reuse directly.** The new feature should preserve those behaviors while separating Telegram routing, thread logic, and persistence.
+
+The repository's own ontology agrees with that direction: Social owns anonymous posts/messages, and the target dependency flow is handler → service → repository/client rather than the current all-in-one module. 
+
+---
+
+# 1. Where «دیوار ناشناس» actually lives
+
+The primary implementation is:
+
+```text
+nevermore/src/post.py
+```
+
+Supporting pieces are:
+
+```text
+nevermore/src/handlers.py       # /start deep-link dispatch
+nevermore/src/message.py        # private anonymous reply chain
+nevermore/src/social.py         # Social facade + catch-all PM
+nevermore/src/_middleware.py    # global middleware
+nevermore/src/private_messages.py
+nevermore/src/music.py          # surprising duplicate Post model
+nevermore/src/_db.py
+nevermore/maaain.py
+```
+
+The documentation itself describes `post.py` as the anonymous channel-post/reply helper and records its `post` table, `/post`, deep links, and hard-coded channel/bot-name risks. 
+
+The handler manifest gives a useful map of the live surface:
+
+| Location | Handler |
+|---|---|
+| `post.py:152` | `post_callback_handler` |
+| `post.py:161` | `start_post` |
+| `post.py:190` | `handle_getting_channel_post` |
+| `post.py:208` | `handle_getting_channel_post_photo` |
+| `post.py:229` | `handle_getting_channel_post_audio` |
+| `post.py:248` | `handle_getting_channel_post_video` |
+| `post.py:267` | `handle_getting_channel_post_document` |
+| `post.py:289` | `handle_reply_command` |
+| `post.py:388–403` | reply-content handlers |
+| `post.py:436` | `handle_post_callback` |
+| `message.py:149` | `handle_buttons` |
+| `handlers.py:374` | central `/start` deep-link handler |
+
+
+
+---
+
+# 2. Current posting flow
+
+`PostState` has two states:
+
+```python
+getting_channel_post
+replying_to_channel_post
+```
+
+The `/post` command enters `getting_channel_post`. Separate handlers then accept text, photo, audio, video, or document and all delegate to:
+
+```python
+send_to_channel(...)
+```
+
+That function does essentially **handler + application service + Telegram adapter** work at once:
+
+```text
+input
+  ↓
+escape Markdown
+  ↓
+bot.send_message/send_photo/send_video/...
+  ↓
+obtain sent_message.message_id
+  ↓
+attach inline keyboard
+  ↓
+return channel message ID
+  ↓
+add_post(...)
+```
+
+The content-specific handlers then synchronously call `add_post()` and finish the FSM.  
+
+That design works as a prototype, but it is exactly what the new feature should **not** copy.
+
+---
+
+# 3. How replies and Telegram message IDs work
+
+There are actually **two different reply mechanisms**.
+
+### A. Replies inside `@GapDivar`
+
+When `send_to_channel()` receives a `channel_message_id`, it sends the new channel message with:
+
+```python
+reply_to_message_id=int(channel_message_id)
+```
+
+So the visible channel reply chain is delegated to Telegram itself.
+
+After publishing, the returned:
+
+```python
+sent_message.message_id
+```
+
+becomes the persistent `channel_message_id`.
+
+This is the useful piece for your cat-video feature: **Telegram's native reply relation can represent the visual chain**. 
+
+### B. Private anonymous replies
+
+Each channel message receives a deep-link button:
+
+```text
+https://t.me/Irantinder2Bot?start=reply_<channel-message-id>
+```
+
+The central `/start` handler recognizes `reply_...`, rewrites the incoming message as `/reply <id>`, and invokes `handle_reply_command()`. 
+
+`handle_reply_command()`:
+
+1. reads the channel message ID;
+2. calls `get_post_by_channel_message_id()`;
+3. finds the original poster's Telegram user ID;
+4. stores the IDs in FSM state;
+5. waits for the reply.
+
+The reply is then delivered privately to the original poster.
+
+---
+
+# 4. The clever part in `message.py`
+
+`message.py` implements a bouncing private reply chain using:
+
+```python
+callback_data=f"{mode}:{user_id}:{message_id}"
+```
+
+For example:
+
+```text
+answer:123456:817
+reply:987654:442
+```
+
+`handle_buttons()` parses that tuple and stores:
+
+```python
+user_id
+is_reply
+original_message_id
+```
+
+Then `send_message_to_user()` uses:
+
+```python
+reply_to_message_id=original_message_id
+```
+
+when it delivers the next private reply. 
+
+This is an interesting design: the message ID being carried is the **original inbound message in the target user's private chat**, so the bot can visually reply to it when the conversation returns to that user.
+
+The repository documentation correctly characterizes this as anonymous messaging with sender/message IDs embedded in callback data and also notes that it has **no persistence or spam control**. 
+
+For the cat feature, I would keep the concept of reply references but **not carry raw Telegram coordinates as the domain identity**.
+
+---
+
+# 5. Storage/model situation
+
+`post.py` declares this model itself:
+
+```python
+class Post(Base):
+    __tablename__ = "post"
+
+    id
+    user_id
+    user_full_name
+    channel_message_id
+```
+
+and also creates its **own engine/sessionmaker** from `DATABASE_URI`. 
+
+That has several architectural weaknesses.
+
+### The record has no explicit chain
+
+There is no:
+
+```text
+thread_id
+parent_post_id
+root_post_id
+channel_chat_id
+source_message_id
+moderation_message_id
+status
+created_at
+```
+
+The graph exists only implicitly inside Telegram.
+
+### Message ID is stored without chat ID
+
+`channel_message_id` is sufficient only because the code assumes exactly one hard-coded channel.
+
+Telegram message IDs are scoped to a chat. For any feature involving:
+
+```text
+main channel
+moderation channel
+private chat
+secondary channel
+```
+
+a bare `message_id` is not a sufficient reference.
+
+### Duplicate model definition
+
+`nevermore/src/music.py` independently redeclares **the same `post` table/model** and uses it to discover the highest GapDivar message ID. 
+
+That's strong evidence that `Post` needs a single repository/model owner.
+
+### It bypasses the project's shared DB boundary
+
+The project now has `_db.session_scope()` and explicitly describes `_db.py` as the owner of engines/session factories. `post.py` does not use it. 
+
+More importantly, `_db.create_all_tables()` does **not** list `src.post`, so the current anonymous-post table appears to rely on an already-existing schema rather than being clearly owned by centralized initialization. 
+
+---
+
+# 6. Middleware affecting this feature
+
+The normal runtime is:
+
+```text
+maaain.py
+  → setup_middleware()
+  → register_all_handlers()
+  → polling
+```
+
+Central logging is configured once in `maaain.py`, which is the correct direction. 
+
+The middleware chain is currently:
+
+```text
+SaveUserMiddleware
+GroupActivityTrackingMiddleware
+PrivateActivityTrackingMiddleware
+ResetStateMiddleware
+GroupActivityMiddleware
+```
+
+
+
+Two matter directly to a future cat-video flow.
+
+### `ResetStateMiddleware`
+
+Any command during an active state causes:
+
+```python
+await state.finish()
+```
+
+So a `/start ...` deep link, `/cancel`, etc. can replace an in-progress flow.
+
+That's useful, but the new feature should test this intentionally rather than inherit it accidentally.
+
+### `PrivateActivityTrackingMiddleware`
+
+This is much more important.
+
+For every private **text** message it stores:
+
+```text
+user_id
+username
+full_name
+message text
+timestamp
+last command
+```
+
+in `private_messages`. 
+
+So the existing anonymous workflows are not truly isolated from global private-message persistence.
+
+The repository's migration contract already recognizes the related privacy problem: unmatched private messages being forwarded to `@AfsarieCh` is explicitly classified as `KNOWN_DEFECT`, with vNext expected to retire that behavior. 
+
+That is something I would **not inherit** for the cat feature.
+
+---
+
+# 7. Moderation / secondary-channel behavior
+
+For «دیوار ناشناس» itself, I found **no active moderation queue**.
+
+The route is:
+
+```text
+user
+  → bot
+  → send_to_channel()
+  → @GapDivar immediately
+```
+
+There is no:
+
+```text
+pending
+→ moderator channel
+→ approve/reject
+→ publish
+```
+
+inside `post.py`.
+
+There *is* a secondary channel, `@AfsarieCh`, elsewhere:
+
+- `social.forward_and_warn()` forwards unmatched private messages there with the sender's identity. 
+- `music.py` uses it as a `SANDBOX_CHAT` when probing random GapDivar messages. 
+
+Neither is a proper anonymous-post moderation workflow.
+
+**Do not model a new moderator queue on `@AfsarieCh`.**
+
+---
+
+# 8. Async and background behavior
+
+The anonymous-wall path has essentially **no background execution**.
+
+Publishing is:
+
+```text
+handler
+  await Telegram API
+  synchronous SQLAlchemy transaction
+  await response
+```
+
+There is no `asyncio.create_task()` or worker queue in `post.py`/`message.py`.
+
+Repository-wide `create_task()` usage exists in unrelated modules such as `ganjoor.py`, `soup.py`, and poem processing, not in this feature.
+
+For the new cat-video feature, that is actually a good default:
+
+> **Publishing, recording the message reference, and acknowledging the user should remain one awaited transaction flow.**
+
+Don't fire-and-forget a critical publish using `create_task()`. If the process dies between publishing and persistence, the reply graph becomes orphaned.
+
+The existing problem is instead **synchronous SQLAlchemy inside async handlers**.
+
+---
+
+# 9. Error handling and logging
+
+There are three distinct styles.
+
+### `post.py`
+
+`send_to_channel()` catches:
+
+```python
+except Exception as e:
+    logging.error(...)
+    return None
+```
+
+The reply helper similarly catches broad `Exception`, sends a generic error, and finishes the state.
+
+`session_scope()` rolls back, logs, and re-raises. 
+
+This is survivable but loses error classification.
+
+### `message.py`
+
+`send_message_to_user()` catches broad exceptions and returns:
+
+```python
+await message.answer(f"An error occurred: {str(e)}")
+```
+
+That can expose Telegram/library/database details to users. 
+
+### Import-time failure
+
+`social.register()` imports:
+
+```text
+Channel
+link
+message
+post
+```
+
+inside `try/except Exception`, merely logging a warning when a feature fails to import. 
+
+That matters because the characterization suite explicitly has to fake the obsolete unused:
+
+```python
+sqlalchemy.util.preloaded.orm
+```
+
+import from `post.py` to make the legacy path load. 
+
+That kind of coupling should be absent from the new feature.
+
+---
+
+# 10. Inline-button/deep-link problem worth fixing
+
+`send_to_channel()` currently creates the `"پست ناشناس"` button with **both**:
+
+```python
+url=...
+callback_data=...
+```
+
+
+
+Telegram's current Bot API specifies that an `InlineKeyboardButton` uses **exactly one** type field other than the display fields. A URL button and callback button are distinct button types. [Telegram](https://core.telegram.org/bots/api%20?utm_source=chatgpt.com)
+
+There are also several legacy routing inconsistencies:
+
+```text
+post_callback_handler → expects "post"
+send_to_channel       → creates "post:<...>"
+handle_post_callback  → expects "post_<...>"
+```
+
+and `direct_to_message_py_answer()` expects `answer_to_reply...`, while `get_inline_buttons()` generates `answer:` / `reply:`.
+
+So for the new feature, callback/deep-link formats should be defined once and tested centrally.
+
+---
+
+# Recommended cat-video reply-chain architecture
+
+I would treat the existing wall as **behavioral reference, not reusable architecture**.
+
+Given the repository's migration target, keep this under the Social domain rather than creating a top-level parallel subsystem. 
+
+A compact shape would be:
+
+```text
+domains/social/
+    handlers.py
+    service.py
+    repository.py
+    states.py
+    callbacks.py
+    schemas.py
+```
+
+If the cat feature grows substantially, *then* a `cat_reply/` subpackage earns its existence.
+
+### The key value object
+
+Introduce one concept that the legacy code badly needs:
+
+```python
+@dataclass(frozen=True)
+class TelegramMessageRef:
+    chat_id: int
+    message_id: int
+```
+
+Never persist a naked Telegram `message_id` for a multi-chat feature.
+
+Then a persisted cat post/reply should minimally know:
+
+```text
+id                        internal identity
+thread_id                 stable conversation/thread identity
+parent_id                 nullable internal parent
+author_user_id
+source_chat_id
+source_message_id
+published_chat_id
+published_message_id
+telegram_file_id
+telegram_file_unique_id
+status
+created_at
+```
+
+That gives you two graphs simultaneously:
+
+```text
+Domain graph:
+CatPost.parent_id → CatPost.id
+
+Telegram graph:
+published_chat_id + published_message_id
+```
+
+The first survives Telegram changes.  
+The second renders the visible chain.
+
+---
+
+## Recommended flow
+
+```text
+User opens cat-reply deep link
+        ↓
+handler validates token
+        ↓
+FSM stores internal parent/thread ID
+        ↓
+user sends cat video
+        ↓
+handler extracts Telegram input only
+        ↓
+CatReplyService.submit(...)
+        ↓
+repository creates submission
+        ↓
+[optional moderator approval]
+        ↓
+Telegram publisher sends video
+    replying to parent's published MessageRef
+        ↓
+repository records returned MessageRef
+        ↓
+user receives confirmation
+```
+
+If moderation is required, insert it explicitly:
+
+```text
+submission
+   ↓
+moderation chat
+   ↓
+Approve / Reject callback
+   ↓
+service decision
+   ↓
+publish
+```
+
+Persist the moderator message as another `TelegramMessageRef`; don't make a secondary channel part of the thread identity.
+
+---
+
+# Callback/deep-link design
+
+I would also abandon payloads such as:
+
+```text
+answer:<user_id>:<telegram_message_id>
+```
+
+for new code.
+
+Prefer:
+
+```text
+catreply:<internal-id>
+catmod:approve:<submission-id>
+catmod:reject:<submission-id>
+```
+
+or aiogram 3's typed `CallbackData`.
+
+For a public channel button that must open a private bot conversation, use **only a URL/deep link**:
+
+```text
+/start cat_<opaque-token>
+```
+
+Then resolve that token to your internal post/thread.
+
+That prevents Telegram transport IDs from becoming your database/API contract.
+
+---
+
+# What to preserve vs. reject
+
+| Existing Wall Idea | Cat feature |
+|---|---|
+| Deep-link from channel into private bot | **Preserve** |
+| Telegram-native channel replies | **Preserve** |
+| Record returned Telegram message ID | **Preserve, but pair with chat ID** |
+| FSM for collecting next user message | **Preserve conceptually** |
+| Content-specific giant handler set | **Collapse/thin out** |
+| Model + engine + handlers in one file | **Reject** |
+| Hard-coded bot/channel usernames | **Reject** |
+| Raw user/message IDs in callback protocol | **Replace with internal IDs/tokens** |
+| Broad `except Exception` everywhere | **Replace with typed failures + final safety boundary** |
+| synchronous ORM directly in async handler | **Reject** |
+| `@AfsarieCh` forwarding/sandbox behavior | **Do not reuse** |
+| fire-and-forget background publishing | **Do not introduce** |
+
+### Bottom line
+
+The most valuable thing to steal from «دیوار ناشناس» is **the topology**, not the code:
+
+```text
+public Telegram message
+        ↓ deep link
+private submission
+        ↓
+resolve original author/thread
+        ↓
+publish/deliver reply
+        ↓
+retain Telegram message coordinates
+```
+
+For the cat-video feature, I would make **`thread_id`/`parent_id` the truth and `(chat_id, message_id)` the Telegram projection**. That one distinction removes most of the fragility currently accumulated in `post.py` and `message.py`, while still producing the same natural Telegram reply-chain experience.
