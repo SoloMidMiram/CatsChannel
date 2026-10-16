@@ -55,6 +55,8 @@ class MediaService:
         *,
         token: CancellationToken | None = None,
     ) -> dict[str, object]:
+        if self.settings.media_backend == "telegram_bot":
+            raise MediaError(code="backend_capability")
         self._acquire_worker(token)
         try:
             return probe_media(self.settings, url, token=token)

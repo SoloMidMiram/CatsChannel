@@ -22,6 +22,52 @@ class Settings(BaseSettings):
     download_dir: Path = Path("downloads")
     max_download_mb: int = Field(default=45, ge=1, le=45)
     max_duration_seconds: int = Field(default=300, ge=1, le=1800)
+    media_backend: Literal["yt_dlp", "telegram_bot"] = "yt_dlp"
+    telegram_api_id: int | None = Field(default=None, ge=1, repr=False)
+    telegram_api_hash: SecretStr = SecretStr("")
+    telethon_session: Path = Path(".secrets/user")
+    telegram_proxy: AnyUrl | None = None
+    telegram_downloader_bot: str = "whatsmusicbot"
+    telegram_response_timeout: int = Field(default=180, ge=10, le=600)
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING"
+
+    @property
+    def telegram_session_file(self) -> Path:
+        value = str(self.telethon_session)
+        return Path(value if value.endswith(".session") else f"{value}.session")
+
+    @field_validator("telegram_downloader_bot")
+    @classmethod
+    def validate_downloader_bot(cls, value: str) -> str:
+        import re
+
+        username = value.removeprefix("@").lower()
+        if not re.fullmatch(r"[a-z][a-z0-9_]{4,31}", username):
+            raise ValueError("Expected a Telegram bot username")
+        return username
+
+    def require_telegram_client(self) -> None:
+        if not self.telegram_api_id or not self.telegram_api_hash.get_secret_value():
+            raise MediaError(code="telegram_config")
+
+    @field_validator("telegram_proxy")
+    @classmethod
+    def validate_telegram_proxy(cls, value: AnyUrl | None) -> AnyUrl | None:
+        if value is None:
+            return None
+        if value.scheme not in {"http", "socks4", "socks4a", "socks5", "socks5h"}:
+            raise ValueError("TELEGRAM_PROXY must use HTTP or SOCKS")
+        if (
+            value.username
+            or value.password
+            or value.query
+            or value.fragment
+            or value.path not in {None, "", "/"}
+        ):
+            raise ValueError("TELEGRAM_PROXY must be an origin without credentials")
+        if value.host is None or value.port is None:
+            raise ValueError("TELEGRAM_PROXY must include a host and port")
+        return value
 
     @field_validator("youtube_pot_provider_url")
     @classmethod

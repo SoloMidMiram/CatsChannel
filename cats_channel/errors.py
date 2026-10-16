@@ -1,3 +1,4 @@
+from asyncio import CancelledError
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
@@ -19,6 +20,76 @@ _DEFAULT = ErrorPolicy(
 
 ERROR_POLICIES = MappingProxyType(
     {
+        "telegram_config": ErrorPolicy(
+            "Telegram client configuration or the optional userbot dependency is missing.",
+            "Install the userbot extra and set TELEGRAM_API_ID and TELEGRAM_API_HASH locally.",
+            "after_local_fix",
+        ),
+        "telegram_login": ErrorPolicy(
+            "A logged-in Telegram user session is required.",
+            "Run --telegram-login interactively in your own terminal.",
+            "after_local_fix",
+        ),
+        "telegram_api_credentials": ErrorPolicy(
+            "Telegram rejected the API ID or API hash.",
+            "Verify TELEGRAM_API_ID and TELEGRAM_API_HASH against my.telegram.org/apps.",
+            "after_local_fix",
+        ),
+        "telegram_phone": ErrorPolicy(
+            "Telegram rejected or restricted the supplied phone number.",
+            "Verify the full international number and inspect the account in the official app.",
+            "after_investigation",
+        ),
+        "telegram_login_code": ErrorPolicy(
+            "Telegram rejected or expired the login code.",
+            "Start one fresh login attempt and enter only its newest code.",
+            "explicit_only",
+        ),
+        "telegram_password": ErrorPolicy(
+            "Telegram rejected the two-step-verification password.",
+            "Verify the password in the official Telegram app before one new login attempt.",
+            "explicit_only",
+        ),
+        "telegram_connect": ErrorPolicy(
+            "Could not establish the Telegram MTProto connection.",
+            "Check TELEGRAM_PROXY and the proxy route before one later attempt.",
+            "after_network_change",
+        ),
+        "telegram_session_io": ErrorPolicy(
+            "The local Telegram session database could not be accessed safely.",
+            "Stop other clients using this session and check its directory permissions.",
+            "after_local_fix",
+        ),
+        "telegram_server": ErrorPolicy(
+            "Telegram returned a temporary server-side failure.",
+            "Stop and make one later attempt after a cooldown; do not resend in a loop.",
+            "after_cooldown",
+        ),
+        "telegram_busy": ErrorPolicy(
+            "The Telegram session is already in use or has a leftover operation lock.",
+            "Wait for the other operation; inspect stale locks only after all clients stop.",
+            "explicit_only",
+        ),
+        "telegram_bot_flow": ErrorPolicy(
+            "The downloader bot did not follow the direct-video workflow.",
+            "Check the conversation manually for buttons, audio-only output, or access prompts.",
+            "after_investigation",
+        ),
+        "telegram_flood_wait": ErrorPolicy(
+            "Telegram requested a cooldown. No automatic retry was made.",
+            "Wait and inspect the session before making another explicit request.",
+            "after_cooldown",
+        ),
+        "telegram_download": ErrorPolicy(
+            "The Telegram downloader operation failed.",
+            "Check Telegram connectivity and the bot conversation; do not resend in a loop.",
+            "after_investigation",
+        ),
+        "backend_capability": ErrorPolicy(
+            "This backend does not support a metadata-only YouTube probe.",
+            "Use --download with the Telegram backend; it never contacts YouTube directly.",
+            "explicit_only",
+        ),
         "invalid_url": ErrorPolicy(
             "The supplied URL is not a supported YouTube video URL.",
             "Replace the URL; do not contact YouTube.",
@@ -207,6 +278,22 @@ class MediaError(RuntimeError):
         self.code = code
         self.log_analysis = log_analysis
         self.warnings = warnings
+
+
+def cleanup_warning_error(primary: BaseException, warning: str) -> MediaError:
+    """Preserve the primary classification without exposing arbitrary exception text."""
+    if isinstance(primary, MediaError):
+        primary.warnings += (warning,)
+        return primary
+    if isinstance(primary, (KeyboardInterrupt, CancelledError)):
+        code = "cancelled"
+    elif isinstance(primary, OSError):
+        code = "local_io"
+    elif isinstance(primary, ValueError):
+        code = "invalid_url"
+    else:
+        code = "internal_error"
+    return MediaError(code=code, warnings=(warning,))
 
 
 def error_record(code: str, message: str | None = None, **extra: str) -> dict[str, object]:

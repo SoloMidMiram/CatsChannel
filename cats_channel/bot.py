@@ -6,7 +6,8 @@ from aiogram.filters import Command
 from aiogram.types import FSInputFile, Message
 
 from .config import Settings
-from .errors import MediaError
+from .diagnostics import configure_logging, log_failure
+from .errors import MediaError, error_record
 from .media import youtube_url
 from .services.media_service import MediaService
 
@@ -22,6 +23,7 @@ async def send_acquired_video(message: Message, service: MediaService, url: str)
 
 async def run_bot(settings: Settings) -> None:
     settings.require_bot()
+    logger = configure_logging(settings.log_level)
     router = Router()
     router.message.filter(F.chat.type == "private", F.from_user.id == settings.admin_user_id)
     busy = asyncio.Lock()
@@ -61,13 +63,17 @@ async def run_bot(settings: Settings) -> None:
                     )
                 else:
                     await send_acquired_video(message, media_service, url)
-            except (MediaError, OSError):
+            except MediaError as error:
+                log_failure(logger, "bot_media_failure", error, operation="media_command")
+                record = error_record(error.code)
+                await message.answer(f"{record['message']}\n{record['action']}")
+            except OSError as error:
+                log_failure(logger, "bot_media_failure", error, operation="media_command")
                 await message.answer(
-                    "Could not process this video. Check access, yt-dlp version, "
-                    "cookie configuration, size and duration limits. "
-                    "Use the local probe for a safe diagnostic."
+                    "A local media file operation failed. Check storage and permissions."
                 )
-            except TelegramAPIError:
+            except TelegramAPIError as error:
+                log_failure(logger, "bot_upload_failure", error, operation="media_command")
                 await message.answer(
                     "Telegram could not upload the file. Check connectivity and upload limits."
                 )
@@ -85,7 +91,8 @@ async def run_bot(settings: Settings) -> None:
                 from_chat_id=message.chat.id,
                 message_id=source.message_id,
             )
-        except TelegramAPIError:
+        except TelegramAPIError as error:
+            log_failure(logger, "bot_publish_failure", error, operation="publish")
             await message.answer("Publish failed. Check channel ID and bot posting permissions.")
             return
         await message.answer("Published to the configured channel.")

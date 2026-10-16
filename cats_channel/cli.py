@@ -5,6 +5,7 @@ import json
 from pydantic import ValidationError
 
 from .config import Settings
+from .diagnostics import configure_logging, log_failure
 from .errors import MediaError, error_record, media_error_report
 from .library import list_downloads, verify_download
 from .media import diagnostic_manifest, probe, runtime_report
@@ -21,6 +22,14 @@ def _parser() -> argparse.ArgumentParser:
     actions.add_argument("--doctor", action="store_true", help="safe local runtime diagnostics")
     actions.add_argument("--check", action="store_true", help="offline configuration validation")
     actions.add_argument("--bot", action="store_true")
+    actions.add_argument(
+        "--telegram-login", action="store_true", help="interactive Telegram user-account login"
+    )
+    actions.add_argument(
+        "--telegram-diagnose",
+        action="store_true",
+        help="one-attempt read-only Telethon connection and authorization diagnosis",
+    )
     actions.add_argument("--probe", metavar="URL")
     actions.add_argument(
         "--diagnose", metavar="URL", help="one-attempt secret-safe diagnostic manifest"
@@ -33,9 +42,38 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _parser().parse_args()
+    operation = next(
+        (
+            name.removeprefix("--").replace("-", "_")
+            for name, selected in (
+                ("--doctor", args.doctor),
+                ("--check", args.check),
+                ("--bot", args.bot),
+                ("--telegram-login", args.telegram_login),
+                ("--telegram-diagnose", args.telegram_diagnose),
+                ("--probe", args.probe is not None),
+                ("--diagnose", args.diagnose is not None),
+                ("--download", args.download is not None),
+                ("--list-downloads", args.list_downloads),
+                ("--verify-download", args.verify_download is not None),
+            )
+            if selected
+        ),
+        "unknown",
+    )
+    logger = configure_logging()
     try:
         settings = Settings()
     except ValidationError as error:
+        diagnostic = MediaError(
+            code="invalid_config",
+            log_analysis={
+                "phase": "configuration",
+                "exception_types": [type(error).__name__],
+                "raw_log_included": False,
+            },
+        )
+        log_failure(logger, "cli_failure", diagnostic, operation=operation)
         fields = ", ".join(".".join(map(str, item["loc"])) for item in error.errors())
         _write(
             {
@@ -48,6 +86,7 @@ def main() -> int:
             }
         )
         return 1
+    logger = configure_logging(settings.log_level)
     try:
         if args.doctor:
             _write(runtime_report(settings))
@@ -55,8 +94,12 @@ def main() -> int:
             settings.require_bot()
             _write({"status": "ok", "message": "Bot configuration is present."})
         elif args.probe:
+            if settings.media_backend == "telegram_bot":
+                raise MediaError(code="backend_capability")
             _write(probe(settings, args.probe))
         elif args.diagnose:
+            if settings.media_backend == "telegram_bot":
+                raise MediaError(code="backend_capability")
             manifest = diagnostic_manifest(settings, args.diagnose)
             _write(manifest)
             return 0 if manifest["status"] == "ok" else 1
@@ -68,23 +111,74 @@ def main() -> int:
             result = verify_download(settings, args.verify_download)
             _write(result)
             return 0 if result["status"] == "ok" else 1
+        elif args.telegram_login:
+            from .adapters.telegram_downloader import login
+
+            _write(asyncio.run(login(settings)))
+        elif args.telegram_diagnose:
+            from .adapters.telegram_downloader import diagnose_connection
+
+            report = asyncio.run(diagnose_connection(settings))
+            _write(report)
+            return 0 if report["status"] == "ok" else 1
         else:
             from .bot import run_bot
 
             asyncio.run(run_bot(settings))
     except MediaError as error:
+        log_failure(logger, "cli_failure", error, operation=operation)
         _write(media_error_report(error))
-        return 1
-    except ValueError:
+        return 130 if error.code == "cancelled" else 1
+    except ValueError as error:
+        log_failure(
+            logger,
+            "cli_failure",
+            MediaError(
+                code="invalid_url",
+                log_analysis={
+                    "phase": operation,
+                    "exception_types": [type(error).__name__],
+                    "raw_log_included": False,
+                },
+            ),
+            operation=operation,
+        )
         _write({"status": "error", "error": error_record("invalid_url")})
         return 1
-    except OSError:
+    except OSError as error:
+        log_failure(
+            logger,
+            "cli_failure",
+            MediaError(
+                code="local_io",
+                log_analysis={
+                    "phase": operation,
+                    "exception_types": [type(error).__name__],
+                    "raw_log_included": False,
+                },
+            ),
+            operation=operation,
+        )
         _write({"status": "error", "error": error_record("local_io")})
         return 1
-    except KeyboardInterrupt:
+    except KeyboardInterrupt as error:
+        log_failure(
+            logger,
+            "cli_failure",
+            MediaError(
+                code="cancelled",
+                log_analysis={
+                    "phase": operation,
+                    "exception_types": [type(error).__name__],
+                    "raw_log_included": False,
+                },
+            ),
+            operation=operation,
+        )
         _write({"status": "error", "error": error_record("cancelled")})
         return 130
     except Exception as error:  # noqa: BLE001
+        log_failure(logger, "cli_failure", error, operation=operation)
         _write(
             {
                 "status": "error",
