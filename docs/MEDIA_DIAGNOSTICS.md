@@ -19,6 +19,8 @@ computed after aggressive redaction. The terminal `ERROR:` line takes precedence
 over earlier warnings; stderr without an `ERROR:` prefix is still classified from
 the last matching line. Raw stderr is never included. The full rule design and
 cookie/container guidance are in [DOWNLOADER_ERRORS.md](DOWNLOADER_ERRORS.md).
+The shared exception-chain and structured-logging contract is in
+[ERROR_HANDLING.md](ERROR_HANDLING.md).
 Save the manifest when needed with normal shell redirection; it is designed to be
 safe for issue reports, but review any diagnostic artifact before sharing it.
 

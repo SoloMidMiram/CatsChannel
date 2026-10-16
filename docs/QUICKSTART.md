@@ -12,7 +12,8 @@ baseline rather than a permanent platform.
 The original setup required 3.13 only, had a comment-only `uv.lock`, no configuration
 loader, and no runnable app. The example addresses these foundation gaps. Database
 dependencies are now an optional `persistence` extra; the demo requires no database
-or Redis. Telethon is an optional `userbot` extra and is not started by the app.
+or Redis. Telethon is an optional `userbot` extra, enabled only when you select
+the Telegram downloader backend. See [TELEGRAM_DOWNLOADER.md](TELEGRAM_DOWNLOADER.md).
 
 Package baselines inspected on 2026-10-15:
 
@@ -165,7 +166,7 @@ YOUTUBE_PROXY=socks5h://127.0.0.1:10808
    Production should inject environment variables from a secret manager. Rotate an
    exposed bot token via BotFather. Real environment variables override `.env`.
 
-No Telegram API ID/hash is needed for aiogram. For a future Telethon worker, obtain
+No Telegram API ID/hash is needed for aiogram. For the optional Telethon backend, obtain
 an API ID/hash from your Telegram developer application, use a separate session
 under `.secrets`, and log in interactively with your own account. Session files
 and session strings grant account access; protect them like passwords. The example
