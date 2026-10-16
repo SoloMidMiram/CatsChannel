@@ -90,6 +90,7 @@ def test_list_and_verify_downloads_are_local(tmp_path):
         }
     ]
     assert verification["status"] == "ok"
+    assert verification["source_matches"] is True
     assert verification["size_matches"] is True
     assert verification["sha256_matches"] is True
     assert verification["playback_validation"] == PLAYBACK
@@ -108,6 +109,57 @@ def test_verify_detects_changed_media(tmp_path):
         result = verify_download(settings, VIDEO_ID)
     assert result["status"] == "corrupt"
     assert result["sha256_matches"] is False
+
+
+def test_verify_detects_mismatched_source_video_id(tmp_path):
+    settings = Settings(_env_file=None, download_dir=tmp_path)
+    with (
+        patch("cats_channel.library.download", side_effect=_fake_download),
+        patch("cats_channel.library._probe_media", return_value=PLAYBACK),
+    ):
+        store_download(settings, VIDEO_URL)
+
+    manifest_path = tmp_path / "library" / "youtube" / VIDEO_ID / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source"]["video_id"] = "zyxwvutsrqp"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with patch("cats_channel.library._probe_media", return_value=PLAYBACK):
+        result = verify_download(settings, VIDEO_ID)
+
+    assert result["status"] == "corrupt"
+    assert result["source_matches"] is False
+    assert result["size_matches"] is True
+    assert result["sha256_matches"] is True
+
+
+def test_verify_enforces_current_size_limit(tmp_path):
+    def large_download(_settings, _url, directory: Path, *, metadata_out):
+        path = directory / "video.mp4"
+        path.write_bytes(b"x" * (2 * 1024 * 1024))
+        metadata_out.update(
+            {
+                "id": VIDEO_ID,
+                "title": "A large cat",
+                "duration": 12,
+                "availability": "public",
+                "live_status": "not_live",
+                "webpage_url": f"https://www.youtube.com/watch?v={VIDEO_ID}",
+            }
+        )
+        return path
+
+    initial = Settings(_env_file=None, download_dir=tmp_path, max_download_mb=45)
+    restrictive = Settings(_env_file=None, download_dir=tmp_path, max_download_mb=1)
+    with (
+        patch("cats_channel.library.download", side_effect=large_download),
+        patch("cats_channel.library._probe_media", return_value=PLAYBACK),
+    ):
+        store_download(initial, VIDEO_URL)
+        with pytest.raises(MediaError) as error:
+            verify_download(restrictive, VIDEO_ID)
+
+    assert error.value.code == "policy_limit"
 
 
 def test_corrupt_cache_is_not_returned_or_redownloaded(tmp_path):

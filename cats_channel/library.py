@@ -302,13 +302,18 @@ def verify_download(settings: Settings, video_id: str) -> dict[str, object]:
         manifest["metadata"].get("duration"),
         max_duration_seconds=settings.max_duration_seconds,
     )
+    source_matches = manifest["source"].get("video_id") == video_id
     size_matches = actual_size == file_record.get("size_bytes")
     hash_matches = actual_hash == file_record.get("sha256")
+    is_intact = source_matches and size_matches and hash_matches
+    if is_intact:
+        _enforce_current_policy(manifest, settings)
     return {
-        "status": "ok" if size_matches and hash_matches else "corrupt",
+        "status": "ok" if is_intact else "corrupt",
         "video_id": video_id,
         "item_path": _relative_item_path(video_id),
         "size_bytes": actual_size,
+        "source_matches": source_matches,
         "size_matches": size_matches,
         "sha256_matches": hash_matches,
         "playback_validation": playback_validation,
