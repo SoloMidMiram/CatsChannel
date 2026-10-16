@@ -173,7 +173,8 @@ phone numbers or API hashes in the manifest.
 - A session operation lock prevents concurrent conversations sharing that SQLite
   session across processes. A crash can leave a lock. Remove it manually only
   after all clients using that session have stopped; never delete the session
-  itself just to clear a lock.
+  itself just to clear a lock. CatsChannel also deliberately retains this lock
+  when a bounded shutdown cannot prove that its owned task terminated.
 - Flood-wait errors return a cooldown error without automatically sleeping or
   resending the link. Client request retries and automatic reconnect are disabled.
 - Login and transfer exceptions are classified through ordered regex rules over a
@@ -186,7 +187,8 @@ phone numbers or API hashes in the manifest.
   until a redacted regression fixture justifies a narrower rule.
 - Response wait is limited by TELEGRAM_RESPONSE_TIMEOUT and a 20-message budget;
   transfer has a 300-second timeout. Cancellation is passed to the active async
-  operation before disconnect and staging cleanup.
+  operation before disconnect and staging cleanup. Cancellation drain is bounded;
+  any late task remains owned and prevents the session lock from being released.
 - Audio-only output, buttons, missing video, disconnection, oversize content or
   failed validation never becomes a successful library item.
 - `YOUTUBE_PROXY` configures yt-dlp only. Set `TELEGRAM_PROXY` separately when

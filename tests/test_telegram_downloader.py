@@ -1,7 +1,8 @@
 import asyncio
+import sys
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -80,6 +81,13 @@ def create_fake_session(settings):
     session.write_bytes(b"fake session fixture; no real credentials")
 
 
+def fake_telethon_module():
+    module = ModuleType("telethon")
+    client = MagicMock(name="TelegramClient")
+    module.TelegramClient = client
+    return module, client
+
+
 def test_telegram_proxy_is_explicitly_passed_to_telethon(tmp_path):
     settings = settings_for(tmp_path, telegram_proxy="socks5h://127.0.0.1:10808")
     assert _telethon_proxy(settings) == {
@@ -88,7 +96,8 @@ def test_telegram_proxy_is_explicitly_passed_to_telethon(tmp_path):
         "port": 10808,
         "rdns": True,
     }
-    with patch("telethon.TelegramClient") as client:
+    module, client = fake_telethon_module()
+    with patch.dict(sys.modules, {"telethon": module}):
         _make_client(settings)
     assert client.call_args.kwargs["proxy"] == _telethon_proxy(settings)
 
@@ -96,7 +105,8 @@ def test_telegram_proxy_is_explicitly_passed_to_telethon(tmp_path):
 def test_telegram_proxy_is_not_inherited_implicitly(tmp_path):
     settings = settings_for(tmp_path, youtube_proxy="socks5h://127.0.0.1:10808")
     assert _telethon_proxy(settings) is None
-    with patch("telethon.TelegramClient") as client:
+    module, client = fake_telethon_module()
+    with patch.dict(sys.modules, {"telethon": module}):
         _make_client(settings)
     assert client.call_args.kwargs["proxy"] is None
 
@@ -277,6 +287,24 @@ async def test_connection_diagnosis_classifies_proxy_failure_without_raw_log(tmp
     assert report["connection_attempts"] == 1
     assert report["automatic_retries"] == 0
     assert report["log_analysis"]["exception_types"] == ["ProxyConnectionError"]
+    assert "private" not in str(report)
+
+
+async def test_connection_diagnosis_preserves_primary_phase_and_cleanup_warning(tmp_path):
+    settings = settings_for(tmp_path)
+    create_fake_session(settings)
+    client, _conversation = fake_client([])
+    proxy_error = type("ProxyConnectionError", (Exception,), {})
+    client.connect.side_effect = proxy_error("private proxy address")
+    client.disconnect.side_effect = OSError("private session details")
+    with patch("cats_channel.adapters.telegram_downloader._make_client", return_value=client):
+        report = await diagnose_connection(settings)
+    assert report["status"] == "error"
+    assert report["error"]["code"] == "telegram_connect"
+    assert report["warnings"] == ["telegram_disconnect_failed"]
+    assert report["failed_phase"] == "connection"
+    assert report["cleanup_failed_phase"] == "disconnect"
+    assert report["cleanup_pending"] is False
     assert "private" not in str(report)
 
 
@@ -463,6 +491,24 @@ def test_session_cleanup_keeps_existing_media_error_and_warnings(tmp_path):
         raise primary
     assert raised.value is primary
     assert primary.warnings == ("telegram_disconnect_failed", "session_lock_cleanup_failed")
+
+
+def test_session_lock_is_retained_while_async_cleanup_is_pending(tmp_path):
+    settings = settings_for(tmp_path)
+    primary = MediaError(
+        code="timeout",
+        warnings=("telegram_operation_cleanup_pending",),
+    )
+    lock = Path(f"{_session_file(settings)}.lock")
+    with pytest.raises(MediaError) as raised, _session_lock(settings):
+        raise primary
+    assert raised.value is primary
+    assert primary.warnings == (
+        "telegram_operation_cleanup_pending",
+        "session_lock_retained",
+    )
+    assert lock.is_file()
+    lock.unlink()
 
 
 def test_session_cleanup_failure_after_success_reports_warning(tmp_path):

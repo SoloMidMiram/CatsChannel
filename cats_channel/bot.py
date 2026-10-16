@@ -1,9 +1,10 @@
 import asyncio
+import logging
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
-from aiogram.types import FSInputFile, Message
+from aiogram.types import ErrorEvent, FSInputFile, Message
 
 from .config import Settings
 from .diagnostics import configure_logging, log_failure
@@ -21,6 +22,45 @@ async def send_acquired_video(message: Message, service: MediaService, url: str)
         await message.answer_document(FSInputFile(item.media_path), caption=url)
 
 
+async def contain_unexpected_bot_error(event: ErrorEvent, logger: logging.Logger) -> bool:
+    """Stop unexpected handler failures at a secret-safe router boundary."""
+    error = event.exception
+    if isinstance(error, asyncio.CancelledError):
+        raise error
+    diagnostic = MediaError(
+        code="internal_error",
+        log_analysis={
+            "phase": "bot_update",
+            "exception_types": [type(error).__name__],
+            "raw_log_included": False,
+        },
+    )
+    log_failure(logger, "bot_unexpected_failure", diagnostic, operation="bot_update")
+    message = event.update.message
+    if message is not None:
+        try:
+            record = error_record("internal_error")
+            await message.answer(f"{record['message']}\n{record['action']}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as notification_error:  # noqa: BLE001 - final safe boundary
+            notification = MediaError(
+                code="internal_error",
+                log_analysis={
+                    "phase": "bot_error_notification",
+                    "exception_types": [type(notification_error).__name__],
+                    "raw_log_included": False,
+                },
+            )
+            log_failure(
+                logger,
+                "bot_error_notification_failure",
+                notification,
+                operation="bot_update",
+            )
+    return True
+
+
 async def run_bot(settings: Settings) -> None:
     settings.require_bot()
     logger = configure_logging(settings.log_level)
@@ -28,6 +68,10 @@ async def run_bot(settings: Settings) -> None:
     router.message.filter(F.chat.type == "private", F.from_user.id == settings.admin_user_id)
     busy = asyncio.Lock()
     media_service = MediaService(settings)
+
+    @router.errors()
+    async def unexpected_error(event: ErrorEvent) -> bool:
+        return await contain_unexpected_bot_error(event, logger)
 
     @router.message(Command("start", "help"))
     async def help_message(message: Message) -> None:

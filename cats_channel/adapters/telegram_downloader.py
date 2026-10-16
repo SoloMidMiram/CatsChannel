@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from ..config import Settings
-from ..errors import MediaError, cleanup_warning_error, error_record
+from ..errors import MediaError, cleanup_warning_error, error_record, media_error_report
 from ..media import youtube_url
 from .process import CancellationToken
 from .telethon_connection import (
@@ -65,17 +65,27 @@ def _session_lock(settings: Settings):
         primary = error
         raise
     finally:
-        try:
-            lock.unlink()
-        except OSError:
-            if isinstance(primary, MediaError):
-                primary.warnings += ("session_lock_cleanup_failed",)
-            elif primary is not None:
-                raise cleanup_warning_error(primary, "session_lock_cleanup_failed") from primary
-            elif primary is None:
-                raise MediaError(
-                    code="cleanup_failed", warnings=("session_lock_cleanup_failed",)
-                ) from None
+        pending_cleanup = isinstance(primary, MediaError) and bool(
+            {
+                "telegram_cleanup_pending",
+                "telegram_operation_cleanup_pending",
+            }.intersection(primary.warnings)
+        )
+        if pending_cleanup:
+            if "session_lock_retained" not in primary.warnings:
+                primary.warnings += ("session_lock_retained",)
+        else:
+            try:
+                lock.unlink()
+            except OSError:
+                if isinstance(primary, MediaError):
+                    primary.warnings += ("session_lock_cleanup_failed",)
+                elif primary is not None:
+                    raise cleanup_warning_error(primary, "session_lock_cleanup_failed") from primary
+                elif primary is None:
+                    raise MediaError(
+                        code="cleanup_failed", warnings=("session_lock_cleanup_failed",)
+                    ) from None
 
 
 def _make_client(settings: Settings):
@@ -274,9 +284,7 @@ async def diagnose_connection(settings: Settings) -> dict[str, object]:
                     raise transport.expected_error("telegram_login", phase="authorization")
         report.update(status="ok", connection="passed", authorization="passed")
     except MediaError as error:
-        report.update(status="error", error=error_record(error.code, str(error)))
-        if error.log_analysis is not None:
-            report["log_analysis"] = error.log_analysis
+        report.update(media_error_report(error))
     except OSError as error:
         safe = MediaError(
             code="local_io",

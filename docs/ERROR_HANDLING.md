@@ -28,8 +28,13 @@ Neither path returns or logs raw third-party text.
 `connection`, `authorization`, `login`, `account`, `bot_resolution`, `request`,
 `response`, `transfer`, `conversation`, and `disconnect`. It owns exactly one
 connection lifecycle, records connection/operation attempts, performs zero
-automatic retries, and waits for disconnect cleanup without replacing the primary
-failure. Nested exceptions are classified from the complete bounded type chain.
+automatic retries, and gives cancelled operations one finite cleanup grace budget.
+Late tasks remain strongly owned and their result is retrieved. The adapter owns
+Telethon's real disconnect coroutine instead of timing out its shield wrapper.
+If termination still cannot be confirmed, it reports `cleanup_pending` and keeps
+the external session lock rather than allowing concurrent session reuse. Cleanup
+never replaces the primary failure. Nested exceptions are classified from the
+complete bounded type chain.
 
 ## Try/except boundaries
 
@@ -41,6 +46,8 @@ failure. Nested exceptions are classified from the complete bounded type chain.
   user output and emit one structured failure event.
 - Cleanup warnings are attached to the original error. A cleanup or logging error
   must not replace the primary operational failure.
+- Connection reports keep `failed_phase` for the primary operation and use
+  `cleanup_failed_phase`, `cleanup_pending`, and `warnings` for shutdown failures.
 
 Automatic retries remain disabled for login, authentication, flood-wait, proxy,
 rate-limit and ambiguous Telegram publication failures. “Iterative” means walking

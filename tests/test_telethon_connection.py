@@ -1,3 +1,5 @@
+import asyncio
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -5,6 +7,7 @@ import pytest
 
 from cats_channel.adapters.telethon_connection import (
     TelethonConnectionMiddleware,
+    cancellable,
     translate_telethon_error,
 )
 from cats_channel.errors import MediaError
@@ -33,6 +36,8 @@ async def test_middleware_owns_connection_operations_and_disconnect():
         "automatic_retries": 0,
         "completed_phases": ["connection", "authorization", "disconnect"],
         "failed_phase": None,
+        "cleanup_failed_phase": None,
+        "cleanup_pending": False,
     }
     client.connect.assert_awaited_once()
     client.disconnect.assert_awaited_once()
@@ -96,6 +101,139 @@ async def test_disconnect_failure_after_success_is_cleanup_error():
             pass
     assert raised.value.code == "cleanup_failed"
     assert raised.value.log_analysis["phase"] == "disconnect"
+
+
+async def test_operation_timeout_has_one_bounded_drain_budget():
+    finished = asyncio.Event()
+
+    async def ignores_cancellation_temporarily():
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            await asyncio.sleep(0.3)
+            raise
+        finally:
+            finished.set()
+
+    started = time.monotonic()
+    with pytest.raises(MediaError) as raised:
+        await cancellable(
+            ignores_cancellation_temporarily(),
+            None,
+            0.02,
+            shutdown_timeout=0.02,
+        )
+    elapsed = time.monotonic() - started
+    assert raised.value.code == "timeout"
+    assert raised.value.warnings == ("telegram_operation_cleanup_pending",)
+    assert elapsed < 0.2
+    await asyncio.wait_for(finished.wait(), timeout=1)
+
+
+async def test_middleware_owns_real_disconnect_coroutine_instead_of_shield_wrapper():
+    class ShieldedClient:
+        def __init__(self):
+            self.disconnect_wrapper_calls = 0
+            self.cleanup_finished = asyncio.Event()
+
+        async def connect(self):
+            return None
+
+        def disconnect(self):
+            self.disconnect_wrapper_calls += 1
+            return asyncio.shield(asyncio.create_task(self._disconnect_coro()))
+
+        async def _disconnect_coro(self):
+            try:
+                await asyncio.sleep(10)
+            finally:
+                self.cleanup_finished.set()
+
+    client = ShieldedClient()
+    middleware = TelethonConnectionMiddleware(client, disconnect_timeout=0.02)
+    with pytest.raises(MediaError) as raised:
+        async with middleware:
+            pass
+    assert raised.value.code == "cleanup_failed"
+    assert client.disconnect_wrapper_calls == 0
+    assert client.cleanup_finished.is_set()
+    assert middleware.cleanup_pending is False
+    assert middleware._closed is True
+
+
+async def test_unknown_shielded_disconnect_is_reported_pending_and_bounded():
+    class ShieldOnlyClient:
+        def __init__(self):
+            self.cleanup_finished = asyncio.Event()
+
+        async def connect(self):
+            return None
+
+        def disconnect(self):
+            async def cleanup():
+                try:
+                    await asyncio.sleep(0.3)
+                finally:
+                    self.cleanup_finished.set()
+
+            return asyncio.shield(asyncio.create_task(cleanup()))
+
+    client = ShieldOnlyClient()
+    middleware = TelethonConnectionMiddleware(client, disconnect_timeout=0.02)
+    started = time.monotonic()
+    with pytest.raises(MediaError) as raised:
+        async with middleware:
+            pass
+    assert time.monotonic() - started < 0.2
+    assert raised.value.code == "cleanup_failed"
+    assert raised.value.warnings == ("telegram_cleanup_pending",)
+    assert middleware.cleanup_pending is True
+    assert middleware._closed is False
+    await asyncio.wait_for(client.cleanup_finished.wait(), timeout=1)
+
+
+async def test_repeated_cancellation_cannot_orphan_owned_disconnect():
+    class SlowCancellationClient:
+        def __init__(self):
+            self.cleanup_started = asyncio.Event()
+            self.cancellation_seen = asyncio.Event()
+            self.release = asyncio.Event()
+            self.cleanup_finished = asyncio.Event()
+
+        async def connect(self):
+            return None
+
+        async def _disconnect_coro(self):
+            self.cleanup_started.set()
+            try:
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                self.cancellation_seen.set()
+                await self.release.wait()
+                raise
+            finally:
+                self.cleanup_finished.set()
+
+    client = SlowCancellationClient()
+    middleware = TelethonConnectionMiddleware(client, disconnect_timeout=1)
+
+    async def use_client():
+        async with middleware:
+            pass
+
+    task = asyncio.create_task(use_client())
+    await asyncio.wait_for(client.cleanup_started.wait(), timeout=1)
+    task.cancel()
+    await asyncio.wait_for(client.cancellation_seen.wait(), timeout=1)
+    task.cancel()
+    client.release.set()
+    with pytest.raises(MediaError) as raised:
+        await task
+    assert raised.value.code == "cancelled"
+    assert raised.value.warnings == ("telegram_disconnect_failed",)
+    assert client.cleanup_finished.is_set()
+    assert middleware.cleanup_pending is False
+    assert middleware._closed is True
 
 
 @pytest.mark.parametrize(

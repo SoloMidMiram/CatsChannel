@@ -1,12 +1,14 @@
 import asyncio
 import threading
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from cats_channel.bot import send_acquired_video
+from cats_channel.bot import contain_unexpected_bot_error, send_acquired_video
 from cats_channel.config import Settings
+from cats_channel.diagnostics import configure_logging
 from cats_channel.errors import MediaError
 from cats_channel.models import LibraryItem
 from cats_channel.services.media_service import MediaService
@@ -122,3 +124,31 @@ async def test_bot_never_uploads_after_acquisition_failure():
     assert error.value.code == "media_validation"
     message.answer_video.assert_not_awaited()
     message.answer_document.assert_not_awaited()
+
+
+async def test_bot_unexpected_error_boundary_is_secret_safe(capsys):
+    message = AsyncMock()
+    event = SimpleNamespace(
+        exception=RuntimeError("private token and session contents"),
+        update=SimpleNamespace(message=message),
+    )
+
+    assert await contain_unexpected_bot_error(event, configure_logging()) is True
+
+    message.answer.assert_awaited_once()
+    output = capsys.readouterr().err
+    assert "bot_unexpected_failure" in output
+    assert "RuntimeError" in output
+    assert "private" not in output
+    assert "token" not in output
+    assert "session contents" not in output
+
+
+async def test_bot_unexpected_error_boundary_preserves_cancellation():
+    event = SimpleNamespace(
+        exception=asyncio.CancelledError(),
+        update=SimpleNamespace(message=AsyncMock()),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await contain_unexpected_bot_error(event, configure_logging())
