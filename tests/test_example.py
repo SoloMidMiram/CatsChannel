@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from cats_channel.adapters.process import CancellationToken
 from cats_channel.config import Settings
 from cats_channel.media import (
     MediaError,
@@ -66,6 +67,17 @@ def test_probe_returns_only_safe_metadata():
     assert run.call_args.args[0][run.call_args.args[0].index("--sleep-requests") + 1] == "1"
     assert run.call_args.kwargs["timeout"] == 90
     assert run.call_args.args[0][run.call_args.args[0].index("--retries") + 1] == "0"
+
+
+def test_probe_passes_cancellation_token_to_process_runner():
+    metadata = json.dumps({"id": "abcdefghijk", "title": "Cat", "duration": 10})
+    result = subprocess.CompletedProcess([], 0, metadata, "")
+    token = CancellationToken()
+
+    with patch("cats_channel.media.DEFAULT_PROCESS_RUNNER.run", return_value=result) as run:
+        probe(Settings(_env_file=None), "https://youtu.be/abcdefghijk", token=token)
+
+    assert run.call_args.kwargs["token"] is token
 
 
 @pytest.mark.parametrize("payload", [[], None, "metadata", {"id": "abcdefghijk"}])

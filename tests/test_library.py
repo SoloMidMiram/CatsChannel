@@ -237,6 +237,31 @@ def test_failed_validation_leaves_no_published_or_staged_item(tmp_path):
     assert list((tmp_path / ".staging").iterdir()) == []
 
 
+@pytest.mark.parametrize(
+    ("primary_error", "expected_code"),
+    [
+        (OSError("private path"), "local_io"),
+        (KeyboardInterrupt(), "cancelled"),
+        (RuntimeError("private implementation detail"), "internal_error"),
+    ],
+)
+def test_cleanup_warning_preserves_non_media_error_classification(
+    tmp_path, primary_error, expected_code
+):
+    settings = Settings(_env_file=None, download_dir=tmp_path)
+    with (
+        patch("cats_channel.library.download", side_effect=primary_error),
+        patch("cats_channel.library.shutil.rmtree", side_effect=OSError("cleanup failed")),
+        pytest.raises(MediaError) as error,
+    ):
+        store_download(settings, VIDEO_URL)
+
+    assert error.value.code == expected_code
+    assert error.value.warnings == ("staging_cleanup_failed",)
+    assert error.value.__cause__ is primary_error
+    assert "private" not in str(error.value)
+
+
 def test_concurrent_acquisition_downloads_once_and_reuses_verified_item(tmp_path):
     settings = Settings(_env_file=None, download_dir=tmp_path)
     barrier = threading.Barrier(2)

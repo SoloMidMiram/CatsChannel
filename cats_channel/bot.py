@@ -7,7 +7,7 @@ from aiogram.types import FSInputFile, Message
 
 from .config import Settings
 from .errors import MediaError
-from .media import probe, youtube_url
+from .media import youtube_url
 from .services.media_service import MediaService
 
 
@@ -53,7 +53,7 @@ async def run_bot(settings: Settings) -> None:
             await message.answer("Working; this can take a few minutes.")
             try:
                 if parts[0].split("@")[0] == "/probe":
-                    info = await asyncio.to_thread(probe, settings, url)
+                    info = await media_service.probe_async(url)
                     await message.answer(
                         f"{info['title']}\nDuration: {info['duration']}s\n"
                         f"Availability: {info['availability']}\n"

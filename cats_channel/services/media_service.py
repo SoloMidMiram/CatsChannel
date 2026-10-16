@@ -6,6 +6,7 @@ from ..adapters.process import CancellationToken
 from ..config import Settings
 from ..errors import MediaError
 from ..library import store_download
+from ..media import probe as probe_media
 from ..models import LibraryItem
 
 
@@ -48,6 +49,18 @@ class MediaService:
             self._worker.release()
             raise MediaError(code="cancelled")
 
+    def probe(
+        self,
+        url: str,
+        *,
+        token: CancellationToken | None = None,
+    ) -> dict[str, object]:
+        self._acquire_worker(token)
+        try:
+            return probe_media(self.settings, url, token=token)
+        finally:
+            self._worker.release()
+
     async def acquire_async(self, url: str) -> LibraryItem:
         token = CancellationToken()
         task = asyncio.create_task(asyncio.to_thread(self.acquire, url, token=token))
@@ -63,8 +76,23 @@ class MediaService:
                 raise worker_error
             raise
 
+    async def probe_async(self, url: str) -> dict[str, object]:
+        token = CancellationToken()
+        task = asyncio.create_task(asyncio.to_thread(self.probe, url, token=token))
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            token.cancel()
+            worker_error = await self._drain_cancelled_worker(task)
+            if isinstance(worker_error, MediaError):
+                if worker_error.code != "cancelled":
+                    raise worker_error
+            elif worker_error is not None and not isinstance(worker_error, asyncio.CancelledError):
+                raise worker_error
+            raise
+
     @staticmethod
-    async def _drain_cancelled_worker(task: asyncio.Task[LibraryItem]) -> BaseException | None:
+    async def _drain_cancelled_worker(task: asyncio.Task[object]) -> BaseException | None:
         """Ignore repeated caller cancellation until the owned worker has stopped."""
         while not task.done():
             try:

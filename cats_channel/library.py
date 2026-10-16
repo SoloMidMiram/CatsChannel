@@ -125,6 +125,18 @@ def _enforce_current_policy(manifest: dict[str, object], settings: Settings) -> 
         raise MediaError("Stored media exceeds the current duration limit.", code="policy_limit")
 
 
+def _cleanup_warning_error(primary_error: BaseException) -> MediaError:
+    if isinstance(primary_error, KeyboardInterrupt):
+        code = "cancelled"
+    elif isinstance(primary_error, OSError):
+        code = "local_io"
+    elif isinstance(primary_error, ValueError):
+        code = "invalid_url"
+    else:
+        code = "internal_error"
+    return MediaError(code=code, warnings=("staging_cleanup_failed",))
+
+
 def _yt_dlp_version() -> str | None:
     try:
         return version("yt-dlp")
@@ -247,6 +259,8 @@ def store_download(
                 except OSError:
                     if isinstance(primary_error, MediaError):
                         primary_error.warnings += ("staging_cleanup_failed",)
+                    elif primary_error is not None:
+                        raise _cleanup_warning_error(primary_error) from primary_error
                     elif primary_error is None:
                         raise MediaError(code="cleanup_failed") from None
 

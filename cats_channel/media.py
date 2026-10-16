@@ -572,7 +572,13 @@ def _run(
     return result.stdout
 
 
-def probe(settings: Settings, url: str, *, log_capture: dict[str, object] | None = None) -> dict:
+def probe(
+    settings: Settings,
+    url: str,
+    *,
+    log_capture: dict[str, object] | None = None,
+    token: CancellationToken | None = None,
+) -> dict:
     canonical = youtube_url(url)
     expected_id = parse_qs(urlsplit(canonical).query)["v"][0]
     output = _run(
@@ -580,6 +586,7 @@ def probe(settings: Settings, url: str, *, log_capture: dict[str, object] | None
         ["--skip-download", "--dump-single-json", canonical],
         90,
         log_capture=log_capture,
+        token=token,
     )
     try:
         info = json.loads(output, parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()))

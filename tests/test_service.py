@@ -69,6 +69,28 @@ async def test_repeated_async_cancellation_cannot_escape_worker_shutdown(tmp_pat
     assert not returned_before_shutdown
 
 
+async def test_probe_cancellation_waits_for_worker_shutdown(tmp_path):
+    service = MediaService(Settings(_env_file=None, download_dir=tmp_path))
+    started = threading.Event()
+    stopped = threading.Event()
+
+    def cancellable_probe(_settings, _url, *, token):
+        started.set()
+        while not token.cancelled:
+            time.sleep(0.01)
+        stopped.set()
+        raise MediaError(code="cancelled")
+
+    with patch("cats_channel.services.media_service.probe_media", side_effect=cancellable_probe):
+        task = asyncio.create_task(service.probe_async(VIDEO_URL))
+        assert await asyncio.to_thread(started.wait, 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert stopped.is_set()
+
+
 async def test_bot_uploads_validated_library_path(tmp_path):
     media_path = tmp_path / "library" / "youtube" / "abcdefghijk" / "media.mp4"
     media_path.parent.mkdir(parents=True)
