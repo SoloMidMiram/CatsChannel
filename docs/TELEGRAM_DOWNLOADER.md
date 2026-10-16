@@ -174,7 +174,8 @@ phone numbers or API hashes in the manifest.
   session across processes. A crash can leave a lock. Remove it manually only
   after all clients using that session have stopped; never delete the session
   itself just to clear a lock. CatsChannel also deliberately retains this lock
-  when a bounded shutdown cannot prove that its owned task terminated.
+  when a bounded shutdown cannot prove resource closure. A cancelled disconnect
+  is unconfirmed even when its coroutine has already terminated.
 - Flood-wait errors return a cooldown error without automatically sleeping or
   resending the link. Client request retries and automatic reconnect are disabled.
 - Login and transfer exceptions are classified through ordered regex rules over a

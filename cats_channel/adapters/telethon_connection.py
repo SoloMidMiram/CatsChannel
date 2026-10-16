@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable
+from dataclasses import dataclass
 from typing import Any, Self, TypeVar
 
 from ..diagnostics import classify_exception, diagnostic_rule
@@ -14,6 +15,12 @@ T = TypeVar("T")
 
 _TASK_DRAIN_GRACE_SECONDS = 0.1
 _OWNED_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+
+
+@dataclass(frozen=True)
+class DrainResult:
+    drained: bool
+    cancellation_requested: bool
 
 
 _TELETHON_EXCEPTION_RULES = (
@@ -133,12 +140,12 @@ async def _cancel_and_drain(
     task: asyncio.Task[Any],
     timeout: float,
     owner: set[asyncio.Task[Any]] | None = None,
-) -> bool:
+) -> DrainResult:
     """Cancel once and wait for at most the cleanup grace budget."""
     if task.done():
         _retrieve_task(task)
-        return True
-    task.cancel()
+        return DrainResult(drained=True, cancellation_requested=False)
+    cancellation_requested = task.cancel()
     waiter = asyncio.create_task(asyncio.wait({task}, timeout=max(0.0, timeout)))
     # Repeated cancellation must not orphan the bounded drain waiter. Its own
     # timeout remains the upper bound, so this loop cannot extend the budget.
@@ -150,9 +157,15 @@ async def _cancel_and_drain(
     done, _pending = waiter.result()
     if task in done:
         _retrieve_task(task)
-        return True
+        return DrainResult(
+            drained=True,
+            cancellation_requested=cancellation_requested,
+        )
     _own_pending_task(task, owner)
-    return False
+    return DrainResult(
+        drained=False,
+        cancellation_requested=cancellation_requested,
+    )
 
 
 async def cancellable(
@@ -182,10 +195,10 @@ async def cancellable(
     finally:
         if task.done():
             _retrieve_task(task)
-        elif not await _cancel_and_drain(task, shutdown_timeout, owner) and isinstance(
-            primary, MediaError
-        ):
-            primary.warnings += ("telegram_operation_cleanup_pending",)
+        else:
+            drain = await _cancel_and_drain(task, shutdown_timeout, owner)
+            if not drain.drained and isinstance(primary, MediaError):
+                primary.warnings += ("telegram_operation_cleanup_pending",)
 
 
 class TelethonConnectionMiddleware:
@@ -300,12 +313,14 @@ class TelethonConnectionMiddleware:
                     {disconnect_task}, timeout=self.disconnect_timeout
                 )
             except asyncio.CancelledError as cancellation:
-                drained = await _cancel_and_drain(
+                drain = await _cancel_and_drain(
                     disconnect_task,
                     _TASK_DRAIN_GRACE_SECONDS,
                     self._owned_tasks,
                 )
-                self.cleanup_pending = not drained or shielded_fallback
+                self.cleanup_pending = (
+                    not drain.drained or drain.cancellation_requested or shielded_fallback
+                )
                 self.cleanup_failed_phase = "disconnect"
                 self._closed = disconnect_task.done() and not self.cleanup_pending
                 warning = (
@@ -318,7 +333,7 @@ class TelethonConnectionMiddleware:
                     return None
                 return cleanup_warning_error(primary or cancellation, warning)
             if disconnect_task not in done:
-                drained = await _cancel_and_drain(
+                drain = await _cancel_and_drain(
                     disconnect_task,
                     _TASK_DRAIN_GRACE_SECONDS,
                     self._owned_tasks,
@@ -327,9 +342,15 @@ class TelethonConnectionMiddleware:
                 # shield whose underlying task cannot be recovered. Telethon's
                 # private coroutine above avoids that case; generic shielded
                 # fallbacks retain the external session lock after timeout.
-                self.cleanup_pending = not drained or shielded_fallback
+                self.cleanup_pending = (
+                    not drain.drained or drain.cancellation_requested or shielded_fallback
+                )
                 if self.cleanup_pending:
                     failure_warning = "telegram_cleanup_pending"
+                raise TimeoutError
+            if disconnect_task.cancelled():
+                self.cleanup_pending = True
+                failure_warning = "telegram_cleanup_pending"
                 raise TimeoutError
             disconnect_task.result()
             self.completed_phases.append("disconnect")

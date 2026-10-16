@@ -17,6 +17,7 @@ from cats_channel.adapters.telegram_downloader import (
     diagnose_connection,
     download_video,
 )
+from cats_channel.adapters.telethon_connection import TelethonConnectionMiddleware
 from cats_channel.config import Settings
 from cats_channel.errors import MediaError
 from cats_channel.library import store_download
@@ -505,6 +506,42 @@ def test_session_lock_is_retained_while_async_cleanup_is_pending(tmp_path):
     assert raised.value is primary
     assert primary.warnings == (
         "telegram_operation_cleanup_pending",
+        "session_lock_retained",
+    )
+    assert lock.is_file()
+    lock.unlink()
+
+
+def test_cancelled_disconnect_retains_lock_when_session_did_not_close(tmp_path):
+    class Client:
+        def __init__(self):
+            self.session_closed = False
+
+        async def connect(self):
+            return None
+
+        async def _disconnect_coro(self):
+            await asyncio.sleep(10)
+            self.session_closed = True
+
+    settings = settings_for(tmp_path)
+    client = Client()
+    middleware = TelethonConnectionMiddleware(client, disconnect_timeout=0.02)
+    lock = Path(f"{_session_file(settings)}.lock")
+
+    async def connect_then_timeout_cleanup():
+        async with middleware:
+            pass
+
+    with pytest.raises(MediaError) as raised, _session_lock(settings):
+        asyncio.run(connect_then_timeout_cleanup())
+
+    assert client.session_closed is False
+    assert middleware._closed is False
+    assert middleware.cleanup_pending is True
+    assert raised.value.code == "cleanup_failed"
+    assert raised.value.warnings == (
+        "telegram_cleanup_pending",
         "session_lock_retained",
     )
     assert lock.is_file()

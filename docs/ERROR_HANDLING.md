@@ -36,6 +36,10 @@ the external session lock rather than allowing concurrent session reuse. Cleanup
 never replaces the primary failure. Nested exceptions are classified from the
 complete bounded type chain.
 
+A disconnect that had to be cancelled remains unconfirmed even when its coroutine
+acknowledges cancellation and terminates: task completion does not prove that
+Telethon reached its later session-close steps.
+
 ## Try/except boundaries
 
 - Adapters catch expected failures where transport-specific meaning is available
