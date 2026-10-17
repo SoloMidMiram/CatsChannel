@@ -87,6 +87,10 @@ Neither record contains message text, URLs, Telegram identities, or raw exceptio
 text. Set `LOG_LEVEL=INFO` when completion records are needed for an offline or
 private-channel pilot; failures remain visible at the default warning threshold.
 
+Unexpected exceptions always use `internal_error` in both completion and failure
+records. Their arbitrary `.code` attributes are never inspected or logged.
+Expected `MediaError` policies remain classified by the command handlers.
+
 ## Adding or changing a rule
 
 1. Capture the exception class or aggressively redacted diagnostic fixture. Never

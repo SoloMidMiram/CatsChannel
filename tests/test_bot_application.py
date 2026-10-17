@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
+from aiogram.exceptions import TelegramAPIError
 from aiogram.methods import CopyMessage, SendDocument, SendMessage, SendVideo, TelegramMethod
 from aiogram.types import Chat, Message, MessageEntity, MessageId, Update, User, Video
 
@@ -16,7 +17,7 @@ from cats_channel.bot import create_bot_application
 from cats_channel.bot.handlers import HELP_TEXT
 from cats_channel.config import Settings
 from cats_channel.diagnostics import configure_logging
-from cats_channel.errors import MediaError
+from cats_channel.errors import MediaError, error_record
 from cats_channel.models import LibraryItem
 
 ADMIN_ID = 42
@@ -341,3 +342,137 @@ async def test_dispatcher_preserves_cancellation(bot_and_session):
 
     with pytest.raises(asyncio.CancelledError):
         await application.dispatcher.feed_update(bot, update(f"/download {VIDEO_URL}"))
+
+
+@pytest.mark.parametrize("code", ["credential_like_token_123", "rate_limit", 123])
+async def test_unexpected_exception_code_is_never_logged(bot_and_session, capsys, code):
+    class ExternalError(RuntimeError):
+        pass
+
+    error = ExternalError("private third-party body")
+    error.code = code
+    bot, session = bot_and_session
+    service = AsyncMock()
+    service.probe_async.side_effect = error
+    application = create_bot_application(
+        settings(),
+        media_service=service,
+        logger=configure_logging("INFO"),
+        correlation_id_factory=lambda: "untrusted-code",
+    )
+
+    assert await application.dispatcher.feed_update(bot, update(f"/probe {VIDEO_URL}")) is True
+
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    failure = next(record for record in records if record["event"] == "bot_unexpected_failure")
+    completion = next(record for record in records if record["event"] == "bot_operation_finished")
+    assert failure["code"] == completion["error_category"] == "internal_error"
+    assert failure["correlation_id"] == completion["correlation_id"] == "untrusted-code"
+    assert completion["outcome"] == "error"
+    assert "credential_like_token_123" not in output
+    assert "private" not in output
+    assert any("unexpected internal error" in text.lower() for text in sent_texts(session))
+    assert application.operation_registry.pending_count == 0
+    assert not application.media_gate.locked()
+
+
+@pytest.mark.parametrize("operation", ["upload", "publish"])
+async def test_telegram_api_failure_uses_safe_policy_and_does_not_retry(
+    tmp_path, capsys, operation
+):
+    failed_type = SendVideo if operation == "upload" else CopyMessage
+
+    class FailingSession(RecordingSession):
+        async def make_request(self, bot, method, timeout=None):
+            if isinstance(method, failed_type):
+                self.methods.append(method)
+                raise TelegramAPIError(method, "private Telegram response")
+            return await super().make_request(bot, method, timeout)
+
+    session = FailingSession()
+    bot = Bot(BOT_TOKEN, session=session)
+    service = AsyncMock()
+    service.acquire_async.return_value = library_item(tmp_path)
+    application = create_bot_application(
+        settings(), media_service=service, logger=configure_logging("INFO")
+    )
+    request = (
+        update(f"/download {VIDEO_URL}")
+        if operation == "upload"
+        else update("/publish", reply_video=True)
+    )
+
+    await application.dispatcher.feed_update(bot, request)
+
+    code = f"telegram_{operation}"
+    policy = error_record(code)
+    assert sent_texts(session)[-1] == f"{policy['message']}\n{policy['action']}"
+    assert sum(isinstance(method, failed_type) for method in session.methods) == 1
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    failure = next(record for record in records if record["event"] == f"bot_{operation}_failure")
+    completion = next(record for record in records if record["event"] == "bot_operation_finished")
+    assert failure["code"] == completion["error_category"] == code
+    assert failure["correlation_id"] == completion["correlation_id"]
+    assert completion["outcome"] == "error"
+    assert "private" not in output
+    assert application.operation_registry.pending_count == 0
+    assert not application.media_gate.locked()
+
+
+async def test_local_io_failure_uses_safe_policy_without_upload(bot_and_session, capsys):
+    bot, session = bot_and_session
+    service = AsyncMock()
+    service.acquire_async.side_effect = OSError("private filesystem path")
+    application = create_bot_application(
+        settings(), media_service=service, logger=configure_logging("INFO")
+    )
+
+    await application.dispatcher.feed_update(bot, update(f"/download {VIDEO_URL}"))
+
+    policy = error_record("local_io")
+    assert sent_texts(session)[-1] == f"{policy['message']}\n{policy['action']}"
+    assert not any(isinstance(method, (SendVideo, SendDocument)) for method in session.methods)
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    failure = next(record for record in records if record["event"] == "bot_media_failure")
+    completion = next(record for record in records if record["event"] == "bot_operation_finished")
+    assert failure["code"] == completion["error_category"] == "local_io"
+    assert completion["outcome"] == "error"
+    assert "private" not in output
+    assert application.operation_registry.pending_count == 0
+    assert not application.media_gate.locked()
+
+
+async def test_expected_media_error_notification_failure_is_contained(capsys):
+    policy = error_record("media_validation")
+    session = RecordingSession(
+        fail_when=lambda method: (
+            isinstance(method, SendMessage) and method.text.startswith(str(policy["message"]))
+        )
+    )
+    bot = Bot(BOT_TOKEN, session=session)
+    service = AsyncMock()
+    service.acquire_async.side_effect = MediaError(code="media_validation")
+    application = create_bot_application(
+        settings(), media_service=service, logger=configure_logging("INFO")
+    )
+
+    await application.dispatcher.feed_update(bot, update(f"/download {VIDEO_URL}"))
+
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    assert [record["event"] for record in records] == [
+        "bot_media_failure",
+        "bot_error_notification_failure",
+        "bot_operation_finished",
+    ]
+    assert len({record["correlation_id"] for record in records}) == 1
+    assert records[-1]["error_category"] == "media_validation"
+    assert records[-1]["outcome"] == "error"
+    assert "private" not in output
+    assert not any(isinstance(method, (SendVideo, SendDocument)) for method in session.methods)
+    assert len(sent_texts(session)) == 2
+    assert application.operation_registry.pending_count == 0
+    assert not application.media_gate.locked()

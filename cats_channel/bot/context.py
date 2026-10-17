@@ -102,8 +102,10 @@ class OperationLoggingMiddleware(BaseMiddleware):
         except asyncio.CancelledError:
             context.fail("cancelled", outcome="cancelled")
             raise
-        except Exception as error:
-            context.fail(str(getattr(error, "code", "internal_error")))
+        except Exception:
+            # Expected MediaError policies are handled in the command router.
+            # Match the outer boundary without inspecting third-party attributes.
+            context.fail("internal_error")
             preserve_for_error_boundary = True
             raise
         finally:
