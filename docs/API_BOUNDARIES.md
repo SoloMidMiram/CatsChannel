@@ -22,5 +22,6 @@ Avoid passing Telegram or SQLAlchemy objects into domain services. Pass complete
 never pass a naked Telegram message ID.
 
 Acquisition and validation finish before a submission unit of work begins. The
-current submission phase exposes application contracts only; it deliberately does
-not add an aiogram command, public deep link, callback, FSM, or publication path.
+current submission phase exposes application contracts only. The aiogram core
+separately defines reply deep-link/callback conventions and private entry/reset
+state; these do not accept media, choose a parent, moderate or publish a post.
