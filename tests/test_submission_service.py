@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -54,7 +55,7 @@ def unresolved() -> ResolvedSourceIdentity:
     return ResolvedSourceIdentity(
         status="unresolved",
         identity=None,
-        method="no_trusted_source",
+        method="identity_not_verified",
         evidence={"trusted": False},
     )
 
@@ -73,7 +74,7 @@ def verified(
             channel_name=channel_name,
             channel_username=channel_username,
         ),
-        method="trusted_test_adapter",
+        method="adapter_verified",
         evidence={"stable_channel_id": True},
     )
 
@@ -107,7 +108,7 @@ def local_media(media_id: str) -> ValidatedLocalMedia:
             container="mp4",
         ),
         validation=validation(),
-        provenance={"fixture": "local"},
+        provenance={},
     )
 
 
@@ -120,7 +121,7 @@ def telegram_media(media_id: str, *, chat_id: int = 200, message_id: int = 9):
         file_unique_id=media_id,
         metadata=SubmissionVideoMetadata(title=None, duration_seconds=8.5),
         validation=validation(),
-        provenance={"fixture": "telegram"},
+        provenance={"adapter": "telegram_native"},
     )
 
 
@@ -226,6 +227,48 @@ async def test_duplicate_source_media_is_rejected_across_threads(database):
     async with database.unit_of_work() as uow:
         stored = await uow.submissions.get_by_source_media("youtube", media.source_media_id)
     assert stored is not None and stored.id == accepted.submission_id
+
+
+async def test_same_telegram_file_in_different_messages_is_duplicate(database):
+    thread = await create_thread(database, SourceIdentity("telegram", "source-chat"))
+    first = telegram_media("same-file", chat_id=200, message_id=1)
+    second = replace(first, reference=TelegramMessageRef(300, 2), file_id="another-bot-file-id")
+    service = SubmissionService(database.unit_of_work, MappingResolver({"same-file": unresolved()}))
+    first_binding = HandoffBinding(actor_id=100, conversation_chat_id=200)
+    second_binding = HandoffBinding(actor_id=100, conversation_chat_id=300)
+    first_token = await service.issue_handoff(first_binding)
+    second_token = await service.issue_handoff(second_binding)
+    accepted = await service.submit(
+        SubmissionRequest(first, thread.id, HandoffClaim(first_token.token, first_binding))
+    )
+    with pytest.raises(SubmissionError) as caught:
+        await service.submit(
+            SubmissionRequest(second, thread.id, HandoffClaim(second_token.token, second_binding))
+        )
+    assert caught.value.code == "duplicate_media"
+    async with database.unit_of_work() as uow:
+        stored = await uow.submissions.get_by_source_media("telegram", "same-file")
+        assert stored.id == accepted.submission_id
+        assert await uow.projections.get_by_reference(second.reference) is None
+    assert await service.reconcile_handoff(HandoffClaim(second_token.token, second_binding)) is None
+
+
+@pytest.mark.parametrize(
+    "provenance",
+    [{"credentials": "private-marker"}, {"media": {"raw_payload": {"token": "private-marker"}}}],
+)
+async def test_repository_rejects_unreviewed_provenance(database, provenance):
+    with pytest.raises(ValueError) as caught:
+        async with database.unit_of_work() as uow:
+            await uow.submissions.create(
+                source_provider="youtube",
+                source_media_id="unsafe-provenance",
+                media_origin="local_library",
+                provenance=provenance,
+            )
+    assert "private-marker" not in str(caught.value)
+    async with database.unit_of_work() as uow:
+        assert await uow.submissions.get_by_source_media("youtube", "unsafe-provenance") is None
 
 
 async def test_telegram_handoff_is_bound_consumed_and_projected_atomically(database):

@@ -103,7 +103,7 @@ class MediaValidationEvidence:
             raise ValueError("sha256 must be a lowercase hexadecimal digest")
         if self.video_stream_count < 1 or self.audio_stream_count < 0:
             raise ValueError("validated media must contain a video stream")
-        if not self.full_decode:
+        if self.full_decode is not True:
             raise ValueError("validated media must pass a full decode")
 
     def to_record(self) -> dict[str, object]:
@@ -132,6 +132,10 @@ class ValidatedLocalMedia:
     origin: MediaOrigin = field(default="local_library", init=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.metadata, SubmissionVideoMetadata) or not isinstance(
+            self.validation, MediaValidationEvidence
+        ):
+            raise SubmissionError("submission_media_invalid")
         object.__setattr__(
             self, "source_provider", _required(self.source_provider, "source_provider").lower()
         )
@@ -156,6 +160,12 @@ class ValidatedTelegramMedia:
     origin: MediaOrigin = field(default="telegram_native", init=False)
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.metadata, SubmissionVideoMetadata)
+            or not isinstance(self.validation, MediaValidationEvidence)
+            or not isinstance(self.reference, TelegramMessageRef)
+        ):
+            raise SubmissionError("submission_media_invalid")
         object.__setattr__(
             self, "source_provider", _required(self.source_provider, "source_provider").lower()
         )
@@ -164,6 +174,10 @@ class ValidatedTelegramMedia:
         )
         object.__setattr__(self, "file_id", _required(self.file_id, "file_id"))
         object.__setattr__(self, "file_unique_id", _required(self.file_unique_id, "file_unique_id"))
+        # Telegram delivery coordinates and bot-specific file IDs are projections.
+        # Its provider-scoped media key is always the stable file_unique_id.
+        if self.source_provider != "telegram" or self.source_media_id != self.file_unique_id:
+            raise SubmissionError("submission_media_invalid")
 
 
 SubmissionMedia: TypeAlias = ValidatedLocalMedia | ValidatedTelegramMedia
@@ -214,6 +228,8 @@ class SubmissionRequest:
     handoff: HandoffClaim | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.media, (ValidatedLocalMedia, ValidatedTelegramMedia)):
+            raise SubmissionError("submission_media_invalid")
         object.__setattr__(self, "selected_thread_id", _optional(self.selected_thread_id))
         if isinstance(self.media, ValidatedTelegramMedia) and self.handoff is None:
             raise SubmissionError("handoff_invalid")

@@ -18,6 +18,7 @@ from ..persistence.errors import (
     PersistenceError,
     ThreadNotFoundError,
 )
+from ..submission_provenance import media_provenance_record, source_resolution_record
 from .entities import (
     HandoffBinding,
     HandoffClaim,
@@ -92,6 +93,14 @@ class SubmissionService:
         return IssuedHandoff(token=token, expires_at=expires_at)
 
     async def submit(self, request: SubmissionRequest) -> SubmissionResult:
+        if not isinstance(request, SubmissionRequest):
+            raise SubmissionError("submission_media_invalid")
+        try:
+            media_provenance = media_provenance_record(
+                request.media.provenance, request.media.origin
+            )
+        except ValueError:
+            raise SubmissionError("submission_media_invalid") from None
         if (
             isinstance(request.media, ValidatedTelegramMedia)
             and request.handoff is not None
@@ -108,16 +117,22 @@ class SubmissionService:
             raise SubmissionError("source_identity_unresolved") from error
         self._validate_resolution(request.media, resolution)
         try:
+            resolution_provenance = source_resolution_record(
+                {
+                    "status": resolution.status,
+                    "method": resolution.method,
+                    "evidence": resolution.evidence,
+                }
+            )
+        except ValueError:
+            raise SubmissionError("submission_media_invalid") from None
+        try:
             async with self._unit_of_work() as uow:
                 await self._require_pending_handoff(uow, request.handoff)
                 thread, identity_status = await self._resolve_thread(uow, request, resolution)
                 provenance = {
-                    "media": dict(request.media.provenance),
-                    "source_resolution": {
-                        "status": resolution.status,
-                        "method": resolution.method,
-                        "evidence": dict(resolution.evidence),
-                    },
+                    "media": media_provenance,
+                    "source_resolution": resolution_provenance,
                 }
                 if isinstance(request.media, ValidatedTelegramMedia):
                     provenance["telegram"] = {

@@ -11,6 +11,7 @@ from sqlalchemy import Select, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..submission_provenance import submission_provenance_record
 from .entities import (
     CatPost,
     CatThread,
@@ -188,7 +189,7 @@ class SqlAlchemySubmissionRepository:
             media_origin=media_origin,
             media_metadata=_json_object(media_metadata, "media_metadata"),
             validation_evidence=_json_object(validation_evidence, "validation_evidence"),
-            provenance=_json_object(provenance, "provenance"),
+            provenance=submission_provenance_record(provenance, media_origin),
         )
         try:
             async with self._session.begin_nested():
