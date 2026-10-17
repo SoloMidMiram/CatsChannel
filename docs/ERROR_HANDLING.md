@@ -48,6 +48,11 @@ Telethon reached its later session-close steps.
   failure into success or automatically retry it.
 - CLI and bot entry points are the final containment boundaries. They render safe
   user output and emit one structured failure event.
+- Bot handlers adapt existing `MediaError` policies to user responses. They do not
+  reclassify adapter failures or require unrelated exceptions to inherit from a
+  new application-error hierarchy.
+- Bot cancellation always propagates. Unexpected handler failures are contained by
+  the router error observer, including failure of the attempted error response.
 - Cleanup warnings are attached to the original error. A cleanup or logging error
   must not replace the primary operational failure.
 - Connection reports keep `failed_phase` for the primary operation and use
@@ -73,6 +78,14 @@ analysis tokens, and cleanup warning codes. Raw exception messages, tracebacks,
 URLs, proxy credentials, cookies, API hashes, bot tokens, phone numbers, login
 codes and arbitrary analysis keys are excluded. If the logging destination itself
 fails, the logger returns without altering the original operation result.
+
+Aiogram message middleware additionally emits an INFO-level
+`bot_operation_finished` record with an opaque correlation ID, allowlisted
+operation, monotonic duration in milliseconds, outcome, and optional safe error
+category. The same correlation ID is attached to the ERROR-level failure record.
+Neither record contains message text, URLs, Telegram identities, or raw exception
+text. Set `LOG_LEVEL=INFO` when completion records are needed for an offline or
+private-channel pilot; failures remain visible at the default warning threshold.
 
 ## Adding or changing a rule
 
