@@ -2,6 +2,9 @@
 
 Telegram cat-video reply-chain bot.
 
+For the optional Telethon path that receives videos from `@whatsmusicbot`, see
+[`docs/TELEGRAM_DOWNLOADER.md`](docs/TELEGRAM_DOWNLOADER.md).
+
 An admin-only integration example is available now. See
 [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for Python 3.11 setup, secrets,
 YouTube probing/downloading, Telegram commands, and the upgrade plan.

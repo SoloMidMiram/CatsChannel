@@ -24,6 +24,7 @@ cats_channel/
   cli.py                         # arguments and safe JSON rendering
   bot.py                         # aiogram wiring and explicit publication
   config.py                      # validated environment configuration
+  diagnostics.py                 # ordered regex rules and secret-safe JSON logging
   errors.py                      # stable error and retry policies
   models.py                      # typed metadata, artifacts, and library items
   media.py                       # YouTube URL/profile/extraction adapter and classifier facade
@@ -31,6 +32,7 @@ cats_channel/
   services/media_service.py      # shared synchronous/asynchronous acquisition boundary
   adapters/cookies.py            # immutable source and disposable cookie copy
   adapters/process.py            # owned process groups, timeout, cancellation, reap
+  adapters/telethon_connection.py # MTProto lifecycle and phase-aware diagnosis middleware
   adapters/validation.py         # finite FFprobe data and complete FFmpeg decode
 ```
 
@@ -53,6 +55,23 @@ responsibilities no longer live inside the handlers.
 - Source cookies are never passed to yt-dlp and remain immutable.
 - Telegram publication remains a separate explicit operation and is never blindly
   retried after an ambiguous API failure.
+- Final CLI and bot boundaries emit one allowlisted JSON failure event to stderr.
+  Exception messages, URLs, phone numbers, credentials and raw third-party logs
+  never enter the structured logger.
 
 Future submission, moderation, reply-chain, and persistence services should depend
 on `MediaService`, not on yt-dlp, FFmpeg, or aiogram implementation details.
+
+## Optional Telegram downloader backend
+
+`MEDIA_BACKEND=telegram_bot` selects `adapters/telegram_downloader.py` for cache
+misses. A separate Telethon user session sends one link to the configured bot and
+receives a direct video; both CLI and aiogram downloads retain the same validation
+and library publication path. yt-dlp remains the default for compatibility and is
+not a fallback when the Telegram backend fails. Metadata probes are unsupported
+on this backend rather than silently contacting YouTube.
+
+Telegram receipts are recorded as acquisition provenance. Their association with
+the requested YouTube ID is explicitly unverified. See TELEGRAM_DOWNLOADER.md for
+login, session isolation, direct-message limitations and the live smoke-test gate.
+The deterministic error-handling contract is documented in ERROR_HANDLING.md.

@@ -3,7 +3,6 @@ import re
 import shutil
 import sys
 import time
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
@@ -13,6 +12,7 @@ from urllib.parse import parse_qs, urlsplit
 from .adapters.cookies import cookie_health, working_cookie_file
 from .adapters.process import DEFAULT_PROCESS_RUNNER, CancellationToken
 from .config import Settings
+from .diagnostics import DiagnosticRule, diagnostic_rule, matching_rules
 from .errors import ERROR_POLICIES, MediaError, error_record
 from .errors import media_error_report as _media_error_report
 from .models import DownloadArtifact, VideoMetadata
@@ -46,6 +46,8 @@ def _cookie_health(path: Path) -> dict[str, object]:
 
 def runtime_report(settings: Settings) -> dict[str, object]:
     """Return safe local diagnostics without exposing paths or secret values."""
+    if settings.media_backend == "telegram_bot":
+        return _telegram_runtime_report(settings)
     try:
         yt_dlp_version = version("yt-dlp")
     except PackageNotFoundError:
@@ -65,7 +67,7 @@ def runtime_report(settings: Settings) -> dict[str, object]:
         "cookie_file_expired_entries": None,
         "cookie_file_session_entries": None,
     }
-    if settings.youtube_cookie_file is not None:
+    if settings.youtube_cookie_file is not None and settings.media_backend == "yt_dlp":
         try:
             cookie_exists = settings.youtube_cookie_file.is_file()
             if cookie_exists:
@@ -75,6 +77,7 @@ def runtime_report(settings: Settings) -> dict[str, object]:
             cookie_check_error = True
     return {
         "python": sys.version.split()[0],
+        "media_backend": settings.media_backend,
         "yt_dlp": yt_dlp_version,
         "ffmpeg": shutil.which("ffmpeg") is not None,
         "ffprobe": shutil.which("ffprobe") is not None,
@@ -102,16 +105,46 @@ def runtime_report(settings: Settings) -> dict[str, object]:
     }
 
 
+def _telegram_runtime_report(settings: Settings) -> dict[str, object]:
+    """Configuration readiness only: never open a session or initialize a client."""
+    try:
+        telethon_version = version("telethon")
+    except PackageNotFoundError:
+        telethon_version = None
+    credentials = bool(settings.telegram_api_id and settings.telegram_api_hash.get_secret_value())
+    session_check_error = False
+    try:
+        session_present = settings.telegram_session_file.is_file()
+    except (OSError, ValueError):
+        session_present = False
+        session_check_error = True
+    ffmpeg = shutil.which("ffmpeg") is not None
+    ffprobe = shutil.which("ffprobe") is not None
+    return {
+        "python": sys.version.split()[0],
+        "media_backend": "telegram_bot",
+        "ffmpeg": ffmpeg,
+        "ffprobe": ffprobe,
+        "telethon_installed": telethon_version is not None,
+        "telethon_version": telethon_version,
+        "telegram_api_credentials_configured": credentials,
+        "telegram_session_file_present": session_present,
+        "telegram_session_check_error": session_check_error,
+        "telegram_downloader_bot": settings.telegram_downloader_bot,
+        "telegram_proxy_configured": settings.telegram_proxy is not None,
+        "telegram_proxy_scheme": (
+            settings.telegram_proxy.scheme if settings.telegram_proxy is not None else None
+        ),
+        "telegram_backend_ready": bool(
+            telethon_version and credentials and session_present and ffmpeg and ffprobe
+        ),
+        "readiness_scope": "offline_configuration",
+        "telegram_session_authorization": "not_checked",
+        "cookie_handling": "not_used",
+    }
+
+
 _ERROR_MESSAGES = {code: policy.message for code, policy in ERROR_POLICIES.items()}
-
-
-@dataclass(frozen=True)
-class _ErrorRule:
-    code: str
-    category: str
-    phase: str
-    confidence: str
-    patterns: tuple[re.Pattern[str], ...]
 
 
 def _rule(
@@ -120,14 +153,8 @@ def _rule(
     phase: str,
     confidence: str,
     *patterns: str,
-) -> _ErrorRule:
-    return _ErrorRule(
-        code,
-        category,
-        phase,
-        confidence,
-        tuple(re.compile(pattern, re.IGNORECASE) for pattern in patterns),
-    )
+) -> DiagnosticRule:
+    return diagnostic_rule(code, category, phase, confidence, *patterns)
 
 
 # Specific rules precede generic transport/parser rules. Keep codes stable because
@@ -340,10 +367,8 @@ _PRIMARY_PRIORITY = {
 }
 
 
-def _line_rules(line: str) -> list[_ErrorRule]:
-    matches = [
-        rule for rule in _ERROR_RULES if any(pattern.search(line) for pattern in rule.patterns)
-    ]
+def _line_rules(line: str) -> list[DiagnosticRule]:
+    matches = list(matching_rules((line,), _ERROR_RULES))
     return sorted(matches, key=lambda rule: _PRIMARY_PRIORITY[rule.code])
 
 

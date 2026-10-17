@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlsplit
 from .adapters.process import CancellationToken
 from .adapters.validation import validate_media
 from .config import Settings
-from .errors import MediaError
+from .errors import MediaError, cleanup_warning_error
 from .media import download, youtube_url
 
 MANIFEST_NAME = "manifest.json"
@@ -126,15 +126,7 @@ def _enforce_current_policy(manifest: dict[str, object], settings: Settings) -> 
 
 
 def _cleanup_warning_error(primary_error: BaseException) -> MediaError:
-    if isinstance(primary_error, KeyboardInterrupt):
-        code = "cancelled"
-    elif isinstance(primary_error, OSError):
-        code = "local_io"
-    elif isinstance(primary_error, ValueError):
-        code = "invalid_url"
-    else:
-        code = "internal_error"
-    return MediaError(code=code, warnings=("staging_cleanup_failed",))
+    return cleanup_warning_error(primary_error, "staging_cleanup_failed")
 
 
 def _yt_dlp_version() -> str | None:
@@ -190,7 +182,12 @@ def store_download(
             download_kwargs: dict[str, object] = {"metadata_out": metadata}
             if token is not None:
                 download_kwargs["token"] = token
-            downloaded = download(settings, canonical, staging, **download_kwargs)
+            if settings.media_backend == "telegram_bot":
+                from .adapters.telegram_downloader import download_video
+
+                downloaded = download_video(settings, canonical, staging, **download_kwargs)
+            else:
+                downloaded = download(settings, canonical, staging, **download_kwargs)
             if metadata.get("id") != video_id:
                 raise MediaError(
                     "Downloaded metadata does not match the requested video.",
@@ -204,6 +201,12 @@ def store_download(
                 max_duration_seconds=settings.max_duration_seconds,
                 token=token,
             )
+            receipt = metadata.pop("_telegram_receipt", None)
+            if settings.media_backend == "telegram_bot":
+                metadata["duration"] = playback_validation["duration_seconds"]
+                metadata["width"] = playback_validation.get("width")
+                metadata["height"] = playback_validation.get("height")
+                metadata["vcodec"] = playback_validation.get("video_codec")
             manifest: dict[str, object] = {
                 "schema_version": LIBRARY_SCHEMA_VERSION,
                 "downloaded_at": datetime.now(UTC).isoformat(),
@@ -222,8 +225,11 @@ def store_download(
                 "download_policy": {
                     "max_download_mb": settings.max_download_mb,
                     "max_duration_seconds": settings.max_duration_seconds,
-                    "yt_dlp_version": _yt_dlp_version(),
+                    "yt_dlp_version": (
+                        _yt_dlp_version() if settings.media_backend == "yt_dlp" else None
+                    ),
                 },
+                "acquisition": {"backend": settings.media_backend, "receipt": receipt},
             }
             try:
                 serialized = json.dumps(manifest, ensure_ascii=False, indent=2, allow_nan=False)
