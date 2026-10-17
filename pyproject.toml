@@ -16,7 +16,7 @@ cats-channel = "cats_channel.__main__:main"
 userbot = ["telethon>=1.45,<2", "python-socks[asyncio]>=2.7,<3"]
 pot = ["bgutil-ytdlp-pot-provider==2.0.2"]
 persistence = [
-    "sqlalchemy[asyncio]>=2.0,<3",
+    "sqlalchemy[asyncio]>=2.0.22,<3",
     "alembic>=1.13,<2",
     "asyncpg>=0.29,<1",
     "aiosqlite>=0.20,<1",

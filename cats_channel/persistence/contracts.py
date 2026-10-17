@@ -79,9 +79,14 @@ class ProjectionRepository(Protocol):
 
 
 class PersistenceUnitOfWork(Protocol):
-    submissions: SubmissionRepository
-    threads: ThreadRepository
-    projections: ProjectionRepository
+    @property
+    def submissions(self) -> SubmissionRepository: ...
+
+    @property
+    def threads(self) -> ThreadRepository: ...
+
+    @property
+    def projections(self) -> ProjectionRepository: ...
 
     async def __aenter__(self) -> Self: ...
 

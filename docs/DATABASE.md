@@ -55,6 +55,11 @@ Repositories flush but never commit. A successful unit-of-work exit commits; an
 exception rolls back. SQLite uses explicit transaction control so repository
 savepoints cannot accidentally escape the outer unit of work on Python 3.11.
 
+Repository access belongs inside the unit-of-work context. Exit permanently
+closes its session and clears repository/transaction state, so retained repository
+references cannot start another transaction. Re-entering an exited unit of work
+creates fresh repositories; entering it again while active is rejected.
+
 ## Configuration and migrations
 
 Install the optional dependencies and apply the tracked migration:
@@ -80,3 +85,8 @@ Synchronous and unsupported driver URLs are rejected. Treat the complete URL as 
 secret because it may contain credentials. Tests may call
 `Database.create_schema_for_tests()` for isolated in-memory/temporary schemas;
 application environments must use Alembic rather than metadata `create_all()`.
+
+Online SQLite migrations use the same explicit `BEGIN` hooks as application
+transactions, and Alembic treats SQLite DDL as transactional. A failed or
+interrupted upgrade rolls back its schema changes and unapplied revision so the
+upgrade can be retried. PostgreSQL keeps Alembic's native transaction behavior.

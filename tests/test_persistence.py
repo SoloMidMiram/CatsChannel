@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,8 @@ pytest.importorskip("sqlalchemy")
 pytest.importorskip("aiosqlite")
 
 from alembic.config import Config
+from alembic.operations import Operations
+from sqlalchemy.exc import InvalidRequestError
 
 from alembic import command
 from cats_channel.config import Settings
@@ -285,3 +288,105 @@ def test_initial_alembic_migration_builds_schema(tmp_path, monkeypatch):
         "telegram_message_refs",
     } <= tables
     assert revision == ("0001_persistence_foundation",)
+
+
+@pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
+def test_failed_sqlite_migration_rolls_back_ddl_and_can_be_retried(tmp_path, monkeypatch, failure):
+    database_path = tmp_path / "failed-migration.sqlite3"
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    config.set_main_option("script_location", str(root / "alembic"))
+    monkeypatch.setenv("DATABASE_URL", sqlite_url(database_path))
+    create_table = Operations.create_table
+
+    def fail_after_second_table(operations, table_name, *args, **kwargs):
+        result = create_table(operations, table_name, *args, **kwargs)
+        if table_name == "cat_video_submissions":
+            raise failure("migration interrupted")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Operations, "create_table", fail_after_second_table)
+        with pytest.raises(failure, match="migration interrupted"):
+            command.upgrade(config, "head")
+
+    with sqlite3.connect(database_path) as connection:
+        tables = {
+            row[0]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        assert not tables & {
+            "cat_threads",
+            "cat_video_submissions",
+            "cat_posts",
+            "telegram_message_refs",
+        }
+        if "alembic_version" in tables:
+            assert connection.execute("SELECT version_num FROM alembic_version").fetchall() == []
+
+    command.upgrade(config, "head")
+    command.check(config)
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "0001_persistence_foundation",
+        )
+
+
+@pytest.mark.parametrize("abort", [False, True], ids=["commit", "rollback"])
+async def test_repositories_cannot_escape_unit_of_work(database, abort):
+    uow = database.unit_of_work()
+
+    with pytest.raises(RuntimeError, match="abort") if abort else nullcontext():
+        async with uow:
+            submission = await uow.submissions.create(
+                source_provider="youtube", source_media_id="owned"
+            )
+            repositories = (uow.submissions, uow.threads, uow.projections)
+            submission_id = submission.id
+            if abort:
+                raise RuntimeError("abort")
+    submissions, threads, projections = repositories
+
+    # Every retained repository must fail for reads and writes, before a new
+    # implicit transaction can take ownership of another pooled connection.
+    operations = [
+        lambda: submissions.get_by_source_media("youtube", "owned"),
+        lambda: submissions.create(source_provider="youtube", source_media_id="escaped"),
+        lambda: threads.get("missing"),
+        lambda: threads.get_or_create(SourceIdentity("telegram", "escaped")),
+        lambda: projections.get_by_reference(TelegramMessageRef(-100123, 1)),
+        lambda: projections.add_for_submission(
+            submission_id=submission_id,
+            purpose="private",
+            reference=TelegramMessageRef(-100123, 1),
+        ),
+    ]
+    for operation in operations:
+        with pytest.raises(InvalidRequestError, match="permanently closed"):
+            await operation()
+
+    assert uow._session is None
+    assert uow._transaction is None
+    for name in ("submissions", "threads", "projections"):
+        with pytest.raises(RuntimeError, match="not active"):
+            getattr(uow, name)
+
+    # Re-entering the same UoW gets a fresh session; old repositories stay closed.
+    async with uow:
+        assert uow.submissions is not submissions
+        assert await uow.submissions.get_by_source_media("youtube", "escaped") is None
+        assert (await uow.submissions.get_by_source_media("youtube", "owned") is None) == abort
+
+
+async def test_active_unit_of_work_cannot_be_reentered(database):
+    uow = database.unit_of_work()
+    async with uow:
+        repository = uow.submissions
+        with pytest.raises(RuntimeError, match="already active"):
+            await uow.__aenter__()
+        assert uow.submissions is repository
+        await repository.create(source_provider="youtube", source_media_id="still-owned")
+
+    async with database.unit_of_work() as check:
+        assert await check.submissions.get_by_source_media("youtube", "still-owned") is not None

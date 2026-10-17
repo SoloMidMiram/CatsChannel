@@ -316,7 +316,7 @@ requires-dist = [
     { name = "bgutil-ytdlp-pot-provider", marker = "extra == 'pot'", specifier = "==2.0.2" },
     { name = "pydantic-settings", specifier = ">=2.0,<3" },
     { name = "python-socks", extras = ["asyncio"], marker = "extra == 'userbot'", specifier = ">=2.7,<3" },
-    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'persistence'", specifier = ">=2.0,<3" },
+    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'persistence'", specifier = ">=2.0.22,<3" },
     { name = "telethon", marker = "extra == 'userbot'", specifier = ">=1.45,<2" },
     { name = "yt-dlp", extras = ["default", "curl-cffi"], specifier = ">=2026.8.19" },
 ]

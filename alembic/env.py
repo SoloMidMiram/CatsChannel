@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from cats_channel.config import Settings
 from cats_channel.persistence.models import Base
+from cats_channel.persistence.sqlite import configure_sqlite_engine
 
 config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
@@ -36,7 +37,12 @@ def run_migrations_offline() -> None:
 
 
 def run_sync_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        transactional_ddl=True if connection.dialect.name == "sqlite" else None,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -47,9 +53,12 @@ async def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    async with connectable.connect() as connection:
-        await connection.run_sync(run_sync_migrations)
-    await connectable.dispose()
+    configure_sqlite_engine(connectable.sync_engine)
+    try:
+        async with connectable.connect() as connection:
+            await connection.run_sync(run_sync_migrations)
+    finally:
+        await connectable.dispose()
 
 
 if context.is_offline_mode():

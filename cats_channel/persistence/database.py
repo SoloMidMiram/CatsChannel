@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Self
 
-from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -21,6 +20,7 @@ from .repositories import (
     SqlAlchemySubmissionRepository,
     SqlAlchemyThreadRepository,
 )
+from .sqlite import configure_sqlite_engine
 
 
 class SqlAlchemyUnitOfWork:
@@ -30,14 +30,52 @@ class SqlAlchemyUnitOfWork:
         self._session_factory = session_factory
         self._session: AsyncSession | None = None
         self._transaction: AsyncTransaction | None = None
+        self._submissions: SqlAlchemySubmissionRepository | None = None
+        self._threads: SqlAlchemyThreadRepository | None = None
+        self._projections: SqlAlchemyProjectionRepository | None = None
+
+    @property
+    def submissions(self) -> SqlAlchemySubmissionRepository:
+        if self._submissions is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._submissions
+
+    @property
+    def threads(self) -> SqlAlchemyThreadRepository:
+        if self._threads is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._threads
+
+    @property
+    def projections(self) -> SqlAlchemyProjectionRepository:
+        if self._projections is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._projections
+
+    def _clear_state(self) -> None:
+        self._session = None
+        self._transaction = None
+        self._submissions = None
+        self._threads = None
+        self._projections = None
 
     async def __aenter__(self) -> Self:
-        self._session = self._session_factory()
-        self._transaction = self._session.begin()
-        await self._transaction.__aenter__()
-        self.submissions = SqlAlchemySubmissionRepository(self._session)
-        self.threads = SqlAlchemyThreadRepository(self._session)
-        self.projections = SqlAlchemyProjectionRepository(self._session)
+        if self._session is not None:
+            raise RuntimeError("Unit of work is already active")
+        session = self._session_factory(close_resets_only=False)
+        self._session = session
+        try:
+            self._transaction = session.begin()
+            await self._transaction.__aenter__()
+            self._submissions = SqlAlchemySubmissionRepository(session)
+            self._threads = SqlAlchemyThreadRepository(session)
+            self._projections = SqlAlchemyProjectionRepository(session)
+        except BaseException:
+            try:
+                await session.close()
+            finally:
+                self._clear_state()
+            raise
         return self
 
     async def __aexit__(
@@ -46,12 +84,16 @@ class SqlAlchemyUnitOfWork:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool | None:
-        if self._session is None or self._transaction is None:
+        session, transaction = self._session, self._transaction
+        if session is None or transaction is None:
             return None
         try:
-            return await self._transaction.__aexit__(exc_type, exc_value, traceback)
+            return await transaction.__aexit__(exc_type, exc_value, traceback)
         finally:
-            await self._session.close()
+            try:
+                await session.close()
+            finally:
+                self._clear_state()
 
 
 class Database:
@@ -59,25 +101,7 @@ class Database:
 
     def __init__(self, url: str, *, echo: bool = False) -> None:
         self.engine: AsyncEngine = create_async_engine(url, echo=echo, pool_pre_ping=True)
-        if self.engine.url.get_backend_name() == "sqlite":
-
-            @event.listens_for(self.engine.sync_engine, "connect")
-            def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
-                # Python 3.11 sqlite3 uses legacy transaction control, where a
-                # SAVEPOINT can escape the surrounding Session transaction.
-                # SQLAlchemy owns BEGIN explicitly so nested repository
-                # savepoints retain real unit-of-work rollback semantics.
-                dbapi_connection.isolation_level = None
-                cursor = dbapi_connection.cursor()
-                try:
-                    cursor.execute("PRAGMA foreign_keys=ON")
-                finally:
-                    cursor.close()
-
-            @event.listens_for(self.engine.sync_engine, "begin")
-            def _begin_sqlite_transaction(connection) -> None:
-                connection.exec_driver_sql("BEGIN")
-
+        configure_sqlite_engine(self.engine.sync_engine)
         self.session_factory = async_sessionmaker(
             self.engine,
             expire_on_commit=False,
