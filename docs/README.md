@@ -7,4 +7,6 @@ Telethon user-account downloads through @whatsmusicbot are in TELEGRAM_DOWNLOADE
 Route-first testing and downloader profiles are in YOUTUBE_PROFILES.md.
 The implemented media-service boundaries and invariants are in ARCHITECTURE.md.
 The async data model, repository contracts, and migration workflow are in DATABASE.md.
+Source identity, validated inputs, and handoff behavior are in SUBMISSIONS.md.
+The remaining Telegram-core acceptance gaps are in AIOGRAM_CORE_AUDIT.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.

@@ -21,3 +21,28 @@ jobs:
       - run: uv run --frozen pytest
       - run: uv run --frozen ruff check .
       - run: uv run --frozen ruff format --check .
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cats_test
+          POSTGRES_PASSWORD: disposable
+          POSTGRES_DB: cats_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cats_test -d cats_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CATS_TEST_POSTGRES_URL: postgresql+asyncpg://cats_test:disposable@127.0.0.1:5432/cats_test
+      CATS_TEST_POSTGRES_DISPOSABLE: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          python-version: "3.11"
+      - run: uv sync --locked --all-extras
+      - run: uv run --frozen pytest tests/test_postgres_persistence.py -q

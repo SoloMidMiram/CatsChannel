@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import json
+import re
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import Select, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..submission_provenance import submission_provenance_record
 from .entities import (
     CatPost,
     CatThread,
     CatVideoSubmission,
+    HandoffRequest,
     MessagePurpose,
     SourceIdentity,
     TelegramMessageRef,
@@ -20,11 +25,13 @@ from .entities import (
 from .errors import (
     ConcurrentThreadUpdateError,
     CrossThreadParentError,
+    DuplicateHandoffTokenError,
     DuplicatePostSubmissionError,
     DuplicateSourceMediaError,
     DuplicateTelegramMessageError,
     InvalidThreadStateError,
     MissingParentError,
+    PersistenceError,
     PostNotFoundError,
     SubmissionNotFoundError,
     ThreadNotFoundError,
@@ -33,6 +40,7 @@ from .models import (
     CatPostModel,
     CatThreadModel,
     CatVideoSubmissionModel,
+    MediaHandoffRequestModel,
     TelegramMessageRefModel,
 )
 
@@ -48,16 +56,57 @@ def _required(value: str, field: str) -> str:
     return normalized
 
 
+def _optional(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _json_object(value: dict[str, object] | None, field: str) -> dict[str, object]:
+    candidate = {} if value is None else value
+    if not isinstance(candidate, dict) or not all(isinstance(key, str) for key in candidate):
+        raise ValueError(f"{field} must be a JSON object")
+    try:
+        return json.loads(json.dumps(candidate, allow_nan=False))
+    except (TypeError, ValueError):
+        raise ValueError(f"{field} must contain JSON values") from None
+
+
+def _utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 def _submission(model: CatVideoSubmissionModel) -> CatVideoSubmission:
     return CatVideoSubmission(
         id=model.id,
         source_provider=model.source_provider,
         source_media_id=model.source_media_id,
         source_channel_id=model.source_channel_id,
+        source_channel_name=model.source_channel_name,
+        source_channel_username=model.source_channel_username,
+        source_identity_status=model.source_identity_status,
         thread_id=model.thread_id,
         status=model.status,
+        media_origin=model.media_origin,
+        media_metadata=dict(model.media_metadata),
+        validation_evidence=dict(model.validation_evidence),
+        provenance=dict(model.provenance),
         created_at=model.created_at,
         updated_at=model.updated_at,
+    )
+
+
+def _handoff(model: MediaHandoffRequestModel) -> HandoffRequest:
+    return HandoffRequest(
+        id=model.id,
+        actor_id=model.actor_id,
+        conversation_chat_id=model.conversation_chat_id,
+        operation=model.operation,
+        expires_at=_utc(model.expires_at),
+        consumed_at=_utc(model.consumed_at) if model.consumed_at is not None else None,
+        submission_id=model.submission_id,
+        created_at=_utc(model.created_at),
     )
 
 
@@ -109,23 +158,54 @@ class SqlAlchemySubmissionRepository:
         source_provider: str,
         source_media_id: str,
         source_channel_id: str | None = None,
+        source_channel_name: str | None = None,
+        source_channel_username: str | None = None,
+        source_identity_status: str = "unresolved",
+        thread_id: str | None = None,
         status: str = "pending",
+        media_origin: str = "legacy",
+        media_metadata: dict[str, object] | None = None,
+        validation_evidence: dict[str, object] | None = None,
+        provenance: dict[str, object] | None = None,
     ) -> CatVideoSubmission:
+        if source_identity_status not in {"verified", "user_selected", "unresolved"}:
+            raise ValueError("source_identity_status is invalid")
+        if status not in {"pending", "validated"}:
+            raise ValueError("status is invalid")
+        if media_origin not in {"legacy", "local_library", "telegram_native"}:
+            raise ValueError("media_origin is invalid")
+        if thread_id is not None and await self._session.get(CatThreadModel, thread_id) is None:
+            raise ThreadNotFoundError("Thread does not exist")
         model = CatVideoSubmissionModel(
             id=_new_id(),
             source_provider=_required(source_provider, "source_provider").lower(),
             source_media_id=_required(source_media_id, "source_media_id"),
-            source_channel_id=source_channel_id.strip() if source_channel_id else None,
+            source_channel_id=_optional(source_channel_id),
+            source_channel_name=_optional(source_channel_name),
+            source_channel_username=_optional(source_channel_username),
+            source_identity_status=source_identity_status,
+            thread_id=thread_id,
             status=_required(status, "status"),
+            media_origin=media_origin,
+            media_metadata=_json_object(media_metadata, "media_metadata"),
+            validation_evidence=_json_object(validation_evidence, "validation_evidence"),
+            provenance=submission_provenance_record(provenance, media_origin),
         )
         try:
             async with self._session.begin_nested():
                 self._session.add(model)
                 await self._session.flush()
         except IntegrityError as error:
-            raise DuplicateSourceMediaError("Source media already exists") from error
+            existing = await self.get_by_source_media(model.source_provider, model.source_media_id)
+            if existing is not None:
+                raise DuplicateSourceMediaError("Source media already exists") from error
+            raise PersistenceError("Submission persistence failed") from error
         await self._session.refresh(model)
         return _submission(model)
+
+    async def get(self, submission_id: str) -> CatVideoSubmission | None:
+        model = await self._session.get(CatVideoSubmissionModel, submission_id)
+        return _submission(model) if model is not None else None
 
     async def get_by_source_media(
         self, source_provider: str, source_media_id: str
@@ -139,6 +219,89 @@ class SqlAlchemySubmissionRepository:
             )
         )
         return _submission(result) if result is not None else None
+
+
+class SqlAlchemyHandoffRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(
+        self,
+        *,
+        token_digest: str,
+        actor_id: int,
+        conversation_chat_id: int,
+        operation: str,
+        expires_at: datetime,
+    ) -> HandoffRequest:
+        if not re.fullmatch(r"[0-9a-f]{64}", token_digest):
+            raise ValueError("token_digest must be a SHA-256 digest")
+        if actor_id <= 0 or conversation_chat_id == 0:
+            raise ValueError("handoff binding is invalid")
+        if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+            raise ValueError("expires_at must be timezone-aware")
+        model = MediaHandoffRequestModel(
+            id=_new_id(),
+            token_digest=token_digest,
+            actor_id=actor_id,
+            conversation_chat_id=conversation_chat_id,
+            operation=_required(operation, "operation"),
+            expires_at=expires_at.astimezone(UTC),
+        )
+        try:
+            async with self._session.begin_nested():
+                self._session.add(model)
+                await self._session.flush()
+        except IntegrityError as error:
+            existing = await self._session.scalar(
+                select(MediaHandoffRequestModel.id).where(
+                    MediaHandoffRequestModel.token_digest == token_digest
+                )
+            )
+            if existing is not None:
+                raise DuplicateHandoffTokenError("Handoff token already exists") from error
+            raise PersistenceError("Handoff persistence failed") from error
+        await self._session.refresh(model)
+        return _handoff(model)
+
+    async def get_bound(
+        self,
+        *,
+        token_digest: str,
+        actor_id: int,
+        conversation_chat_id: int,
+        operation: str,
+    ) -> HandoffRequest | None:
+        model = await self._session.scalar(
+            select(MediaHandoffRequestModel).where(
+                MediaHandoffRequestModel.token_digest == token_digest,
+                MediaHandoffRequestModel.actor_id == actor_id,
+                MediaHandoffRequestModel.conversation_chat_id == conversation_chat_id,
+                MediaHandoffRequestModel.operation == operation,
+            )
+        )
+        return _handoff(model) if model is not None else None
+
+    async def consume(
+        self,
+        *,
+        handoff_id: str,
+        submission_id: str,
+        consumed_at: datetime,
+    ) -> bool:
+        statement = (
+            update(MediaHandoffRequestModel)
+            .where(
+                MediaHandoffRequestModel.id == handoff_id,
+                MediaHandoffRequestModel.consumed_at.is_(None),
+                MediaHandoffRequestModel.submission_id.is_(None),
+                MediaHandoffRequestModel.expires_at > consumed_at,
+            )
+            .values(consumed_at=consumed_at, submission_id=submission_id)
+            .execution_options(synchronize_session=False)
+        )
+        result = await self._session.execute(statement)
+        return result.rowcount == 1
 
 
 class SqlAlchemyThreadRepository:

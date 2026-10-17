@@ -12,6 +12,8 @@ Persistent command-line downloads use the self-contained layout documented in
 [`docs/MEDIA_LIBRARY.md`](docs/MEDIA_LIBRARY.md).
 Async persistence contracts and migrations are documented in
 [`docs/DATABASE.md`](docs/DATABASE.md).
+The source-aware submission service is documented in
+[`docs/SUBMISSIONS.md`](docs/SUBMISSIONS.md).
 
 ## Mission
 

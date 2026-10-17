@@ -1,7 +1,7 @@
 # Persistence foundation
 
-CatsChannel has one asynchronous SQLAlchemy model owner and one initial Alembic
-migration. SQLite supports local contract tests; PostgreSQL is the production
+CatsChannel has one asynchronous SQLAlchemy model owner and ordered Alembic
+migrations. SQLite supports local contract tests; PostgreSQL is the production
 configuration target. Production provisioning and deployment are intentionally
 outside this phase.
 
@@ -15,6 +15,9 @@ CatThread (stable source_provider + source_channel_id)
 
 TelegramMessageRef = (chat_id, message_id)
     └── projection for a post or an unposted submission
+
+MediaHandoffRequest
+    └── token digest + actor/conversation/operation/expiry + one submission
 ```
 
 Internal UUIDs own domain identity. A Telegram message ID is never accepted or
@@ -22,6 +25,11 @@ stored without its chat ID. A source display name and username may change withou
 changing the thread selected by the stable provider/channel key. Source-media
 uniqueness is independent of thread identity, so moving or renaming a source does
 not permit duplicate ingestion.
+
+Submissions persist a source identity status, source display snapshot, narrow
+`validated` lifecycle, bounded video metadata, validation evidence, media origin,
+and curated provenance. The second migration adds these fields and the durable
+handoff table. Raw handoff tokens are never stored.
 
 `get_or_create(SourceIdentity(...))` treats display fields as a complete current
 snapshot: `None` clears a stored name or username. This removes obsolete public
