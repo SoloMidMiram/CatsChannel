@@ -265,6 +265,41 @@ ERROR_POLICIES = MappingProxyType(
             "Inspect the yt-dlp release and safe category; do not retry in a loop.",
             "after_investigation",
         ),
+        "submission_media_invalid": ErrorPolicy(
+            "The submission does not contain valid media evidence.",
+            "Validate the media before creating a submission.",
+            "after_local_fix",
+        ),
+        "source_identity_unresolved": ErrorPolicy(
+            "The media source could not be verified.",
+            "Explicitly select an existing logical source thread.",
+            "explicit_only",
+        ),
+        "source_identity_conflict": ErrorPolicy(
+            "The selected source conflicts with verified source identity.",
+            "Use the verified source thread or cancel the submission.",
+            "do_not_retry_unchanged",
+        ),
+        "source_selection_invalid": ErrorPolicy(
+            "The selected logical source thread is unavailable or incompatible.",
+            "Select an existing thread for the same source provider.",
+            "after_local_fix",
+        ),
+        "duplicate_media": ErrorPolicy(
+            "This source media already has a submission.",
+            "Load the existing submission instead of creating a duplicate.",
+            "do_not_retry",
+        ),
+        "handoff_invalid": ErrorPolicy(
+            "The media handoff is invalid, expired, mismatched, or already used.",
+            "Start one new correlated handoff; do not replay the old response.",
+            "explicit_only",
+        ),
+        "submission_persistence": ErrorPolicy(
+            "The submission could not be stored safely.",
+            "Reconcile the handoff and database state before one explicit retry.",
+            "after_reconciliation",
+        ),
         "internal_error": ErrorPolicy(
             "An unexpected internal error was safely contained.",
             "Inspect local application logs/code; no automatic retry is allowed.",

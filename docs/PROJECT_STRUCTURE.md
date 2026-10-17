@@ -9,6 +9,12 @@ cats_channel/
     handlers.py      # current private admin router
   services/
     media_service.py # validated acquisition boundary
+  submissions/
+    entities.py       # explicit validated-media, source, handoff, and result contracts
+    resolvers.py      # trusted source-identity adapter policy
+    library_adapter.py # LibraryItem to submission input adapter
+    service.py        # source assignment and atomic submission decisions
+    errors.py         # typed application rejection
   adapters/          # process, cookie, validation, and Telethon integrations
   persistence/
     entities.py       # transport/ORM-independent persistence records
@@ -28,3 +34,5 @@ injects only dependencies that its current pilot needs. Persistence is a separat
 application-service boundary and is not coupled to the current admin handlers.
 
 Tests mirror these boundaries and exercise routing through the real dispatcher.
+Source submission tests use both fake repository contracts and real temporary
+SQLite. No submission handler is invented before its product UX is specified.

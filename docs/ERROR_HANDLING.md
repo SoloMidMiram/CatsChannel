@@ -46,6 +46,9 @@ Telethon reached its later session-close steps.
   and raise `MediaError` with a stable code and safe analysis.
 - Services preserve cancellation and cleanup semantics; they do not convert every
   failure into success or automatically retry it.
+- `SubmissionService` maps expected identity, handoff, duplicate-media, and
+  persistence failures to stable `SubmissionError` codes. It never logs or
+  persists a raw handoff token, and it preserves `CancelledError` unchanged.
 - CLI and bot entry points are the final containment boundaries. They render safe
   user output and emit one structured failure event.
 - Bot handlers adapt existing `MediaError` policies to user responses. They do not
@@ -104,3 +107,8 @@ Expected `MediaError` policies remain classified by the command handlers.
 
 Unknown errors intentionally retain a safe low-confidence fallback and exception
 class list. Add a new rule only from evidence; do not guess or create a retry loop.
+
+Submission failures are policy decisions rather than transport-log
+classifications. Their current codes and retry contract are documented in
+[SUBMISSIONS.md](SUBMISSIONS.md); adapters should render those policies at their
+outer boundary without exposing repository or third-party exception text.

@@ -43,3 +43,7 @@ class DuplicatePostSubmissionError(PersistenceError):
 
 class DuplicateTelegramMessageError(PersistenceError):
     code = "duplicate_telegram_message"
+
+
+class DuplicateHandoffTokenError(PersistenceError):
+    code = "duplicate_handoff_token"

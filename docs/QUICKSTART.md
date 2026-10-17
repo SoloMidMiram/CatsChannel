@@ -322,10 +322,10 @@ cookie validity, JS runtime and FFmpeg behavior need live smoke validation.
 
 Local validation on 2026-10-17 produced these offline results from the lockfile:
 
-- WSL Python 3.11.16 with all extras: 184 passed, 1 Windows-only test skipped;
-- WSL Python 3.13.15 with all extras: 184 passed, 1 Windows-only test skipped;
-- Windows Python 3.11.4 with all extras: 183 passed, 2 POSIX-only tests skipped;
-- WSL Python 3.11 baseline install: 170 passed, 2 optional tests skipped;
+- WSL Python 3.11.16 with all extras: 219 passed, 1 Windows-only test skipped;
+- WSL Python 3.13.15 with all extras: 219 passed, 1 Windows-only test skipped;
+- Windows Python 3.11.4 with all extras: 218 passed, 2 POSIX-only tests skipped;
+- WSL Python 3.11 baseline install: 185 passed, 3 optional tests skipped;
 - Ruff lint/formatting, lock consistency, SQLite migration parity, PostgreSQL
   offline migration rendering, and offline source/wheel builds passed.
 

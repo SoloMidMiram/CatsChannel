@@ -320,13 +320,26 @@ def test_initial_alembic_migration_builds_schema(tmp_path, monkeypatch):
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         revision = connection.execute("SELECT version_num FROM alembic_version").fetchone()
+        submission_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(cat_video_submissions)")
+        }
     assert {
         "cat_threads",
         "cat_video_submissions",
         "cat_posts",
         "telegram_message_refs",
+        "media_handoff_requests",
     } <= tables
-    assert revision == ("0001_persistence_foundation",)
+    assert {
+        "source_identity_status",
+        "source_channel_name",
+        "source_channel_username",
+        "media_origin",
+        "media_metadata",
+        "validation_evidence",
+        "provenance",
+    } <= submission_columns
+    assert revision == ("0002_source_aware_submissions",)
 
 
 @pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
@@ -368,8 +381,46 @@ def test_failed_sqlite_migration_rolls_back_ddl_and_can_be_retried(tmp_path, mon
     command.check(config)
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "0002_source_aware_submissions",
+        )
+
+
+def test_failed_second_migration_rolls_back_and_can_be_retried(tmp_path, monkeypatch):
+    database_path = tmp_path / "failed-second-migration.sqlite3"
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    config.set_main_option("script_location", str(root / "alembic"))
+    monkeypatch.setenv("DATABASE_URL", sqlite_url(database_path))
+    command.upgrade(config, "0001_persistence_foundation")
+    add_column = Operations.add_column
+
+    def fail_after_second_column(operations, table_name, column, **kwargs):
+        result = add_column(operations, table_name, column, **kwargs)
+        if column.name == "source_channel_username":
+            raise RuntimeError("second migration interrupted")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Operations, "add_column", fail_after_second_column)
+        with pytest.raises(RuntimeError, match="second migration interrupted"):
+            command.upgrade(config, "head")
+
+    with sqlite3.connect(database_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(cat_video_submissions)")}
+        tables = {
+            row[0]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        assert "source_channel_name" not in columns
+        assert "source_channel_username" not in columns
+        assert "media_handoff_requests" not in tables
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
             "0001_persistence_foundation",
         )
+
+    command.upgrade(config, "head")
+    command.check(config)
 
 
 @pytest.mark.parametrize("abort", [False, True], ids=["commit", "rollback"])

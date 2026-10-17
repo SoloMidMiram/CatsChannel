@@ -63,9 +63,9 @@ responsibilities no longer live inside the handlers.
   Exception messages, URLs, phone numbers, credentials and raw third-party logs
   never enter the structured logger.
 
-Future submission, moderation, and reply-chain services should depend on
-`MediaService` and the persistence unit-of-work contracts, not on yt-dlp, FFmpeg,
-aiogram, or SQLAlchemy implementation details.
+The source-aware `SubmissionService` depends on validated media contracts and the
+persistence unit of work, not on yt-dlp, FFmpeg, aiogram, or SQLAlchemy objects.
+Future moderation and reply-chain services should follow the same boundary.
 
 ## Aiogram application core
 
@@ -105,6 +105,7 @@ PersistenceUnitOfWork (transaction owner)
        +-- submission repository
        +-- thread/post repository
        +-- Telegram projection repository
+       +-- durable media-handoff repository
        |
        v
 async SQLAlchemy session -> SQLite tests / PostgreSQL configuration
@@ -115,6 +116,15 @@ The SQLAlchemy models have a single owner, while Alembic owns application schema
 changes. Stable source keys select logical threads; mutable names/usernames are
 descriptive metadata. Tail updates use optimistic versions so a lost update is a
 typed failure rather than a silent fork. See DATABASE.md for the invariants.
+
+## Submission boundary
+
+Acquisition and validation complete before a submission transaction starts. A
+trusted resolver either proves a stable source identity or reports it unresolved;
+unresolved media requires explicit selection of an existing logical thread. The
+service atomically stores lifecycle, bounded metadata, validation evidence,
+provenance, an optional Telegram projection, and one-use handoff consumption.
+It does not create a `CatPost` or inspect thread root/tail. See SUBMISSIONS.md.
 
 ## Optional Telegram downloader backend
 

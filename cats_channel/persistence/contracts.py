@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from types import TracebackType
 from typing import Protocol, Self
 
@@ -9,6 +10,7 @@ from .entities import (
     CatPost,
     CatThread,
     CatVideoSubmission,
+    HandoffRequest,
     MessagePurpose,
     SourceIdentity,
     TelegramMessageRef,
@@ -23,8 +25,18 @@ class SubmissionRepository(Protocol):
         source_provider: str,
         source_media_id: str,
         source_channel_id: str | None = None,
+        source_channel_name: str | None = None,
+        source_channel_username: str | None = None,
+        source_identity_status: str = "unresolved",
+        thread_id: str | None = None,
         status: str = "pending",
+        media_origin: str = "legacy",
+        media_metadata: dict[str, object] | None = None,
+        validation_evidence: dict[str, object] | None = None,
+        provenance: dict[str, object] | None = None,
     ) -> CatVideoSubmission: ...
+
+    async def get(self, submission_id: str) -> CatVideoSubmission | None: ...
 
     async def get_by_source_media(
         self, source_provider: str, source_media_id: str
@@ -78,6 +90,35 @@ class ProjectionRepository(Protocol):
     ) -> TelegramProjection | None: ...
 
 
+class HandoffRepository(Protocol):
+    async def create(
+        self,
+        *,
+        token_digest: str,
+        actor_id: int,
+        conversation_chat_id: int,
+        operation: str,
+        expires_at: datetime,
+    ) -> HandoffRequest: ...
+
+    async def get_bound(
+        self,
+        *,
+        token_digest: str,
+        actor_id: int,
+        conversation_chat_id: int,
+        operation: str,
+    ) -> HandoffRequest | None: ...
+
+    async def consume(
+        self,
+        *,
+        handoff_id: str,
+        submission_id: str,
+        consumed_at: datetime,
+    ) -> bool: ...
+
+
 class PersistenceUnitOfWork(Protocol):
     @property
     def submissions(self) -> SubmissionRepository: ...
@@ -87,6 +128,9 @@ class PersistenceUnitOfWork(Protocol):
 
     @property
     def projections(self) -> ProjectionRepository: ...
+
+    @property
+    def handoffs(self) -> HandoffRepository: ...
 
     async def __aenter__(self) -> Self: ...
 

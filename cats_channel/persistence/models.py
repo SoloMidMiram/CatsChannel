@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     CheckConstraint,
     DateTime,
@@ -67,10 +68,60 @@ class CatVideoSubmissionModel(TimestampMixin, Base):
     source_provider: Mapped[str] = mapped_column(String(32), nullable=False)
     source_media_id: Mapped[str] = mapped_column(String(255), nullable=False)
     source_channel_id: Mapped[str | None] = mapped_column(String(255))
+    source_channel_name: Mapped[str | None] = mapped_column(String(255))
+    source_channel_username: Mapped[str | None] = mapped_column(String(255))
+    source_identity_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="unresolved", server_default="unresolved"
+    )
     thread_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("cat_threads.id", ondelete="RESTRICT"), index=True
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    media_origin: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="legacy", server_default="legacy"
+    )
+    media_metadata: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False, default=dict, server_default="{}"
+    )
+    validation_evidence: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False, default=dict, server_default="{}"
+    )
+    provenance: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False, default=dict, server_default="{}"
+    )
+
+
+class MediaHandoffRequestModel(Base):
+    __tablename__ = "media_handoff_requests"
+    __table_args__ = (
+        UniqueConstraint("token_digest", name="uq_media_handoff_token_digest"),
+        CheckConstraint(
+            "(consumed_at IS NULL AND submission_id IS NULL) OR "
+            "(consumed_at IS NOT NULL AND submission_id IS NOT NULL)",
+            name="ck_media_handoff_consumption_pair",
+        ),
+        Index(
+            "ix_media_handoff_binding",
+            "actor_id",
+            "conversation_chat_id",
+            "operation",
+        ),
+        Index("ix_media_handoff_expiry", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    token_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    conversation_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    operation: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submission_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("cat_video_submissions.id", ondelete="RESTRICT")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class CatPostModel(Base):

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from ..config import Settings
 from .models import Base
 from .repositories import (
+    SqlAlchemyHandoffRepository,
     SqlAlchemyProjectionRepository,
     SqlAlchemySubmissionRepository,
     SqlAlchemyThreadRepository,
@@ -33,6 +34,7 @@ class SqlAlchemyUnitOfWork:
         self._submissions: SqlAlchemySubmissionRepository | None = None
         self._threads: SqlAlchemyThreadRepository | None = None
         self._projections: SqlAlchemyProjectionRepository | None = None
+        self._handoffs: SqlAlchemyHandoffRepository | None = None
 
     @property
     def submissions(self) -> SqlAlchemySubmissionRepository:
@@ -52,12 +54,19 @@ class SqlAlchemyUnitOfWork:
             raise RuntimeError("Unit of work is not active")
         return self._projections
 
+    @property
+    def handoffs(self) -> SqlAlchemyHandoffRepository:
+        if self._handoffs is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._handoffs
+
     def _clear_state(self) -> None:
         self._session = None
         self._transaction = None
         self._submissions = None
         self._threads = None
         self._projections = None
+        self._handoffs = None
 
     async def __aenter__(self) -> Self:
         if self._session is not None:
@@ -70,6 +79,7 @@ class SqlAlchemyUnitOfWork:
             self._submissions = SqlAlchemySubmissionRepository(session)
             self._threads = SqlAlchemyThreadRepository(session)
             self._projections = SqlAlchemyProjectionRepository(session)
+            self._handoffs = SqlAlchemyHandoffRepository(session)
         except BaseException:
             try:
                 await session.close()

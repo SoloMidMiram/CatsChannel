@@ -20,6 +20,11 @@ Contract:
 - unique complete Telegram coordinates and source-media duplicate detection
 - thread membership and optimistic tail-update conflicts
 - initial Alembic migration parity with the SQLAlchemy schema
+- validated local-library and Telegram-native submission inputs
+- verified versus manually selected source identity and mutable display snapshots
+- durable handoff binding, expiry, replay rejection, atomic consumption, and
+  explicit ambiguous-commit reconciliation
+- rollback on invalid identity, duplicate media, and repository/commit failures
 
 Future contract suites add end-to-end reply-chain behavior and moderation lifecycle.
 
