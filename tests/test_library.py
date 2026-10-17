@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from cats_channel import library as media_library
 from cats_channel.config import Settings
 from cats_channel.library import _probe_media, list_downloads, store_download, verify_download
 from cats_channel.media import MediaError
@@ -287,6 +288,24 @@ def test_concurrent_acquisition_downloads_once_and_reuses_verified_item(tmp_path
     assert all(not thread.is_alive() for thread in threads)
     assert sorted(results) == ["existing", "stored"]
     assert downloader.call_count == 1
+
+
+def test_library_root_exists_before_the_per_video_lock_key_is_resolved(tmp_path):
+    settings = Settings(_env_file=None, download_dir=tmp_path)
+    original_item_lock = media_library._item_lock
+
+    def checked_item_lock(root, video_id):
+        assert root.is_dir()
+        return original_item_lock(root, video_id)
+
+    with (
+        patch("cats_channel.library._item_lock", side_effect=checked_item_lock),
+        patch("cats_channel.library.download", side_effect=_fake_download),
+        patch("cats_channel.library._probe_media", return_value=PLAYBACK),
+    ):
+        result = store_download(settings, VIDEO_URL)
+
+    assert result["status"] == "stored"
 
 
 def test_ffprobe_validation_records_playable_streams(tmp_path):
