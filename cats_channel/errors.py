@@ -20,6 +20,11 @@ _DEFAULT = ErrorPolicy(
 
 ERROR_POLICIES = MappingProxyType(
     {
+        "reply_entry_invalid": ErrorPolicy(
+            "This reply link is invalid or unavailable.",
+            "Open a current reply link or use /help.",
+            "after_local_fix",
+        ),
         "telegram_config": ErrorPolicy(
             "Telegram client configuration or the optional userbot dependency is missing.",
             "Install the userbot extra and set TELEGRAM_API_ID and TELEGRAM_API_HASH locally.",

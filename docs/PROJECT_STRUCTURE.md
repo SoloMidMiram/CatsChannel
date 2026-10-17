@@ -5,6 +5,10 @@ cats_channel/
   bot/
     application.py   # composition root and polling lifecycle
     context.py       # per-update operation middleware
+    dispatcher.py    # accepted-update drain and once-only shutdown
+    entry.py         # opaque links, resolver and internal-ID callback conventions
+    flow.py          # private FSM data and command replacement isolation
+    lifecycle.py     # cancellation-safe owned cleanup
     errors.py        # safe response and unexpected-error boundary
     handlers.py      # current private admin router
   services/

@@ -25,7 +25,11 @@ def operation_name(event: TelegramObject) -> str:
     if not text.startswith("/"):
         return "message"
     command = text.split(maxsplit=1)[0].removeprefix("/").split("@", 1)[0].lower()
-    return command if command in {"start", "help", "probe", "download", "publish"} else "command"
+    return (
+        command
+        if command in {"start", "help", "probe", "download", "publish", "cancel"}
+        else "command"
+    )
 
 
 @dataclass

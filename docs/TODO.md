@@ -3,7 +3,7 @@
 Completed:
 
 - generated and validated `uv.lock`
-- Python 3.11 baseline with a Python 3.13 compatibility gate
+- Python 3.11 runtime baseline and CI gate
 - runnable admin-only bot and YouTube integration spike
 - offline configuration, downloader and safety tests
 - shared CLI/Telegram acquisition service and validated media library

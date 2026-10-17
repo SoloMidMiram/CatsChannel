@@ -10,7 +10,7 @@ Completed:
 - roadmap
 - architecture boundaries
 - CI skeleton
-- Python 3.11 baseline and 3.13 CI target
+- Python 3.11 runtime and CI baseline
 - configuration template and YouTube probe/download example
 - explicit Telegram publish command for a private test workflow
 - shared CLI/Telegram media acquisition and validation service

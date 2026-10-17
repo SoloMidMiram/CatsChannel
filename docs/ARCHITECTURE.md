@@ -71,7 +71,8 @@ Future moderation and reply-chain services should follow the same boundary.
 
 `create_bot_application()` is the composition root. It creates no network
 connection and accepts an injected `MediaService`, logger, monotonic clock, and
-correlation-ID factory. The returned `BotApplication` owns one dispatcher, one
+correlation-ID factory, Bot, storage, reply-target resolver and resource factories.
+The returned `BotApplication` owns one dispatcher, one
 media-task gate, and the concrete dependencies made available through aiogram's
 workflow data.
 
@@ -82,8 +83,8 @@ run_bot()
         -> operation logging middleware
         -> MediaService dependency
         -> one-process media task gate
-    -> Bot context
-    -> dispatcher polling
+    -> owned resource contexts and dispatcher polling
+    -> drain updates, close storage/resources and owned Bot session
 ```
 
 The router preserves the initial pilot behavior: only the configured admin in a
@@ -93,6 +94,12 @@ returned by `MediaService`. The application core does not construct persistence
 until a product workflow needs it. The concrete persistence contracts now exist
 under `cats_channel.persistence`; reply-chain decisions, moderation, and live
 pilot optimization remain later features.
+
+The remaining entry conventions are implemented in `bot/entry.py` and
+`bot/flow.py`: opaque reply payloads, internal-ID callbacks, and private-state
+reset/replacement. `bot/dispatcher.py` drains accepted updates before closing FSM
+storage; `bot/lifecycle.py` preserves cleanup ownership across repeated
+cancellation. See [entry contracts](AIOGRAM_ENTRY_CONTRACTS.md).
 
 ## Persistence boundary
 

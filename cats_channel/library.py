@@ -162,6 +162,10 @@ def store_download(
     canonical, video_id = _video_id(url)
     root = _library_root(settings)
     destination = root / video_id
+    # Windows path canonicalization can change when a previously missing
+    # directory is created. Materialize the root before deriving the lock key so
+    # concurrent first downloads cannot receive different in-process locks.
+    root.mkdir(parents=True, exist_ok=True)
     with _item_lock(root, video_id):
         if destination.exists():
             manifest = _verified_existing(destination, video_id)
@@ -174,7 +178,6 @@ def store_download(
 
         staging_root = settings.download_dir / ".staging"
         staging_root.mkdir(parents=True, exist_ok=True)
-        root.mkdir(parents=True, exist_ok=True)
         staging = Path(tempfile.mkdtemp(prefix=f"{video_id}-", dir=staging_root))
         metadata: dict[str, object] = {}
         primary_error: BaseException | None = None

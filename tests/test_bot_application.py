@@ -10,7 +10,7 @@ import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
 from aiogram.exceptions import TelegramAPIError
-from aiogram.methods import CopyMessage, SendDocument, SendMessage, SendVideo, TelegramMethod
+from aiogram.methods import CopyMessage, GetMe, SendDocument, SendMessage, SendVideo, TelegramMethod
 from aiogram.types import Chat, Message, MessageEntity, MessageId, Update, User, Video
 
 from cats_channel.bot import create_bot_application
@@ -50,6 +50,8 @@ class RecordingSession(BaseSession):
         if self.fail_when is not None and self.fail_when(method):
             raise RuntimeError("token=private phone=private third-party body")
         self._message_id += 1
+        if isinstance(method, GetMe):
+            return User(id=bot.id, is_bot=True, first_name="Cats", username="cats_test_bot")
         if isinstance(method, CopyMessage):
             return MessageId(message_id=self._message_id)
         return Message(
