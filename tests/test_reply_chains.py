@@ -511,6 +511,27 @@ async def test_token_denies_corrupt_cross_thread_or_missing_target(chain_databas
     assert await resolver.resolve(issued.token, actor_id=42) is None
 
 
+async def test_publication_preflight_rejects_disconnected_parent_ancestry(chain_database):
+    db = chain_database
+    chains = service(db)
+    await normal(db, chains)
+    thread, orphan_submission = await seed(db)
+    _, child_submission = await seed(db)
+    # Legacy/raw repository writes can create a disconnected second root. The
+    # publisher preflight must validate ancestry, not just matching thread IDs.
+    async with db.unit_of_work() as uow:
+        orphan = await uow.threads.add_post(thread_id=thread.id, submission_id=orphan_submission.id)
+        child = await uow.threads.add_post(
+            thread_id=thread.id, submission_id=child_submission.id, parent_post_id=orphan.id
+        )
+        await uow.projections.add_for_post(
+            post_id=orphan.id, purpose="destination", reference=TelegramMessageRef(DESTINATION, 1)
+        )
+    with pytest.raises(ReplyChainError) as caught:
+        await chains.require_parent_projection(child.id)
+    assert_code(caught, "reply_chain_invalid_state")
+
+
 async def test_ambiguous_destination_projection_is_unavailable(chain_database):
     db = chain_database
     chains = service(db)

@@ -236,7 +236,14 @@ async def run_bot(settings: Settings) -> None:
         application = create_bot_application(
             settings, persistence_unit_of_work=database.unit_of_work, resources=(owned_database,)
         )
-    except BaseException:
-        await complete_cleanup(database.dispose())
+    except BaseException as primary:
+        try:
+            await complete_cleanup(database.dispose())
+        except asyncio.CancelledError as cleanup_cancellation:
+            if isinstance(primary, asyncio.CancelledError):
+                raise primary from cleanup_cancellation.__cause__
+            raise cleanup_cancellation from primary
+        except Exception as cleanup_error:
+            raise primary from cleanup_error
         raise
     await application.start_polling()

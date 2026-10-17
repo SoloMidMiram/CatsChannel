@@ -251,6 +251,7 @@ class ReplyChainService:
                 if post is None:
                     raise ReplyChainError("reply_parent_not_found")
                 thread = await self._thread(uow, post.thread_id)
+                await self._ancestry(uow, thread, post.id)
                 if post.parent_post_id is None:
                     if thread.root_post_id != post.id:
                         raise ReplyChainError("reply_chain_invalid_state")

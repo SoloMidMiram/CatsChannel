@@ -104,6 +104,27 @@ async def test_persistent_run_bot_owns_database_and_preserves_startup_failure(
     assert session.close_count == 1
 
 
+async def test_persistent_composition_failure_remains_primary_when_database_close_fails(
+    monkeypatch,
+):
+    from cats_channel import persistence
+    from cats_channel.bot.application import run_bot
+
+    database = AsyncMock()
+    database.dispose.side_effect = RuntimeError("database close failed")
+
+    class Owner:
+        @classmethod
+        def from_settings(cls, _settings):
+            return database
+
+    monkeypatch.setitem(persistence.__dict__, "Database", Owner)
+    with pytest.raises(ValueError, match="numeric CHANNEL_ID") as caught:
+        await run_bot(settings(reply_entries_enabled=True, channel_id="@unresolved"))
+    assert str(caught.value.__cause__) == "database close failed"
+    database.dispose.assert_awaited_once()
+
+
 async def test_real_polling_closes_owned_resources_once_in_reverse_order():
     events = []
 
