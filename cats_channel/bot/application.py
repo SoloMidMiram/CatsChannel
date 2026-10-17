@@ -6,9 +6,9 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
-from contextlib import AbstractAsyncContextManager, AsyncExitStack
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
 from aiogram.fsm.storage.base import BaseStorage
@@ -25,6 +25,9 @@ from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
 
 ResourceFactory = Callable[[], AbstractAsyncContextManager[Any]]
+
+if TYPE_CHECKING:
+    from ..persistence.contracts import PersistenceUnitOfWork
 
 
 @dataclass
@@ -152,6 +155,7 @@ def create_bot_application(
     bot: Bot | None = None,
     storage: BaseStorage | None = None,
     reply_target_resolver: ReplyTargetResolver | None = None,
+    persistence_unit_of_work: Callable[[], PersistenceUnitOfWork] | None = None,
     resources: tuple[ResourceFactory, ...] = (),
 ) -> BotApplication:
     """Compose the bot without network access or import-time resource creation."""
@@ -161,6 +165,24 @@ def create_bot_application(
     media_gate = asyncio.Lock()
     operation_registry = BotOperationRegistry()
     flow_coordinator = PrivateFlowCoordinator()
+    if persistence_unit_of_work is not None:
+        if reply_target_resolver is not None:
+            raise ValueError("Configure one reply resolver owner")
+        from ..reply_chains.resolver import DatabaseReplyTargetResolver
+        from ..reply_chains.service import ReplyChainService
+
+        try:
+            destination = int(settings.channel_id or "")
+        except ValueError:
+            raise ValueError("Persistent reply entries require numeric CHANNEL_ID") from None
+
+        async def authorize_actor(actor_id, target):
+            return actor_id == settings.admin_user_id
+
+        reply_target_resolver = DatabaseReplyTargetResolver(
+            ReplyChainService(persistence_unit_of_work, destination_chat_id=destination),
+            authorize_actor=authorize_actor,
+        )
     dispatcher = ApplicationDispatcher(
         storage=storage,
         settings=settings,
@@ -195,5 +217,33 @@ def create_bot_application(
 
 async def run_bot(settings: Settings) -> None:
     """Create owned resources and run polling until shutdown."""
-    application = create_bot_application(settings)
+    if not settings.reply_entries_enabled:
+        application = create_bot_application(settings)
+        await application.start_polling()
+        return
+    from ..persistence import Database
+
+    database = Database.from_settings(settings)
+
+    @asynccontextmanager
+    async def owned_database():
+        try:
+            yield database
+        finally:
+            await database.dispose()
+
+    try:
+        application = create_bot_application(
+            settings, persistence_unit_of_work=database.unit_of_work, resources=(owned_database,)
+        )
+    except BaseException as primary:
+        try:
+            await complete_cleanup(database.dispose())
+        except asyncio.CancelledError as cleanup_cancellation:
+            if isinstance(primary, asyncio.CancelledError):
+                raise primary from cleanup_cancellation.__cause__
+            raise cleanup_cancellation from primary
+        except Exception as cleanup_error:
+            raise primary from cleanup_error
+        raise
     await application.start_polling()

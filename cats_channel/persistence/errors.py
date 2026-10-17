@@ -47,3 +47,11 @@ class DuplicateTelegramMessageError(PersistenceError):
 
 class DuplicateHandoffTokenError(PersistenceError):
     code = "duplicate_handoff_token"
+
+
+class IntentConflictError(PersistenceError):
+    code = "intent_conflict"
+
+
+class ReplyTokenConflictError(PersistenceError):
+    code = "reply_token_conflict"

@@ -308,6 +308,16 @@ class SqlAlchemyThreadRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def get_post(self, post_id: str) -> CatPost | None:
+        model = await self._session.get(CatPostModel, post_id)
+        return _post(model) if model is not None else None
+
+    async def get_post_for_submission(self, submission_id: str) -> CatPost | None:
+        model = await self._session.scalar(
+            select(CatPostModel).where(CatPostModel.submission_id == submission_id)
+        )
+        return _post(model) if model is not None else None
+
     def _source_query(self, source: SourceIdentity) -> Select[tuple[CatThreadModel]]:
         return select(CatThreadModel).where(
             CatThreadModel.source_provider == source.provider,
@@ -463,6 +473,23 @@ class SqlAlchemyThreadRepository:
 class SqlAlchemyProjectionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def get_destination(self, *, post_id: str, chat_id: int) -> TelegramProjection | None:
+        models = list(
+            (
+                await self._session.scalars(
+                    select(TelegramMessageRefModel).where(
+                        TelegramMessageRefModel.post_id == post_id,
+                        TelegramMessageRefModel.purpose == "destination",
+                        TelegramMessageRefModel.chat_id == chat_id,
+                    )
+                )
+            ).all()
+        )
+        # Ambiguous legacy mappings must not silently choose a publication target.
+        if len(models) != 1:
+            return None
+        return _projection(models[0])
 
     async def _add(
         self,

@@ -26,13 +26,17 @@ Completed:
 - trusted source resolution with explicit unresolved-source selection
 - durable one-use Telegram media handoffs and ambiguous-commit reconciliation
 - source metadata, validation evidence, and bounded provenance persistence
+- durable placement intents and hashed, reusable, revocable reply tokens
+- root, normal append, exact-parent/nested branch decisions with optimistic tail updates
+- application-local thread serialization and rollback without orphan posts
+- database-backed opaque reply entry through the existing dispatcher/FSM contract
 
 The media, aiogram-core, persistence, and source-aware submission foundations are
 offline-complete. Private-channel Telegram publication remains a separate
-authorized smoke test. Aiogram submission UX, publishing, moderation, and
-reply-chain product workflows remain separate phases so transport behavior does
+authorized smoke test. Aiogram submission UX, publishing, and moderation
+remain separate phases so transport behavior does
 not become coupled to storage.
 
-The sample is not the full submission UI, moderation, publishing, or reply-chain
-implementation. Live service validation remains a separate smoke-test step.
+Logical graph finalization is implemented; Telegram delivery and reconciliation
+are the next boundary (#7). Live service validation remains a separate smoke-test step.
 See QUICKSTART.md for setup and upgrade phases.

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     bot_token: SecretStr = SecretStr("")
     admin_user_id: int | None = None
     channel_id: str | None = None
+    reply_entries_enabled: bool = False
     youtube_cookie_file: Path | None = None
     youtube_profile: Literal["baseline", "pot_bgutil"] = "baseline"
     youtube_pot_provider_url: AnyHttpUrl | None = None
