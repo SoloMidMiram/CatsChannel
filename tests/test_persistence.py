@@ -111,6 +111,45 @@ async def test_source_display_change_preserves_stable_thread_identity(database):
     assert renamed.source.channel_username == "renamed_cats"
 
 
+@pytest.mark.parametrize("channel_name", ["Private cats", None])
+async def test_removed_source_username_is_cleared_and_can_be_reassigned(database, channel_name):
+    async with database.unit_of_work() as uow:
+        original = await uow.threads.get_or_create(
+            SourceIdentity("telegram", "-100123", "Public cats", "old_cats")
+        )
+
+    async with database.unit_of_work() as uow:
+        private = await uow.threads.get_or_create(
+            SourceIdentity("telegram", "-100123", channel_name, channel_username=None)
+        )
+
+    assert private.id == original.id
+    assert private.source.channel_username is None
+    assert private.source.channel_name == channel_name
+    assert private.version == original.version
+
+    # Check the committed snapshot from a fresh session, then simulate Telegram
+    # assigning the removed handle to an unrelated stable channel ID.
+    async with database.unit_of_work() as uow:
+        stored = await uow.threads.get(original.id)
+        assert stored is not None
+        assert stored.source.channel_username is None
+        assert stored.source.channel_name == channel_name
+        reassigned = await uow.threads.get_or_create(
+            SourceIdentity("telegram", "-100456", "Other cats", "old_cats")
+        )
+        public_again = await uow.threads.get_or_create(
+            SourceIdentity("telegram", "-100123", "Public again", "new_cats")
+        )
+
+    assert reassigned.id != original.id
+    assert public_again.id == original.id
+    assert public_again.source.channel_username == "new_cats"
+    async with database.unit_of_work() as uow:
+        assert (await uow.threads.get(original.id)).source.channel_username == "new_cats"
+        assert (await uow.threads.get(reassigned.id)).source.channel_username == "old_cats"
+
+
 async def test_source_media_duplicates_are_independent_of_thread(database):
     async with database.unit_of_work() as uow:
         await uow.threads.get_or_create(SourceIdentity("telegram", "source-a"))

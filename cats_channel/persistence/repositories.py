@@ -152,6 +152,7 @@ class SqlAlchemyThreadRepository:
         )
 
     async def get_or_create(self, source: SourceIdentity) -> CatThread:
+        """Select by stable identity and replace its current display metadata."""
         model = await self._session.scalar(self._source_query(source))
         if model is None:
             candidate = CatThreadModel(
@@ -171,13 +172,10 @@ class SqlAlchemyThreadRepository:
                 if model is None:
                     raise
         changed = False
-        if source.channel_name is not None and source.channel_name != model.source_channel_name:
+        if source.channel_name != model.source_channel_name:
             model.source_channel_name = source.channel_name
             changed = True
-        if (
-            source.channel_username is not None
-            and source.channel_username != model.source_channel_username
-        ):
+        if source.channel_username != model.source_channel_username:
             model.source_channel_username = source.channel_username
             changed = True
         if changed:

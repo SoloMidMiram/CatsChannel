@@ -23,6 +23,11 @@ changing the thread selected by the stable provider/channel key. Source-media
 uniqueness is independent of thread identity, so moving or renaming a source does
 not permit duplicate ingestion.
 
+`get_or_create(SourceIdentity(...))` treats display fields as a complete current
+snapshot: `None` clears a stored name or username. This removes obsolete public
+handles when a channel becomes private, even if the old handle is reassigned.
+Use `get(thread_id)` for a lookup that leaves display metadata unchanged.
+
 The root and tail IDs deliberately avoid circular database foreign keys back to
 `cat_posts`; repository operations validate that each referenced post belongs to
 the thread. Root and tail are initialized as a pair. Tail changes require both the

@@ -18,6 +18,11 @@ def _required(value: str, field: str) -> str:
 
 @dataclass(frozen=True)
 class SourceIdentity:
+    """Stable source key plus a complete current display-metadata snapshot.
+
+    Null display fields represent absent metadata, not a partial-update request.
+    """
+
     provider: str
     channel_id: str
     channel_name: str | None = None
