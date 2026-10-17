@@ -18,7 +18,7 @@ Goals:
 
 Deliverables:
 
-- Python 3.11 baseline, 3.13 compatibility checks and a quarterly upgrade rehearsal
+- Python 3.11 runtime and CI baseline, with a future 3.13 migration rehearsal
 - uv lockfile
 - aiogram 3 application factory
 - tests running offline

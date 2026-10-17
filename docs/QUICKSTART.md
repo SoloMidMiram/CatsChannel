@@ -5,9 +5,10 @@
 Use Python 3.11 for the first working example, with a project-local environment
 managed by uv. `.python-version` selects the newest available 3.11 patch; the clean
 review environment resolved to Python 3.11.15. `requires-python` permits 3.11
-through 3.13, and CI checks both 3.11 and 3.13. Python 3.11 is now in security-only
-support and reaches end of life in October 2027, so treat it as a compatibility
-baseline rather than a permanent platform.
+only, and CI checks the supported 3.11 line on Windows and Linux. Python 3.13 is a
+future migration target, not a currently supported runtime. Python 3.11 is now in
+security-only support and reaches end of life in October 2027, so the migration
+must be planned before then.
 
 The original setup required 3.13 only, had a comment-only `uv.lock`, no configuration
 loader, and no runnable app. The example addresses these foundation gaps. Database
@@ -308,9 +309,10 @@ contains cats or that you have permission to republish it.
    lockfile together with configuration changes. For a YouTube extractor break,
    prefer `uv lock --upgrade-package yt-dlp` first. Never silently upgrade production.
 3. **Python upgrade rehearsal:** during the next foundation milestone, create a
-   disposable 3.13 environment and run the same checks/smoke tests. CI tests 3.11
-   and 3.13 meanwhile. Target switching the default to 3.13 by June 2027, after
-   compatibility is demonstrated. Retire 3.11 before its October 2027 end of life.
+   disposable 3.13 environment on a dedicated upgrade branch and run the same
+   checks/smoke tests. This rehearsal does not make 3.13 a supported runtime or CI
+   gate. Target switching the project to 3.13 by June 2027 only after compatibility
+   is demonstrated. Retire 3.11 before its October 2027 end of life.
 4. **Production:** queue downloads in a separate worker, add durable submission
    state, moderation, idempotent publishing, disk quotas, rate limits and metrics.
    Add Telethon only for a concrete requirement Bot API cannot meet. Run it as a

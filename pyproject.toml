@@ -2,7 +2,7 @@
 name = "cats-channel"
 version = "0.1.0"
 description = "Telegram cat video reply-chain bot"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "aiogram>=3.31,<4",
     "pydantic-settings>=2.0,<3",
