@@ -92,8 +92,9 @@ private chat reaches `/start`, `/help`, `/probe`, `/download`, or `/publish`; on
 media operation runs at a time; and an upload can only use the `LibraryItem`
 returned by `MediaService`. The application core does not construct persistence
 until a product workflow needs it. The concrete persistence contracts now exist
-under `cats_channel.persistence`; reply-chain decisions, moderation, and live
-pilot optimization remain later features.
+under `cats_channel.persistence`. `reply_chains` owns logical placement and
+durable reply-target resolution; moderation and live pilot optimization remain
+later features. Persistent lookup is explicitly enabled at composition time.
 
 The remaining entry conventions are implemented in `bot/entry.py` and
 `bot/flow.py`: opaque reply payloads, internal-ID callbacks, and private-state
@@ -132,6 +133,18 @@ unresolved media requires explicit selection of an existing logical thread. The
 service atomically stores lifecycle, bounded metadata, validation evidence,
 provenance, an optional Telegram projection, and one-use handoff consumption.
 It does not create a `CatPost` or inspect thread root/tail. See SUBMISSIONS.md.
+
+## Reply-chain boundary
+
+`ReplyChainService` finalizes durable placement intents using internal UUIDs.
+Normal posts select the current tail in the finalization transaction; interactive
+posts keep their exact selected parent and never redirect that tail. Thread-local
+locks plus optimistic root/tail updates prevent silent forks, and failed updates
+roll back post insertion. Shared cancellation-safe cleanup drains the UoW before
+releasing the thread lock. Hashed, revocable reply tokens resolve through an
+explicit actor policy and destination-projection check. Handlers consume internal
+targets through the existing resolver protocol; graph decisions stay out of them.
+See [reply-chain invariants and publication boundary](REPLY_CHAIN_DOMAIN.md).
 
 ## Optional Telegram downloader backend
 

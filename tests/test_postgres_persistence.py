@@ -149,7 +149,25 @@ def test_disposable_postgres_migrations_transactions_and_handoffs(monkeypatch):
     assert "source_channel_username" not in columns
     assert revision == "0001_persistence_foundation"
 
+    command.upgrade(config, "0002_source_aware_submissions")
+    create_table = Operations.create_table
+
+    def fail_reply_migration(operations, table_name, *args, **kwargs):
+        result = create_table(operations, table_name, *args, **kwargs)
+        if table_name == "reply_entry_tokens":
+            raise RuntimeError("reply migration rollback")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Operations, "create_table", fail_reply_migration)
+        with pytest.raises(RuntimeError, match="reply migration rollback"):
+            command.upgrade(config, "head")
+    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"
     command.upgrade(config, "head")
     command.check(config)
-    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"
+    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0003_reply_chain_domain"
     asyncio.run(_transaction_contracts(POSTGRES_URL))
+    command.downgrade(config, "0002_source_aware_submissions")
+    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"
+    command.upgrade(config, "head")
+    command.check(config)

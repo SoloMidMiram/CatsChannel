@@ -20,11 +20,16 @@ cats_channel/
     service.py        # source assignment and atomic submission decisions
     errors.py         # typed application rejection
   adapters/          # process, cookie, validation, and Telethon integrations
+  reply_chains/      # durable intents, root/append/branch decisions, keyed coordination
+                     # typed errors and database-backed reply-target resolver
+  reply_tokens.py    # shared transport-independent identity/token syntax
+  async_cleanup.py   # shared cancellation-safe owned cleanup
   persistence/
     entities.py       # transport/ORM-independent persistence records
     contracts.py      # repositories and application unit of work
     models.py         # single SQLAlchemy model owner
     repositories.py  # async query and invariant implementation
+    reply_repositories.py # immutable placement and hashed reply-token persistence
     database.py       # engine/session lifecycle and transaction owner
     errors.py         # stable persistence failure categories
   diagnostics.py     # deterministic classification and safe structured logging

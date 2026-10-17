@@ -40,9 +40,10 @@ other token namespaces. Tokens must be randomly issued, never encoded IDs.
 actor authorization checks, and returns a `ReplyTarget(post_id, thread_id)` of
 canonical internal UUIDs or `None`. The core validates syntax before calling it
 and stores no raw token in FSM state or logs. Unavailable and malformed links get
-the same safe response. Default resolution fails closed until the reply-domain
-owner supplies its real mapping; this core PR adds no token database or parent
-selection policy. Public reply links are not one-use submission handoffs.
+the same safe response. Baseline resolution fails closed. The reply-chain domain
+now supplies a database-backed mapping through explicit persistent composition;
+see [reply-chain setup and policy](REPLY_CHAIN_DOMAIN.md). Public reply links are
+not one-use submission handoffs.
 
 After authorized resolution, `/start` records only the selected internal context
 and acknowledges it. It does not request or accept media. Bare `/start` retains

@@ -64,6 +64,46 @@ async def test_factory_does_not_enter_resources_or_call_bot_api():
     assert app.bot.session is session
 
 
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+async def test_persistent_run_bot_owns_database_and_preserves_startup_failure(
+    monkeypatch, cleanup_fails
+):
+    from cats_channel import persistence
+    from cats_channel.bot import application as application_module
+
+    database = AsyncMock()
+    database.unit_of_work = lambda: None  # No database query during startup.
+    if cleanup_fails:
+        database.dispose.side_effect = RuntimeError("database close failed")
+
+    class Owner:
+        @classmethod
+        def from_settings(cls, _settings):
+            return database
+
+    monkeypatch.setitem(persistence.__dict__, "Database", Owner)
+    session = PollingSession()
+    original = application_module.create_bot_application
+    startup_error = RuntimeError("startup failed")
+
+    async def fail_startup():
+        raise startup_error
+
+    def create(*args, **kwargs):
+        app = original(*args, bot=Bot(BOT_TOKEN, session=session), **kwargs)
+        app.dispatcher.startup.register(fail_startup)
+        return app
+
+    monkeypatch.setattr(application_module, "create_bot_application", create)
+    with pytest.raises(RuntimeError) as caught:
+        await application_module.run_bot(settings(reply_entries_enabled=True))
+    assert caught.value is startup_error
+    if cleanup_fails:
+        assert str(caught.value.__cause__) == "database close failed"
+    database.dispose.assert_awaited_once()
+    assert session.close_count == 1
+
+
 async def test_real_polling_closes_owned_resources_once_in_reverse_order():
     events = []
 

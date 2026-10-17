@@ -6,6 +6,7 @@ from datetime import datetime
 from types import TracebackType
 from typing import Protocol, Self
 
+from ..reply_chains.contracts import IntentRepository, ReplyTokenRepository
 from .entities import (
     CatPost,
     CatThread,
@@ -44,6 +45,10 @@ class SubmissionRepository(Protocol):
 
 
 class ThreadRepository(Protocol):
+    async def get_post(self, post_id: str) -> CatPost | None: ...
+
+    async def get_post_for_submission(self, submission_id: str) -> CatPost | None: ...
+
     async def get_or_create(self, source: SourceIdentity) -> CatThread: ...
 
     async def get(self, thread_id: str) -> CatThread | None: ...
@@ -73,6 +78,8 @@ class ThreadRepository(Protocol):
 
 
 class ProjectionRepository(Protocol):
+    async def get_destination(self, *, post_id: str, chat_id: int) -> TelegramProjection | None: ...
+
     async def add_for_post(
         self, *, post_id: str, purpose: MessagePurpose, reference: TelegramMessageRef
     ) -> TelegramProjection: ...
@@ -120,6 +127,12 @@ class HandoffRepository(Protocol):
 
 
 class PersistenceUnitOfWork(Protocol):
+    @property
+    def intents(self) -> IntentRepository: ...
+
+    @property
+    def reply_tokens(self) -> ReplyTokenRepository: ...
+
     @property
     def submissions(self) -> SubmissionRepository: ...
 

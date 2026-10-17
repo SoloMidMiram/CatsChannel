@@ -13,8 +13,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from ..async_cleanup import complete_cleanup
 from ..config import Settings
 from .models import Base
+from .reply_repositories import SqlAlchemyIntentRepository, SqlAlchemyReplyTokenRepository
 from .repositories import (
     SqlAlchemyHandoffRepository,
     SqlAlchemyProjectionRepository,
@@ -35,6 +37,20 @@ class SqlAlchemyUnitOfWork:
         self._threads: SqlAlchemyThreadRepository | None = None
         self._projections: SqlAlchemyProjectionRepository | None = None
         self._handoffs: SqlAlchemyHandoffRepository | None = None
+        self._intents: SqlAlchemyIntentRepository | None = None
+        self._reply_tokens: SqlAlchemyReplyTokenRepository | None = None
+
+    @property
+    def intents(self) -> SqlAlchemyIntentRepository:
+        if self._intents is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._intents
+
+    @property
+    def reply_tokens(self) -> SqlAlchemyReplyTokenRepository:
+        if self._reply_tokens is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._reply_tokens
 
     @property
     def submissions(self) -> SqlAlchemySubmissionRepository:
@@ -67,6 +83,8 @@ class SqlAlchemyUnitOfWork:
         self._threads = None
         self._projections = None
         self._handoffs = None
+        self._intents = None
+        self._reply_tokens = None
 
     async def __aenter__(self) -> Self:
         if self._session is not None:
@@ -80,6 +98,8 @@ class SqlAlchemyUnitOfWork:
             self._threads = SqlAlchemyThreadRepository(session)
             self._projections = SqlAlchemyProjectionRepository(session)
             self._handoffs = SqlAlchemyHandoffRepository(session)
+            self._intents = SqlAlchemyIntentRepository(session)
+            self._reply_tokens = SqlAlchemyReplyTokenRepository(session)
         except BaseException:
             try:
                 await session.close()
@@ -97,13 +117,19 @@ class SqlAlchemyUnitOfWork:
         session, transaction = self._session, self._transaction
         if session is None or transaction is None:
             return None
-        try:
-            return await transaction.__aexit__(exc_type, exc_value, traceback)
-        finally:
+
+        async def close_transaction() -> bool | None:
             try:
-                await session.close()
+                return await transaction.__aexit__(exc_type, exc_value, traceback)
             finally:
-                self._clear_state()
+                try:
+                    await session.close()
+                finally:
+                    self._clear_state()
+
+        # A thread lock cannot be released while its rollback/commit still owns
+        # the session. Drain exit even if shutdown cancels the caller again.
+        return await complete_cleanup(close_transaction())
 
 
 class Database:

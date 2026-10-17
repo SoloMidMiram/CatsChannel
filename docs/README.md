@@ -8,5 +8,7 @@ Route-first testing and downloader profiles are in YOUTUBE_PROFILES.md.
 The implemented media-service boundaries and invariants are in ARCHITECTURE.md.
 The async data model, repository contracts, and migration workflow are in DATABASE.md.
 Source identity, validated inputs, and handoff behavior are in SUBMISSIONS.md.
-The remaining Telegram-core acceptance gaps are in AIOGRAM_CORE_AUDIT.md.
+The completed Telegram-core acceptance audit is in AIOGRAM_CORE_AUDIT.md.
+Durable placement, reply-token resolution, graph invariants and the publication
+boundary are in REPLY_CHAIN_DOMAIN.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.

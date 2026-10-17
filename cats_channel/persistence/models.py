@@ -176,3 +176,42 @@ class TelegramMessageRefModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class PostIntentModel(Base):
+    __tablename__ = "post_intents"
+    __table_args__ = (
+        UniqueConstraint("submission_id", name="uq_post_intents_submission"),
+        CheckConstraint(
+            "(mode = 'normal_append' AND selected_parent_post_id IS NULL) OR "
+            "(mode = 'interactive_reply' AND selected_parent_post_id IS NOT NULL)",
+            name="ck_post_intents_mode_parent",
+        ),
+        Index("ix_post_intents_thread", "thread_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    submission_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cat_video_submissions.id", ondelete="RESTRICT"), nullable=False
+    )
+    thread_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cat_threads.id", ondelete="RESTRICT"), nullable=False
+    )
+    mode: Mapped[str] = mapped_column(String(24), nullable=False)
+    selected_parent_post_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("cat_posts.id", ondelete="RESTRICT")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ReplyEntryTokenModel(Base):
+    __tablename__ = "reply_entry_tokens"
+    __table_args__ = (Index("ix_reply_entry_tokens_post", "post_id"),)
+    token_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    post_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cat_posts.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -329,6 +329,8 @@ def test_initial_alembic_migration_builds_schema(tmp_path, monkeypatch):
         "cat_posts",
         "telegram_message_refs",
         "media_handoff_requests",
+        "post_intents",
+        "reply_entry_tokens",
     } <= tables
     assert {
         "source_identity_status",
@@ -339,7 +341,51 @@ def test_initial_alembic_migration_builds_schema(tmp_path, monkeypatch):
         "validation_evidence",
         "provenance",
     } <= submission_columns
-    assert revision == ("0002_source_aware_submissions",)
+    assert revision == ("0003_reply_chain_domain",)
+
+
+@pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
+def test_reply_migration_rollback_downgrade_and_retry(tmp_path, monkeypatch, failure):
+    database_path = tmp_path / "reply-migration.sqlite3"
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    config.set_main_option("script_location", str(root / "alembic"))
+    monkeypatch.setenv("DATABASE_URL", sqlite_url(database_path))
+    command.upgrade(config, "0002_source_aware_submissions")
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            "INSERT INTO cat_video_submissions "
+            "(id,source_provider,source_media_id,status) "
+            "VALUES ('legacy','youtube','old','pending')"
+        )
+    create_table = Operations.create_table
+
+    def fail_reply_table(operations, table_name, *args, **kwargs):
+        result = create_table(operations, table_name, *args, **kwargs)
+        if table_name == "reply_entry_tokens":
+            raise failure("reply migration interrupted")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Operations, "create_table", fail_reply_table)
+        with pytest.raises(failure, match="reply migration interrupted"):
+            command.upgrade(config, "head")
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "0002_source_aware_submissions",
+        )
+        tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master")}
+        assert not tables & {"post_intents", "reply_entry_tokens"}
+    command.upgrade(config, "head")
+    command.check(config)
+    command.downgrade(config, "0002_source_aware_submissions")
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute("SELECT id FROM cat_video_submissions").fetchall() == [
+            ("legacy",)
+        ]
+    command.upgrade(config, "head")
+    command.check(config)
 
 
 @pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
@@ -381,7 +427,7 @@ def test_failed_sqlite_migration_rolls_back_ddl_and_can_be_retried(tmp_path, mon
     command.check(config)
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0002_source_aware_submissions",
+            "0003_reply_chain_domain",
         )
 
 
