@@ -85,6 +85,16 @@ ERROR_POLICIES = MappingProxyType(
             "Check Telegram connectivity and the bot conversation; do not resend in a loop.",
             "after_investigation",
         ),
+        "telegram_upload": ErrorPolicy(
+            "Telegram could not upload the validated media file.",
+            "Inspect the private chat, connectivity and upload limits before deciding to retry.",
+            "after_reconciliation",
+        ),
+        "telegram_publish": ErrorPolicy(
+            "Telegram could not publish to the configured channel.",
+            "Inspect channel history and posting permissions; do not blindly resend.",
+            "after_reconciliation",
+        ),
         "backend_capability": ErrorPolicy(
             "This backend does not support a metadata-only YouTube probe.",
             "Use --download with the Telegram backend; it never contacts YouTube directly.",

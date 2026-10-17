@@ -22,7 +22,11 @@ Current module responsibilities:
 cats_channel/
   __main__.py                    # minimal package entry point
   cli.py                         # arguments and safe JSON rendering
-  bot.py                         # aiogram wiring and explicit publication
+  bot/
+    application.py              # application factory and polling lifecycle
+    context.py                  # correlation/timing middleware and operation context
+    errors.py                   # safe bot response adapter and unexpected-error boundary
+    handlers.py                 # private admin commands and explicit publication
   config.py                      # validated environment configuration
   diagnostics.py                 # ordered regex rules and secret-safe JSON logging
   errors.py                      # stable error and retry policies
@@ -61,6 +65,32 @@ responsibilities no longer live inside the handlers.
 
 Future submission, moderation, reply-chain, and persistence services should depend
 on `MediaService`, not on yt-dlp, FFmpeg, or aiogram implementation details.
+
+## Aiogram application core
+
+`create_bot_application()` is the composition root. It creates no network
+connection and accepts an injected `MediaService`, logger, monotonic clock, and
+correlation-ID factory. The returned `BotApplication` owns one dispatcher, one
+media-task gate, and the concrete dependencies made available through aiogram's
+workflow data.
+
+```text
+run_bot()
+    -> create_bot_application()
+        -> private/admin router
+        -> operation logging middleware
+        -> MediaService dependency
+        -> one-process media task gate
+    -> Bot context
+    -> dispatcher polling
+```
+
+The router preserves the initial pilot behavior: only the configured admin in a
+private chat reaches `/start`, `/help`, `/probe`, `/download`, or `/publish`; one
+media operation runs at a time; and an upload can only use the `LibraryItem`
+returned by `MediaService`. The application core deliberately has no speculative
+repository abstraction. Persistence, reply-chain decisions, moderation, and live
+pilot optimization remain later features.
 
 ## Optional Telegram downloader backend
 

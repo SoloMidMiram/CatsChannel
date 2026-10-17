@@ -173,6 +173,7 @@ def log_failure(
     error: BaseException,
     *,
     operation: str | None = None,
+    correlation_id: str | None = None,
 ) -> None:
     """Emit one safe JSON failure event without serializing exception messages."""
     try:
@@ -192,8 +193,37 @@ def log_failure(
         }
         if operation is not None:
             payload["operation"] = _safe_token(operation)
+        if correlation_id is not None:
+            payload["correlation_id"] = _safe_token(correlation_id)
         if isinstance(warnings, (list, tuple)) and warnings:
             payload["warnings"] = [_safe_token(value) for value in warnings[:20]]
         logger.error(json.dumps(payload, ensure_ascii=True, sort_keys=True, allow_nan=False))
     except Exception:  # noqa: BLE001 - logging must not hide the primary operational error
+        return
+
+
+def log_operation(
+    logger: logging.Logger,
+    *,
+    correlation_id: str,
+    operation: str,
+    duration_ms: int,
+    outcome: str,
+    error_category: str | None = None,
+) -> None:
+    """Emit one allowlisted bot-operation record without message or exception text."""
+    try:
+        payload: dict[str, object] = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "level": "info",
+            "event": "bot_operation_finished",
+            "correlation_id": _safe_token(correlation_id),
+            "operation": _safe_token(operation),
+            "duration_ms": max(0, int(duration_ms)),
+            "outcome": _safe_token(outcome),
+        }
+        if error_category is not None:
+            payload["error_category"] = _safe_token(error_category, "internal_error")
+        logger.info(json.dumps(payload, ensure_ascii=True, sort_keys=True, allow_nan=False))
+    except Exception:  # noqa: BLE001 - observability must not alter the operation result
         return
