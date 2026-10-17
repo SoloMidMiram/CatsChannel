@@ -17,8 +17,9 @@ cancels and drains accepted updates, emits shutdown once, closes FSM storage,
 unwinds resources and finally closes its owned bot session. Failed startup also
 unwinds acquired resources. Repeated cancellation cannot abandon cleanup; cleanup
 must finish before ownership is reported released. Cleanup failure is logged
-through secret-safe diagnostics and remains visible; caller cancellation still
-propagates. Shutdown may wait for a media worker's existing cancellation drain.
+through secret-safe diagnostics and remains visible without replacing an earlier
+startup or operation failure; caller cancellation still propagates. Shutdown may
+wait for a media worker's existing cancellation drain.
 
 The old `start_polling(other_bot)` form is supported: that separate bot is
 borrowed and the caller closes it. The factory's own bot is still closed here.
@@ -60,7 +61,8 @@ unknown messages and unauthorized/group input do not replace a flow. A slower
 reply lookup cannot overwrite state after a newer command replaces it. Small
 state transitions are serialized; acquisition work remains concurrent enough for
 the existing media gate to return its busy response. A failed or cancelled entry
-confirmation clears its own partial state.
+confirmation clears its own partial state. If that clear also fails, the original
+failure or cancellation remains primary and the cleanup failure is chained.
 
 Default state is in-memory and ephemeral. Durable product workflow state, if
 needed later, belongs to its application/persistence owner rather than raw FSM

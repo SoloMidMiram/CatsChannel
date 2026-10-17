@@ -26,7 +26,12 @@ from cats_channel.bot.entry import (
     new_reply_token,
     parse_reply_payload,
 )
-from cats_channel.bot.flow import PrivateEntryContext, PrivateEntryStates, read_private_entry
+from cats_channel.bot.flow import (
+    PrivateEntryContext,
+    PrivateEntryStates,
+    PrivateFlowCoordinator,
+    read_private_entry,
+)
 from cats_channel.diagnostics import configure_logging
 
 
@@ -270,6 +275,40 @@ async def test_resolver_cancellation_does_not_leave_state_or_registry_entries():
     assert await context(app, bot).get_state() is None
     assert app.operation_registry.pending_count == app.flow_coordinator.pending_count == 0
     assert sent_texts(session) == []
+
+
+async def test_entry_cancellation_remains_primary_when_partial_state_clear_fails():
+    class FailingState:
+        key = StorageKey(bot_id=1, chat_id=2, user_id=3)
+
+        def __init__(self):
+            self.clear_count = 0
+
+        async def clear(self):
+            self.clear_count += 1
+            if self.clear_count > 1:
+                raise RuntimeError("state cleanup failed")
+
+        async def set_data(self, data):
+            pass
+
+        async def set_state(self, value):
+            pass
+
+    async def cancelled_notification():
+        raise asyncio.CancelledError
+
+    state = FailingState()
+    coordinator = PrivateFlowCoordinator()
+    with pytest.raises(asyncio.CancelledError) as caught:
+        async with coordinator.replace(state) as lease:
+            await lease.select(
+                PrivateEntryContext(str(uuid4()), str(uuid4())), cancelled_notification
+            )
+
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert state.clear_count == 2
+    assert coordinator.pending_count == 0
 
 
 async def test_unexpected_resolver_failure_logs_no_token_or_private_body(capsys):

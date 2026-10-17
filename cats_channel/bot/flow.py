@@ -22,6 +22,19 @@ class PrivateEntryStates(StatesGroup):
     reply_entry = State()
 
 
+async def _clear_preserving_primary(state: FSMContext, primary: BaseException) -> None:
+    """Clear partial state without replacing the failure that required cleanup."""
+    try:
+        await complete_cleanup(state.clear())
+    except asyncio.CancelledError as cleanup_cancellation:
+        if isinstance(primary, asyncio.CancelledError):
+            raise primary from cleanup_cancellation.__cause__
+        raise cleanup_cancellation from primary
+    except BaseException as cleanup_error:
+        raise primary from cleanup_error
+    raise primary
+
+
 @dataclass(frozen=True)
 class PrivateEntryContext:
     thread_id: str
@@ -44,8 +57,7 @@ async def read_private_entry(state: FSMContext) -> PrivateEntryContext | None:
     try:
         return PrivateEntryContext(**await state.get_data())
     except (TypeError, EntryContractError):
-        await complete_cleanup(state.clear())
-        raise EntryContractError() from None
+        await _clear_preserving_primary(state, EntryContractError())
 
 
 @dataclass
@@ -71,9 +83,8 @@ class FlowLease:
                 await self.state.set_data(context.to_data())
                 await self.state.set_state(PrivateEntryStates.reply_entry)
                 await notify()
-            except BaseException:
-                await complete_cleanup(self.state.clear())
-                raise
+            except BaseException as error:  # noqa: BLE001 - cancellation also clears partial state
+                await _clear_preserving_primary(self.state, error)
             return True
 
 

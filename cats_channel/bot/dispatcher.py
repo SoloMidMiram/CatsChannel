@@ -42,7 +42,14 @@ class ApplicationDispatcher(Dispatcher):
     async def emit_shutdown(self, *args: Any, **kwargs: Any) -> None:
         if self._shutdown_task is None:
             self._shutdown_task = asyncio.create_task(self._shutdown(*args, **kwargs))
-        await asyncio.shield(self._shutdown_task)
+        try:
+            await asyncio.shield(self._shutdown_task)
+        finally:
+            # aiogram sets this after emit_shutdown returns, so an exception in a
+            # shutdown callback would otherwise leave stop_polling() blocked.
+            # Do not signal early when only the awaiting caller was cancelled.
+            if self._shutdown_task.done() and self._stopped_signal is not None:
+                self._stopped_signal.set()
 
     @property
     def active_update_count(self) -> int:

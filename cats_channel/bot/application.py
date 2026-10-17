@@ -84,33 +84,54 @@ class BotApplication:
         stack.push_async_callback(self.bot.session.close)
         polling_bot = self.bot if bot is None else bot
         task = asyncio.create_task(self._run_owned(stack, polling_bot))
-        cancelled = False
+        primary: BaseException | None = None
+        cleanup_errors: list[Exception] = []
+        cleanup_cancellation: asyncio.CancelledError | None = None
+
+        def record_cleanup(error: Exception) -> None:
+            if error is not primary and all(existing is not error for existing in cleanup_errors):
+                cleanup_errors.append(error)
+                self._log_lifecycle_failure(error)
+
         try:
-            try:
-                await asyncio.shield(task)
-            except asyncio.CancelledError:
-                cancelled = True
-                try:
-                    await complete_cleanup(self._stop_owned(task))
-                except asyncio.CancelledError:
-                    pass
-                except Exception as error:  # noqa: BLE001 - preserve cancellation after diagnostics
-                    self._log_lifecycle_failure(error)
-                raise
-            finally:
-                try:
-                    await complete_cleanup(self._close(stack, polling_bot))
-                except Exception as error:
-                    if not cancelled:
-                        raise
-                    self._log_lifecycle_failure(error)
+            await asyncio.shield(task)
         except asyncio.CancelledError as error:
+            primary = error
+            try:
+                await complete_cleanup(self._stop_owned(task))
+            except asyncio.CancelledError as repeated_cancellation:
+                if isinstance(repeated_cancellation.__cause__, Exception):
+                    record_cleanup(repeated_cancellation.__cause__)
+            except Exception as stop_error:  # noqa: BLE001 - owned boundary records cleanup
+                record_cleanup(stop_error)
+        except BaseException as error:  # noqa: BLE001 - cleanup must run for every exit
+            primary = error
+
+        try:
+            await complete_cleanup(self._close(stack, polling_bot))
+        except asyncio.CancelledError as error:
+            cleanup_cancellation = error
             if isinstance(error.__cause__, Exception):
-                self._log_lifecycle_failure(error.__cause__)
-            raise
-        except Exception as error:
-            self._log_lifecycle_failure(error)
-            raise
+                record_cleanup(error.__cause__)
+        except Exception as error:  # noqa: BLE001 - owned boundary records cleanup
+            record_cleanup(error)
+
+        if isinstance(primary, asyncio.CancelledError):
+            if cleanup_errors:
+                raise primary from cleanup_errors[0]
+            raise primary
+        if cleanup_cancellation is not None:
+            if primary is not None:
+                raise cleanup_cancellation from primary
+            raise cleanup_cancellation
+        if primary is not None:
+            if isinstance(primary, Exception):
+                self._log_lifecycle_failure(primary)
+            if cleanup_errors:
+                raise primary from cleanup_errors[0]
+            raise primary
+        if cleanup_errors:
+            raise cleanup_errors[0]
 
     def _log_lifecycle_failure(self, error: BaseException) -> None:
         log_failure(

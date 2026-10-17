@@ -139,6 +139,28 @@ async def test_partial_resource_acquisition_unwinds_and_closes_bot():
     assert session.close_count == storage.close_count == 1
 
 
+async def test_startup_failure_remains_primary_when_resource_cleanup_also_fails():
+    @asynccontextmanager
+    async def resource():
+        try:
+            yield
+        finally:
+            raise RuntimeError("resource cleanup failed")
+
+    app, session, storage, _ = application(resources=(resource,))
+
+    async def fail_startup():
+        raise RuntimeError("startup failed")
+
+    app.dispatcher.startup.register(fail_startup)
+    with pytest.raises(RuntimeError, match="startup failed") as caught:
+        await app.start_polling()
+
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert str(caught.value.__cause__) == "resource cleanup failed"
+    assert session.close_count == storage.close_count == 1
+
+
 async def test_cancellation_during_startup_unwinds_owned_resources():
     started = asyncio.Event()
     app, session, storage, _ = application()
@@ -268,6 +290,23 @@ async def test_shutdown_callback_failure_still_closes_bot():
     running.cancel()
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(running, 2)
+    assert session.close_count == storage.close_count == 1
+
+
+async def test_normal_stop_preserves_shutdown_failure_without_a_self_cause():
+    app, session, storage, _ = application()
+
+    async def fail_shutdown():
+        raise RuntimeError("shutdown failed")
+
+    app.dispatcher.shutdown.register(fail_shutdown)
+    running = asyncio.create_task(app.start_polling())
+    await asyncio.wait_for(session.polling.wait(), 2)
+    await app.dispatcher.stop_polling()
+    with pytest.raises(RuntimeError, match="shutdown failed") as caught:
+        await running
+
+    assert caught.value.__cause__ is not caught.value
     assert session.close_count == storage.close_count == 1
 
 
