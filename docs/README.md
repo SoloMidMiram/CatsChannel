@@ -6,4 +6,5 @@ Downloader error and cookie/container operations are in DOWNLOADER_ERRORS.md.
 Telethon user-account downloads through @whatsmusicbot are in TELEGRAM_DOWNLOADER.md.
 Route-first testing and downloader profiles are in YOUTUBE_PROFILES.md.
 The implemented media-service boundaries and invariants are in ARCHITECTURE.md.
+The async data model, repository contracts, and migration workflow are in DATABASE.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.

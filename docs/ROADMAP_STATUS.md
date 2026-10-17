@@ -1,6 +1,6 @@
 # Status
 
-Current state: media-foundation feature branch plus an admin-only integration.
+Current state: merged media/aiogram foundation plus the persistence-foundation phase.
 
 Completed:
 
@@ -18,13 +18,18 @@ Completed:
 - verified cache reuse and atomic media-library publication
 - explicit secret-safe YouTube proxy configuration
 - structured CLI error envelopes
+- async SQLAlchemy repository and unit-of-work contracts
+- stable source-thread, post, submission, and Telegram projection schema
+- initial Alembic migration with SQLite tests and PostgreSQL configuration
 
 The media-foundation implementation is offline-complete: Python 3.11 and 3.13 WSL
 tests, Windows Python 3.11 tests, lint, formatting, lock consistency, and package
 build checks pass. Private-channel Telegram publication remains a separate
-authorized smoke test. Submission, moderation, and reply-chain work follows after
-this branch is reviewed.
+authorized smoke test. The aiogram application core and persistence foundation
+are offline-complete. Submission, publishing, moderation, and reply-chain product
+workflows remain separate phases so transport behavior does not become coupled to
+storage.
 
-The sample is not the full submission, persistence, moderation, or reply-chain
+The sample is not the full submission, moderation, publishing, or reply-chain
 implementation. Live service validation remains a separate smoke-test step.
 See QUICKSTART.md for setup and upgrade phases.

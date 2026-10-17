@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import AnyHttpUrl, AnyUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
     telegram_proxy: AnyUrl | None = None
     telegram_downloader_bot: str = "whatsmusicbot"
     telegram_response_timeout: int = Field(default=180, ge=10, le=600)
+    database_url: SecretStr = SecretStr("sqlite+aiosqlite:///cats_channel.sqlite3")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING"
 
     @property
@@ -45,6 +47,23 @@ class Settings(BaseSettings):
         if not re.fullmatch(r"[a-z][a-z0-9_]{4,31}", username):
             raise ValueError("Expected a Telegram bot username")
         return username
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: SecretStr) -> SecretStr:
+        url = value.get_secret_value().strip()
+        parsed = urlsplit(url)
+        if parsed.scheme not in {"sqlite+aiosqlite", "postgresql+asyncpg"}:
+            raise ValueError("DATABASE_URL must use sqlite+aiosqlite or postgresql+asyncpg")
+        if parsed.fragment:
+            raise ValueError("DATABASE_URL must not contain a fragment")
+        if parsed.scheme == "sqlite+aiosqlite" and (parsed.netloc or parsed.path in {"", "/"}):
+            raise ValueError("DATABASE_URL must identify a database")
+        if parsed.scheme == "postgresql+asyncpg" and (
+            parsed.hostname is None or parsed.path in {"", "/"}
+        ):
+            raise ValueError("DATABASE_URL must include a host and database name")
+        return SecretStr(url)
 
     def require_telegram_client(self) -> None:
         if not self.telegram_api_id or not self.telegram_api_hash.get_secret_value():

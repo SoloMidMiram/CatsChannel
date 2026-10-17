@@ -8,9 +8,11 @@ Completed:
 - offline configuration, downloader and safety tests
 - shared CLI/Telegram acquisition service and validated media library
 - bounded Windows/POSIX subprocess ownership and cancellation cleanup
+- async persistence repositories, unit of work, and initial Alembic migration
 
 Next:
 
-- add the submission and moderation domain model
-- add persistence repositories and migrations
+- implement the submission application workflow against the persistence contracts
+- implement Telegram publishing and reply-chain behavior
+- add the moderation domain model and workflow
 - run live smoke tests against a private Telegram test channel and an approved video

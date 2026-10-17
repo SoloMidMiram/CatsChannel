@@ -10,6 +10,8 @@ An admin-only integration example is available now. See
 YouTube probing/downloading, Telegram commands, and the upgrade plan.
 Persistent command-line downloads use the self-contained layout documented in
 [`docs/MEDIA_LIBRARY.md`](docs/MEDIA_LIBRARY.md).
+Async persistence contracts and migrations are documented in
+[`docs/DATABASE.md`](docs/DATABASE.md).
 
 ## Mission
 
