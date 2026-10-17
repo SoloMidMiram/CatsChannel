@@ -20,6 +20,9 @@ must finish before ownership is reported released. Cleanup failure is logged
 through secret-safe diagnostics and remains visible without replacing an earlier
 startup or operation failure; caller cancellation still propagates. Shutdown may
 wait for a media worker's existing cancellation drain.
+The dispatcher preserves the active polling failure before aiogram delegates
+shutdown from its `finally`; a simultaneous shutdown failure is chained as its
+cause, rather than becoming the primary error.
 
 The old `start_polling(other_bot)` form is supported: that separate bot is
 borrowed and the caller closes it. The factory's own bot is still closed here.

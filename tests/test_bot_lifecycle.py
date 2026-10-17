@@ -310,6 +310,49 @@ async def test_normal_stop_preserves_shutdown_failure_without_a_self_cause():
     assert session.close_count == storage.close_count == 1
 
 
+@pytest.mark.parametrize("fail_shutdown", [False, True])
+@pytest.mark.parametrize("cancel_polling", [False, True])
+async def test_real_polling_failure_remains_primary_across_shutdown(
+    fail_shutdown, cancel_polling, capsys
+):
+    app, session, storage, _ = application()
+    polling_error = (
+        asyncio.CancelledError("private-polling-body")
+        if cancel_polling
+        else RuntimeError("private-polling-body")
+    )
+    shutdown_error = RuntimeError("private-shutdown-body")
+    shutdown_count = 0
+    original_request = session.make_request
+
+    async def fail_get_me(bot, method, timeout=None):
+        if isinstance(method, GetMe):
+            raise polling_error
+        return await original_request(bot, method, timeout)
+
+    async def shutdown():
+        nonlocal shutdown_count
+        shutdown_count += 1
+        if fail_shutdown:
+            raise shutdown_error
+
+    session.make_request = fail_get_me
+    app.dispatcher.shutdown.register(shutdown)
+    with pytest.raises(type(polling_error)) as caught:
+        await asyncio.wait_for(app.start_polling(), 2)
+
+    # asyncio.shield can synthesize a new CancelledError for a cancelled task.
+    if not cancel_polling:
+        assert caught.value is polling_error
+    if fail_shutdown:
+        assert caught.value.__cause__ is shutdown_error
+    assert shutdown_count == session.close_count == storage.close_count == 1
+    assert app.dispatcher.active_update_count == 0
+    output = capsys.readouterr().err
+    assert "private-polling-body" not in output
+    assert "private-shutdown-body" not in output
+
+
 async def test_legacy_polling_bot_is_borrowed_while_factory_bot_is_owned():
     app, owned_session, storage, _ = application()
     borrowed_session = PollingSession()

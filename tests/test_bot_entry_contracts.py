@@ -61,6 +61,13 @@ def test_reply_link_is_opaque_and_round_trips_without_network():
     assert new_reply_token() != token
 
 
+def test_canonical_zero_bytes_token_is_valid_syntax():
+    # Token syntax does not establish issuance or authorization; the resolver does.
+    token = "A" * 43
+    link = build_reply_link("cats_test_bot", token)
+    assert parse_reply_payload(link.split("?start=", 1)[1]) == token
+
+
 @pytest.mark.parametrize(
     "payload",
     [

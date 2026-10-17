@@ -1,6 +1,7 @@
 """Drain accepted updates before closing FSM storage or other owned resources."""
 
 import asyncio
+import sys
 from typing import Any
 
 from aiogram import Bot, Dispatcher
@@ -40,10 +41,17 @@ class ApplicationDispatcher(Dispatcher):
         await super().emit_shutdown(*args, **kwargs)
 
     async def emit_shutdown(self, *args: Any, **kwargs: Any) -> None:
+        # aiogram delegates shutdown from start_polling's finally. Capture its
+        # active failure before awaiting cleanup, which can otherwise mask it.
+        primary = sys.exception()
         if self._shutdown_task is None:
             self._shutdown_task = asyncio.create_task(self._shutdown(*args, **kwargs))
         try:
             await asyncio.shield(self._shutdown_task)
+        except Exception as shutdown_error:
+            if primary is not None and primary is not shutdown_error:
+                raise primary from shutdown_error
+            raise
         finally:
             # aiogram sets this after emit_shutdown returns, so an exception in a
             # shutdown callback would otherwise leave stop_polling() blocked.
