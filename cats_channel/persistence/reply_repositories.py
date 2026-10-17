@@ -1,7 +1,7 @@
 """Durable immutable placement intents and hashed, revocable reply tokens."""
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
@@ -46,6 +46,12 @@ def _token(model: ReplyEntryTokenModel) -> ReplyEntryToken:
         _utc(model.expires_at) if model.expires_at else None,
         _utc(model.revoked_at) if model.revoked_at else None,
     )
+
+
+def _write_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("Reply token dates must be timezone-aware")
+    return value.astimezone(UTC)
 
 
 class SqlAlchemyIntentRepository:
@@ -116,9 +122,9 @@ class SqlAlchemyReplyTokenRepository:
         internal_id(post_id)
         if not re.fullmatch(r"[0-9a-f]{64}", token_digest):
             raise ValueError("Invalid reply digest")
-        if created_at.tzinfo is None or (
-            expires_at is not None and (expires_at.tzinfo is None or expires_at <= created_at)
-        ):
+        created_at = _write_utc(created_at)
+        expires_at = _write_utc(expires_at) if expires_at is not None else None
+        if expires_at is not None and expires_at <= created_at:
             raise ValueError("Invalid reply token dates")
         model = ReplyEntryTokenModel(
             token_digest=token_digest, post_id=post_id, created_at=created_at, expires_at=expires_at
@@ -139,6 +145,7 @@ class SqlAlchemyReplyTokenRepository:
         return _token(model) if model is not None else None
 
     async def revoke(self, token_digest: str, *, revoked_at: datetime) -> bool:
+        revoked_at = _write_utc(revoked_at)
         result = await self._session.execute(
             update(ReplyEntryTokenModel)
             .where(

@@ -4,7 +4,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -487,6 +487,53 @@ async def test_reusable_tokens_are_hashed_and_unknown_expired_revoked_denied_ide
     captured = capsys.readouterr()
     assert issued.token not in captured.out + captured.err
     assert permanent.token not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("offset_hours", [5, -7])
+async def test_non_utc_token_expiry_preserves_instant_and_boundary(chain_database, offset_hours):
+    db = chain_database
+    now = datetime(2026, 10, 17, 6, tzinfo=UTC)
+    chains = service(db, clock=lambda: now)
+    root = await normal(db, chains)
+    await project(db, root)
+    expires_utc = now + timedelta(hours=1)
+    expires_local = expires_utc.astimezone(timezone(timedelta(hours=offset_hours)))
+    issued = await chains.issue_reply_token(root.post_id, expires_at=expires_local)
+    assert issued.expires_at.utcoffset() == timedelta(0)
+    async with db.unit_of_work() as uow:
+        stored = await uow.reply_tokens.get(token_digest(issued.token))
+        assert stored.expires_at == expires_utc
+    resolver = DatabaseReplyTargetResolver(chains, authorize_actor=allow_actor)
+    now = expires_utc - timedelta(microseconds=1)
+    assert await resolver.resolve(issued.token, actor_id=42) == ReplyTarget(
+        root.post_id, root.thread_id
+    )
+    now = expires_utc
+    assert await resolver.resolve(issued.token, actor_id=42) is None
+
+
+@pytest.mark.parametrize("offset_hours", [5, -7])
+async def test_token_repository_normalizes_all_write_timestamps(chain_database, offset_hours):
+    db = chain_database
+    root = await normal(db, service(db))
+    created_utc = datetime(2026, 10, 17, 6, tzinfo=UTC)
+    zone = timezone(timedelta(hours=offset_hours))
+    expires_utc = created_utc + timedelta(hours=1)
+    revoked_utc = created_utc + timedelta(minutes=5)
+    digest = token_digest(new_reply_token())
+    async with db.unit_of_work() as uow:
+        await uow.reply_tokens.create(
+            token_digest=digest,
+            post_id=root.post_id,
+            created_at=created_utc.astimezone(zone),
+            expires_at=expires_utc.astimezone(zone),
+        )
+    async with db.unit_of_work() as uow:
+        stored = await uow.reply_tokens.get(digest)
+        assert stored.created_at == created_utc and stored.expires_at == expires_utc
+        assert await uow.reply_tokens.revoke(digest, revoked_at=revoked_utc.astimezone(zone))
+    async with db.unit_of_work() as uow:
+        assert (await uow.reply_tokens.get(digest)).revoked_at == revoked_utc
 
 
 async def test_token_denies_corrupt_cross_thread_or_missing_target(chain_database):

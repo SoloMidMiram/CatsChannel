@@ -265,8 +265,12 @@ class ReplyChainService:
         async with _boundary():
             internal_id(post_id)
             now = self.now()
-            if expires_at is not None and (expires_at.tzinfo is None or expires_at <= now):
-                raise ReplyChainError("reply_token_invalid")
+            if expires_at is not None:
+                if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+                    raise ReplyChainError("reply_token_invalid")
+                expires_at = expires_at.astimezone(UTC)
+                if expires_at <= now:
+                    raise ReplyChainError("reply_token_invalid")
             token = self._token_factory()
             digest = token_digest(token)
             async with self.unit_of_work() as uow:
