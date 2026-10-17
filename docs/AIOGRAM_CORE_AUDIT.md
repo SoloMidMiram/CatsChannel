@@ -21,8 +21,9 @@ unwinds resource contexts in reverse order, and closes its bot session exactly
 once, including startup failure and repeated caller cancellation. A borrowed bot
 passed to the legacy `start_polling(bot)` form remains caller-owned.
 
-The default reply resolver rejects unavailable tokens; future reply-domain code
-supplies the authorized token-to-target lookup. A successful injected resolution
+The baseline reply resolver rejects unavailable tokens; merged #6 supplies the
+database-backed authorized token-to-target lookup through persistent composition.
+A successful resolution
 sets an entry context containing internal IDs only. This defines the transport
 contract without implementing submission, parent selection, publication, or a
 moderation action. Public reply tokens are distinct from #5's durable one-use

@@ -11,4 +11,6 @@ Source identity, validated inputs, and handoff behavior are in SUBMISSIONS.md.
 The completed Telegram-core acceptance audit is in AIOGRAM_CORE_AUDIT.md.
 Durable placement, reply-token resolution, graph invariants and the publication
 boundary are in REPLY_CHAIN_DOMAIN.md.
+The agreed logical-placement versus confirmed-delivery lifecycle, recovery and
+remaining bot integration gates are in PUBLICATION_CONTRACT.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.
