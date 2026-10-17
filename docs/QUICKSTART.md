@@ -11,8 +11,9 @@ baseline rather than a permanent platform.
 
 The original setup required 3.13 only, had a comment-only `uv.lock`, no configuration
 loader, and no runnable app. The example addresses these foundation gaps. Database
-dependencies are now an optional `persistence` extra; the demo requires no database
-or Redis. Telethon is an optional `userbot` extra, enabled only when you select
+dependencies are now an optional `persistence` extra; the demo requires no database.
+Redis is deferred until distributed state is justified. Telethon is an optional
+`userbot` extra, enabled only when you select
 the Telegram downloader backend. See [TELEGRAM_DOWNLOADER.md](TELEGRAM_DOWNLOADER.md).
 
 Package baselines inspected on 2026-10-15:
@@ -166,11 +167,24 @@ YOUTUBE_PROXY=socks5h://127.0.0.1:10808
    Production should inject environment variables from a secret manager. Rotate an
    exposed bot token via BotFather. Real environment variables override `.env`.
 
+For persistence development, keep the local async SQLite default or inject a
+`postgresql+asyncpg` URL and apply the tracked schema:
+
+```bash
+uv sync --locked --extra persistence
+uv run --locked --extra persistence alembic upgrade head
+```
+
+`DATABASE_URL` is treated as a secret and synchronous driver URLs are rejected.
+The current admin media pilot does not open a database; later submission services
+will construct the unit of work explicitly.
+
 No Telegram API ID/hash is needed for aiogram. For the optional Telethon backend, obtain
 an API ID/hash from your Telegram developer application, use a separate session
 under `.secrets`, and log in interactively with your own account. Session files
-and session strings grant account access; protect them like passwords. The example
-reserves these variables but does not implement or start a user-account worker.
+and session strings grant account access; protect them like passwords. The optional
+`telegram_bot` media backend implements this worker without making it an automatic
+fallback. See [TELEGRAM_DOWNLOADER.md](TELEGRAM_DOWNLOADER.md).
 No YouTube Data API key is needed for yt-dlp. A metadata-discovery integration with
 YouTube Data API would be a separate adapter; its API key does not solve download
 authentication or cookie problems.
@@ -306,12 +320,14 @@ The sample is an integration spike, not the completed moderation/reply-chain
 platform. Tests use local mocks; real tokens, Telegram posting, YouTube extraction,
 cookie validity, JS runtime and FFmpeg behavior need live smoke validation.
 
-Local validation on 2026-10-16 produced these offline results from the lockfile:
+Local validation on 2026-10-17 produced these offline results from the lockfile:
 
-- WSL Python 3.11.16: 76 passed, 1 Windows-only test skipped;
-- WSL Python 3.13.15: 76 passed, 1 Windows-only test skipped;
-- Windows Python 3.11.4: 75 passed, 2 POSIX-only tests skipped;
-- Ruff lint/formatting, lock consistency, and package builds passed.
+- WSL Python 3.11.16 with all extras: 184 passed, 1 Windows-only test skipped;
+- WSL Python 3.13.15 with all extras: 184 passed, 1 Windows-only test skipped;
+- Windows Python 3.11.4 with all extras: 183 passed, 2 POSIX-only tests skipped;
+- WSL Python 3.11 baseline install: 170 passed, 2 optional tests skipped;
+- Ruff lint/formatting, lock consistency, SQLite migration parity, PostgreSQL
+  offline migration rendering, and offline source/wheel builds passed.
 
 Real Telegram credentials, YouTube access, cookie validity, JavaScript challenges,
 FFmpeg behavior, and private-channel publication still require authorized live

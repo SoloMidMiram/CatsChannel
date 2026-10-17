@@ -63,8 +63,9 @@ responsibilities no longer live inside the handlers.
   Exception messages, URLs, phone numbers, credentials and raw third-party logs
   never enter the structured logger.
 
-Future submission, moderation, reply-chain, and persistence services should depend
-on `MediaService`, not on yt-dlp, FFmpeg, or aiogram implementation details.
+Future submission, moderation, and reply-chain services should depend on
+`MediaService` and the persistence unit-of-work contracts, not on yt-dlp, FFmpeg,
+aiogram, or SQLAlchemy implementation details.
 
 ## Aiogram application core
 
@@ -88,9 +89,32 @@ run_bot()
 The router preserves the initial pilot behavior: only the configured admin in a
 private chat reaches `/start`, `/help`, `/probe`, `/download`, or `/publish`; one
 media operation runs at a time; and an upload can only use the `LibraryItem`
-returned by `MediaService`. The application core deliberately has no speculative
-repository abstraction. Persistence, reply-chain decisions, moderation, and live
+returned by `MediaService`. The application core does not construct persistence
+until a product workflow needs it. The concrete persistence contracts now exist
+under `cats_channel.persistence`; reply-chain decisions, moderation, and live
 pilot optimization remain later features.
+
+## Persistence boundary
+
+```text
+application service
+       |
+       v
+PersistenceUnitOfWork (transaction owner)
+       |
+       +-- submission repository
+       +-- thread/post repository
+       +-- Telegram projection repository
+       |
+       v
+async SQLAlchemy session -> SQLite tests / PostgreSQL configuration
+```
+
+Domain-facing records and protocols have no dependency on Telegram transports.
+The SQLAlchemy models have a single owner, while Alembic owns application schema
+changes. Stable source keys select logical threads; mutable names/usernames are
+descriptive metadata. Tail updates use optimistic versions so a lost update is a
+typed failure rather than a silent fork. See DATABASE.md for the invariants.
 
 ## Optional Telegram downloader backend
 
