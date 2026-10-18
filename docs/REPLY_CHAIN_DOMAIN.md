@@ -1,5 +1,11 @@
 # Reply-chain domain (#6)
 
+The v1 graph is merged. A bounded follow-up now separates truthful media provenance
+from authorized manual/exact-parent placement: the owner confirmed separate source
+chains and allowed a Telegram-uploaded reply under a YouTube-source post. Current
+provider checks reject that case. See [BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md);
+do not treat the broader interactive rule as already implemented.
+
 `ReplyChainService` makes graph decisions through repository/UoW protocols;
 it imports neither aiogram nor SQLAlchemy and never calls Telegram. One source
 provider and stable channel ID identify one `CatThread`, even if its display name
