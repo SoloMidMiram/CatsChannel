@@ -1,7 +1,8 @@
 # Status
 
-Current state: merged media/aiogram foundation plus persistence and source-aware
-submission foundations.
+Current state: media, aiogram core (#3), persistence (#4), source-aware submission
+foundation (PR #16), and reply-chain domain (#6, PR #24) are merged. Python 3.11
+bootstrap acceptance (#2) is complete. Issue #5 remains open for bot intake.
 
 Completed:
 
@@ -37,6 +38,12 @@ authorized smoke test. Aiogram submission UX, publishing, and moderation
 remain separate phases so transport behavior does
 not become coupled to storage.
 
-Logical graph finalization is implemented; Telegram delivery and reconciliation
-are the next boundary (#7). Live service validation remains a separate smoke-test step.
+Logical graph finalization is implemented. The largest remaining functional gap
+is bot integration: authenticated media intake, explicit source/parent selection,
+moderation and durable delivery are not an end-to-end product flow yet.
+The existing `/download` and manual `/publish` commands are pilot utilities.
+Issue #5 now tracks intake, #7 durable delivery and #8 moderation. Their acceptance
+requires real dispatcher/service integration with fake transport, followed by an
+authorized live pilot. See [PUBLICATION_CONTRACT.md](PUBLICATION_CONTRACT.md) for
+the logical-tail versus confirmed-delivery contract and unknown-send recovery.
 See QUICKSTART.md for setup and upgrade phases.

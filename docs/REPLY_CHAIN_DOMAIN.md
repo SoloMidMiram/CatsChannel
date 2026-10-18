@@ -71,6 +71,8 @@ Enabling lookup does not expose submission media handlers or moderation actions.
 ## Publication boundary (#7)
 
 Finalization commits a **logical placement**, not successful Telegram delivery.
+`CatThread.tail_post_id` is the logical canonical tail. Confirmed delivery uses
+separate durable publication state; it does not defer or repeat this tail update.
 This phase intentionally advances the logical normal tail at domain finalization
 as specified by #6. It adds no publication status, outbox, sender, copying,
 reconciliation or delivery guarantee. #7 must coordinate placement with its
@@ -85,6 +87,11 @@ unpublished parent must block child publication, never cause an unthreaded send.
 The publisher consumes these decisions and performs no parent/tail selection in
 handlers. Telegram `ReplyParameters`, delivery idempotency and reconciliation are
 the next focused PR.
+
+The normative #7 state transitions, parent-confirmation gate, ambiguous-send
+recovery, post-confirmation button attachment and bot integration gates are in
+[the publication contract](PUBLICATION_CONTRACT.md). These are planned publisher
+requirements, not implemented delivery guarantees.
 
 ## Evidence
 
