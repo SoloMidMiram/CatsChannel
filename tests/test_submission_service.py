@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 
 from cats_channel.persistence import Database, SourceIdentity, TelegramMessageRef
 from cats_channel.persistence.models import MediaHandoffRequestModel
+from cats_channel.reply_chains.service import ReplyChainService
+from cats_channel.reply_tokens import ReplyTarget
 from cats_channel.submissions import (
     HandoffBinding,
     HandoffClaim,
@@ -175,7 +177,130 @@ async def test_manual_selection_is_explicit_and_distinct_from_verification(datab
     assert stored is not None
     assert stored.thread_id == thread.id
     assert stored.source_identity_status == "user_selected"
+    assert stored.source_channel_id is None
+    assert stored.source_channel_name is None
+    assert stored.source_channel_username is None
     assert stored.provenance["source_resolution"]["status"] == "unresolved"
+
+
+async def test_authorized_exact_parent_accepts_cross_provider_with_truthful_provenance(database):
+    youtube_thread = await create_thread(
+        database, SourceIdentity("youtube", "UC-youtube", "YouTube cats", "youtube-cats")
+    )
+    async with database.unit_of_work() as uow:
+        parent_submission = await uow.submissions.create(
+            source_provider="youtube",
+            source_media_id="parent-video",
+            source_channel_id="UC-youtube",
+            source_identity_status="verified",
+            thread_id=youtube_thread.id,
+            status="validated",
+        )
+        parent = await uow.threads.add_post(
+            thread_id=youtube_thread.id, submission_id=parent_submission.id
+        )
+        await uow.threads.initialize_root(
+            thread_id=youtube_thread.id,
+            post_id=parent.id,
+            expected_version=youtube_thread.version,
+        )
+    media = telegram_media("telegram-reply")
+    binding = HandoffBinding(actor_id=100, conversation_chat_id=media.reference.chat_id)
+    service = SubmissionService(
+        database.unit_of_work,
+        MappingResolver({media.source_media_id: unresolved()}),
+    )
+    issued = await service.issue_handoff(binding)
+
+    result = await service.submit(
+        SubmissionRequest(
+            media=media,
+            handoff=HandoffClaim(issued.token, binding),
+            authorized_reply_target=ReplyTarget(parent.id, youtube_thread.id),
+        )
+    )
+
+    assert result.thread_id == youtube_thread.id
+    assert result.source_identity_status == "unresolved"
+    async with database.unit_of_work() as uow:
+        stored = await uow.submissions.get(result.submission_id)
+    assert stored is not None
+    assert stored.source_provider == "telegram"
+    assert stored.source_media_id == media.file_unique_id
+    assert stored.source_identity_status == "unresolved"
+    assert stored.source_channel_id is None
+    assert stored.source_channel_name is None
+    assert stored.source_channel_username is None
+    assert stored.thread_id == youtube_thread.id
+    assert stored.provenance["source_resolution"]["status"] == "unresolved"
+    reconciled = await service.reconcile_handoff(HandoffClaim(issued.token, binding))
+    assert reconciled is not None
+    assert reconciled.submission_id == result.submission_id
+    assert reconciled.source_identity_status == "unresolved"
+    chains = ReplyChainService(database.unit_of_work)
+    intent = await chains.create_interactive_intent(
+        result.submission_id, result.thread_id, parent.id
+    )
+    placed = await chains.finalize_intent(intent.id)
+    assert placed.parent_post_id == parent.id
+    assert not placed.advances_tail
+
+
+async def test_cross_provider_normal_selection_remains_rejected(database):
+    youtube_thread = await create_thread(database, SourceIdentity("youtube", "UC-youtube"))
+    media = telegram_media("normal-cross-provider")
+    binding = HandoffBinding(actor_id=100, conversation_chat_id=media.reference.chat_id)
+    service = SubmissionService(
+        database.unit_of_work,
+        MappingResolver({media.source_media_id: unresolved()}),
+    )
+    issued = await service.issue_handoff(binding)
+
+    with pytest.raises(SubmissionError) as caught:
+        await service.submit(
+            SubmissionRequest(
+                media=media,
+                selected_thread_id=youtube_thread.id,
+                handoff=HandoffClaim(issued.token, binding),
+            )
+        )
+
+    assert caught.value.code == "source_selection_invalid"
+    async with database.unit_of_work() as uow:
+        assert await uow.submissions.get_by_source_media("telegram", media.source_media_id) is None
+
+
+async def test_authorized_reply_target_must_match_an_existing_parent(database):
+    first = await create_thread(database, SourceIdentity("youtube", "UC-first"))
+    second = await create_thread(database, SourceIdentity("youtube", "UC-second"))
+    async with database.unit_of_work() as uow:
+        parent_submission = await uow.submissions.create(
+            source_provider="youtube",
+            source_media_id="other-parent",
+            source_channel_id="UC-second",
+            source_identity_status="verified",
+            thread_id=second.id,
+            status="validated",
+        )
+        parent = await uow.threads.add_post(thread_id=second.id, submission_id=parent_submission.id)
+    media = telegram_media("forged-target")
+    binding = HandoffBinding(actor_id=100, conversation_chat_id=media.reference.chat_id)
+    service = SubmissionService(
+        database.unit_of_work,
+        MappingResolver({media.source_media_id: unresolved()}),
+    )
+    issued = await service.issue_handoff(binding)
+
+    with pytest.raises(SubmissionError) as caught:
+        await service.submit(
+            SubmissionRequest(
+                media=media,
+                handoff=HandoffClaim(issued.token, binding),
+                authorized_reply_target=ReplyTarget(parent.id, first.id),
+            )
+        )
+
+    assert caught.value.code == "source_selection_invalid"
 
 
 async def test_unresolved_identity_without_selection_persists_nothing(database):

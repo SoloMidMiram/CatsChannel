@@ -21,7 +21,7 @@ from ..persistence.errors import (
 )
 from ..reply_tokens import EntryContractError, internal_id, new_reply_token, validate_reply_token
 from .coordinator import ThreadCoordinator
-from .entities import IssuedReplyToken, PlacedPost, PostIntent
+from .entities import IssuedReplyToken, PlacedPost, PlacementMode, PostIntent
 from .errors import ReplyChainError
 
 _PERSISTENCE_CODES = {
@@ -114,7 +114,12 @@ class ReplyChainService:
             post_id = post.parent_post_id
 
     async def _submission(
-        self, uow: PersistenceUnitOfWork, submission_id: str, thread: CatThread
+        self,
+        uow: PersistenceUnitOfWork,
+        submission_id: str,
+        thread: CatThread,
+        *,
+        mode: PlacementMode,
     ) -> None:
         internal_id(submission_id)
         submission = await uow.submissions.get(submission_id)
@@ -122,14 +127,23 @@ class ReplyChainService:
             raise ReplyChainError("reply_submission_not_found")
         if submission.thread_id != thread.id:
             raise ReplyChainError("reply_parent_cross_thread")
-        if submission.status != "validated" or submission.source_identity_status not in {
-            "verified",
-            "user_selected",
-        }:
+        if mode == "normal_append":
+            allowed_identity = {"verified", "user_selected"}
+        elif mode == "interactive_reply":
+            allowed_identity = {"verified", "user_selected", "unresolved"}
+        else:
             raise ReplyChainError("reply_chain_invalid_state")
-        if submission.source_provider != thread.source.provider or (
-            submission.source_identity_status == "verified"
-            and submission.source_channel_id != thread.source.channel_id
+        if (
+            submission.status != "validated"
+            or submission.source_identity_status not in allowed_identity
+        ):
+            raise ReplyChainError("reply_chain_invalid_state")
+        if mode == "normal_append" and (
+            submission.source_provider != thread.source.provider
+            or (
+                submission.source_identity_status == "verified"
+                and submission.source_channel_id != thread.source.channel_id
+            )
         ):
             raise ReplyChainError("reply_chain_invalid_state")
         if await uow.threads.get_post_for_submission(submission_id) is not None:
@@ -160,7 +174,7 @@ class ReplyChainService:
         async with _boundary():
             async with self.unit_of_work() as uow:
                 thread = await self._thread(uow, thread_id)
-                await self._submission(uow, submission_id, thread)
+                await self._submission(uow, submission_id, thread, mode="normal_append")
                 intent = await uow.intents.create(
                     submission_id=submission_id,
                     thread_id=thread_id,
@@ -175,7 +189,7 @@ class ReplyChainService:
         async with _boundary():
             async with self.unit_of_work() as uow:
                 thread = await self._thread(uow, thread_id)
-                await self._submission(uow, submission_id, thread)
+                await self._submission(uow, submission_id, thread, mode="interactive_reply")
                 if thread.root_post_id is None:
                     raise ReplyChainError("reply_chain_invalid_state")
                 await self._parent(uow, thread, selected_parent_post_id)
@@ -204,7 +218,6 @@ class ReplyChainService:
                     if intent is None:
                         raise ReplyChainError("reply_intent_not_found")
                     thread = await self._thread(uow, intent.thread_id)
-                    await self._submission(uow, intent.submission_id, thread)
                     normal = intent.mode == "normal_append"
                     if (normal and intent.selected_parent_post_id is not None) or (
                         not normal
@@ -215,6 +228,7 @@ class ReplyChainService:
                         )
                     ):
                         raise ReplyChainError("reply_chain_invalid_state")
+                    await self._submission(uow, intent.submission_id, thread, mode=intent.mode)
                     parent_id = thread.tail_post_id if normal else intent.selected_parent_post_id
                     if parent_id is not None:
                         await self._parent(uow, thread, parent_id)

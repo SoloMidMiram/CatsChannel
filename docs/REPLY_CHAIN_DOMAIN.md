@@ -1,13 +1,11 @@
 # Reply-chain domain (#6)
 
-The v1 graph is merged. A bounded follow-up now separates truthful media provenance
-from authorized exact-parent placement: the owner confirmed separate source chains
-and allowed a Telegram-uploaded reply under a YouTube-source post. This exception
-does not apply to normal automatic or manual appends. Target thread/parent fields
-are placement data and must not overwrite or verify media-source fields. Current
-provider checks reject the exact-parent case. See
-[BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md); do not treat the broader interactive rule
-as already implemented.
+The v1 graph and bounded provenance/placement correction are implemented. Separate
+source chains remain authoritative, while a Telegram-uploaded reply may sit under
+an exact YouTube-source parent without being relabeled as YouTube media. This
+exception does not apply to normal automatic or manual appends. Target thread and
+parent are placement data and never overwrite or verify media-source fields. See
+[BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md) for the intake plan.
 
 `ReplyChainService` makes graph decisions through repository/UoW protocols;
 it imports neither aiogram nor SQLAlchemy and never calls Telegram. One source
@@ -20,9 +18,11 @@ All public graph arguments are canonical internal UUIDv4 strings.
 Migration `0003_reply_chain_domain` adds `post_intents` and `reply_entry_tokens`.
 Intents are immutable and unique per submission. The database mode/parent check
 requires normal intents to have no selected parent and interactive intents to
-have one. Services require validated submissions assigned by the existing source
-resolver (verified identity or explicit user selection); they never infer a source
-from captions/usernames. Pending, unresolved, mismatched and reused submissions
+have one. Normal intents require validated source-matched submissions with verified
+identity or explicit same-provider source selection. Interactive intents also
+accept validated unresolved or differently sourced media assigned through an
+authorized exact target. They never infer or rewrite a source from captions,
+usernames or target-thread metadata. Pending, cross-thread and reused submissions
 are rejected with typed, safe errors.
 
 `create_normal_intent(submission_id, thread_id)` defers parent selection.

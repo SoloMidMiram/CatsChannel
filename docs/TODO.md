@@ -12,11 +12,9 @@ Completed:
 - source-aware validated submission service and durable one-use media handoff
 - aiogram owned lifecycle, deep links, callback/FSM and reset contracts (#3, PR #23)
 - durable reply intents/tokens, root/append/branch graph and concurrency rules (#6, PR #24)
+- truthful provenance and authorized cross-provider exact-parent placement (#6 follow-up)
 
 Next:
-
-- #6 follow-up: separate truthful media provenance from authorized placement so
-  Telegram uploads can reply to YouTube-source posts without redirecting a tail
 
 - #5: connect authenticated bot intake and shared media validation to submission
   and durable normal/exact-parent intent services; preserve source selection
