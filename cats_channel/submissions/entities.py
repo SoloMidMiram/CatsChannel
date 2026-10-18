@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Literal, TypeAlias
 
 from ..persistence.entities import SourceIdentity, TelegramMessageRef
+from ..reply_tokens import ReplyTarget
 from .errors import SubmissionError
 
 SourceIdentityStatus = Literal["verified", "user_selected", "unresolved"]
@@ -226,11 +227,18 @@ class SubmissionRequest:
     media: SubmissionMedia
     selected_thread_id: str | None = None
     handoff: HandoffClaim | None = None
+    authorized_reply_target: ReplyTarget | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.media, (ValidatedLocalMedia, ValidatedTelegramMedia)):
             raise SubmissionError("submission_media_invalid")
         object.__setattr__(self, "selected_thread_id", _optional(self.selected_thread_id))
+        if self.authorized_reply_target is not None and not isinstance(
+            self.authorized_reply_target, ReplyTarget
+        ):
+            raise SubmissionError("source_selection_invalid")
+        if self.selected_thread_id is not None and self.authorized_reply_target is not None:
+            raise SubmissionError("source_selection_invalid")
         if isinstance(self.media, ValidatedTelegramMedia) and self.handoff is None:
             raise SubmissionError("handoff_invalid")
 
@@ -247,4 +255,4 @@ class SubmissionResult:
     submission_id: str
     thread_id: str
     lifecycle: SubmissionLifecycle
-    source_identity_status: Literal["verified", "user_selected"]
+    source_identity_status: SourceIdentityStatus

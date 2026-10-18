@@ -200,6 +200,60 @@ async def test_user_selected_unverified_source_uses_explicit_thread(chain_databa
     assert placed.thread_id == thread.id
 
 
+async def test_cross_provider_exact_reply_keeps_tail_and_truthful_source(chain_database):
+    db = chain_database
+    chains = service(db)
+    root = await normal(db, chains)
+    thread, automatic = await seed(db)
+    automatic_intent = await chains.create_normal_intent(automatic.id, thread.id)
+    async with db.unit_of_work() as uow:
+        telegram = await uow.submissions.create(
+            source_provider="telegram",
+            source_media_id="telegram-file-unique-id",
+            source_channel_id=None,
+            source_channel_name=None,
+            source_channel_username=None,
+            source_identity_status="unresolved",
+            thread_id=thread.id,
+            status="validated",
+        )
+
+    reply_intent = await chains.create_interactive_intent(telegram.id, thread.id, root.post_id)
+    second = await chains.finalize_intent(automatic_intent.id)
+    reply = await chains.finalize_intent(reply_intent.id)
+    _, next_automatic = await seed(db)
+    next_intent = await chains.create_normal_intent(next_automatic.id, thread.id)
+    third = await chains.finalize_intent(next_intent.id)
+
+    assert reply.parent_post_id == root.post_id
+    assert not reply.advances_tail
+    assert second.parent_post_id == root.post_id
+    assert third.parent_post_id == second.post_id
+    async with db.unit_of_work() as uow:
+        stored = await uow.submissions.get(telegram.id)
+        current = await uow.threads.get(thread.id)
+    assert stored is not None
+    assert stored.source_provider == "telegram"
+    assert stored.source_identity_status == "unresolved"
+    assert stored.source_channel_id is None
+    assert current.tail_post_id == third.post_id
+
+
+async def test_cross_provider_submission_cannot_create_normal_intent(chain_database):
+    db = chain_database
+    thread, submission = await seed(
+        db,
+        source_provider="telegram",
+        source_channel_id=None,
+        source_identity_status="user_selected",
+    )
+
+    with pytest.raises(ReplyChainError) as caught:
+        await service(db).create_normal_intent(submission.id, thread.id)
+
+    assert_code(caught, "reply_chain_invalid_state")
+
+
 @pytest.mark.parametrize(
     "case,code",
     [

@@ -139,12 +139,15 @@ class SubmissionService:
                         "file_id": request.media.file_id,
                         "file_unique_id": request.media.file_unique_id,
                     }
+                source = resolution.identity
                 submission = await uow.submissions.create(
                     source_provider=request.media.source_provider,
                     source_media_id=request.media.source_media_id,
-                    source_channel_id=thread.source.channel_id,
-                    source_channel_name=thread.source.channel_name,
-                    source_channel_username=thread.source.channel_username,
+                    source_channel_id=source.channel_id if source is not None else None,
+                    source_channel_name=source.channel_name if source is not None else None,
+                    source_channel_username=(
+                        source.channel_username if source is not None else None
+                    ),
                     source_identity_status=identity_status,
                     thread_id=thread.id,
                     status="validated",
@@ -197,7 +200,8 @@ class SubmissionService:
                 if (
                     submission is None
                     or submission.thread_id is None
-                    or submission.source_identity_status not in {"verified", "user_selected"}
+                    or submission.source_identity_status
+                    not in {"verified", "user_selected", "unresolved"}
                 ):
                     raise SubmissionError("submission_persistence")
                 return SubmissionResult(
@@ -229,6 +233,13 @@ class SubmissionService:
         request: SubmissionRequest,
         resolution: ResolvedSourceIdentity,
     ) -> tuple[CatThread, str]:
+        if request.authorized_reply_target is not None:
+            target = request.authorized_reply_target
+            thread = await uow.threads.get(target.thread_id)
+            parent = await uow.threads.get_post(target.post_id)
+            if thread is None or parent is None or parent.thread_id != thread.id:
+                raise SubmissionError("source_selection_invalid")
+            return thread, resolution.status
         if resolution.status == "verified" and resolution.identity is not None:
             thread = await uow.threads.get_or_create(resolution.identity)
             if request.selected_thread_id is not None and request.selected_thread_id != thread.id:

@@ -29,7 +29,9 @@ reply may contain media from another provider and stays in the selected parent's
 thread without moving its tail. This is a mode-specific exception: automatic and
 manual normal appends remain source-matched. Actual media provenance must not be
 relabeled as the target source, and an exact-parent placement must not manufacture
-verified source identity. #6 needs a bounded follow-up because current provider
-matching rejects Telegram uploads under YouTube-source posts; the broader rule is
-planned, not implemented. See [BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md) for command,
-error, pilot regression and dependency details.
+verified source identity. A bounded #6 follow-up was required because provider
+matching originally rejected Telegram uploads under YouTube-source posts. That
+correction is implemented with mode-specific validation and an internal
+`authorized_reply_target` input; `/post` intake remains planned. See
+[BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md) for command, error, pilot regression and
+dependency details.

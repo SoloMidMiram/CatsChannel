@@ -35,11 +35,15 @@ repair; there is no fallback to an older post or a new root.
 
 ## Bounded domain correction before intake (#6)
 
-The current code conflates media provenance with target-chain assignment:
-`SubmissionService._resolve_thread()` rejects a Telegram upload selected for a
-YouTube source thread, and `ReplyChainService._submission()` repeats a provider
-match requirement. Submission persistence also copies target-thread source
-metadata into submission fields. A byte adapter alone cannot fix this.
+The bounded correction now separates media provenance from target-chain assignment.
+`SubmissionService` accepts an internally authorized exact `ReplyTarget`, validates
+its parent/thread membership, and persists resolver-derived source fields rather
+than copying target-thread metadata. `ReplyChainService` applies provider/source
+matching to normal intents while allowing unresolved or differently sourced media
+for interactive intents. No schema migration was required for this correction:
+the submission retains truthful provenance and placement thread, while a created
+immutable intent stores mode and exact parent. Phase #5 still owns durable workflow
+context and recovery when submission commit succeeds before intent creation.
 
 Separate actual source/acquisition identity from **authorized placement basis**.
 Automatic verified-source routing and normal manual appends remain source-matched.
@@ -71,9 +75,9 @@ A normal automatic or manual-append submission cannot exploit the interactive
 exception to switch source chains. Public payloads/callbacks cannot assert trusted
 authorization; the resolved server-side token context owns the thread and parent.
 
-Reopen #6 for this bounded follow-up and migration/regression design, preserving
-the completed v1 history. No global graph rewrite is required. Existing data must
-not be silently reclassified; any schema change needs migration/rollback tests.
+#6 preserves the completed v1 history and requires no global graph rewrite or data
+reclassification. Existing rows are unchanged; the corrected write path no longer
+copies target identity into new submissions.
 
 ## User flow and modular commands (#5)
 
@@ -172,12 +176,11 @@ Record the safe log and user response expected for every error category.
 
 ## Practical delivery order
 
-1. Bounded #6 source/provenance versus authorized placement correction and tests.
-2. #5 modular `/post`/deep-link intake with pending result and recovery coverage.
-3. #7 one-destination publication, strict parent projections, per-source ownership,
+1. #5 modular `/post`/deep-link intake with pending result and recovery coverage.
+2. #7 one-destination publication, strict parent projections, per-source ownership,
    confirmed/unknown recovery and post-confirmation reply buttons.
-4. #8 auditable moderation over the same durable intent; no retargeting.
-5. An authorized private pilot, incident regressions throughout, and later measured
+3. #8 auditable moderation over the same durable intent; no retargeting.
+4. An authorized private pilot, incident regressions throughout, and later measured
    operational hardening. #9 observability begins with #5/#7, not after incidents.
 
 Discovery #18-#21 stays metadata-only and can progress separately. #22 supplies
