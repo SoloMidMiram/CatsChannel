@@ -5,9 +5,10 @@ publication records and the integrated submission/moderation flow are **not yet
 implemented**. The merged #6 graph keeps its existing semantics.
 
 The owner confirmed one automatic chain per stable source, not one global channel
-feed. Reply-button media may have a different truthful provenance while remaining
-in its selected parent's thread; the needed #6 follow-up precedes intake. Command
-modularity and pilot error-to-regression gates are in
+feed. Authorized reply-button media may have a different truthful provenance while
+remaining in its exact selected parent's thread; normal append remains source-
+matched. The needed #6 follow-up precedes intake. Command modularity and pilot
+error-to-regression gates are in
 [BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md). Serialization and tail blocking below
 are per source thread; a blocked A chain does not reroute or block healthy B.
 

@@ -20,7 +20,7 @@ per source; do not introduce `ChannelFeed` or guess parents from Telegram histor
 | Automatic item for source B | B's own root/tail, never A's | Yes, for B only |
 | Reply button under any confirmed post | Exact internal post represented by the token | No |
 | Reply button under an interactive branch | Exact branch post | No |
-| Manual normal append | Explicit authorized source-chain selection; show the chosen mode | Yes, only through normal finalization |
+| Manual normal append | Explicit authorized selection of the media's own source chain; show the chosen mode | Yes, only through normal finalization |
 
 If A's normal path is `A1 -> A2 -> A3`, a button reply `X` under `A1` remains a
 branch. A's next automatic item replies to `A3`, never `X`. B remains independent.
@@ -42,17 +42,34 @@ match requirement. Submission persistence also copies target-thread source
 metadata into submission fields. A byte adapter alone cannot fix this.
 
 Separate actual source/acquisition identity from **authorized placement basis**.
-Automatic verified-source routing remains strict. A manual explicit choice or
-authorized exact-parent entry establishes a placement target, not evidence that
-the uploaded media originated at that thread's YouTube channel. Preserve media
-provider, provider-scoped media ID and unresolved/verified provenance truthfully;
-record explicit assignment separately where needed. Do not weaken validation,
+Automatic verified-source routing and normal manual appends remain source-matched.
+Only an authorized exact-parent entry may place media from another provider in the
+selected parent's thread. That placement is not evidence that the uploaded media
+originated at the thread's YouTube channel. Preserve media provider,
+provider-scoped media ID and unresolved/verified provenance truthfully; record the
+placement authorization separately where needed. Do not weaken validation,
 deduplication, actor policy, or parent/thread membership checks.
+
+The implementation contract is mode-specific:
+
+- submission persistence writes source fields only from the media and its source
+  resolver; it never copies `CatThread.source` fields into media provenance;
+- normal intent creation/finalization requires a verified or explicitly resolved
+  source identity that matches the selected thread;
+- interactive intent creation/finalization may accept unresolved or differently
+  sourced media only when an authorized opaque reply token fixed the exact parent;
+- the target thread and exact parent are placement data, not source-resolution
+  evidence. A user choice must not turn `unresolved` into `verified` or manufacture
+  source channel identifiers;
+- shared submission checks still enforce validated lifecycle, provider-scoped
+  media deduplication and one post per submission; only the provider/thread check
+  is mode-specific.
 
 An interactive child belongs to its selected parent's thread even when its own
 media provider differs. Its parent must still exist in that thread and destination.
-A normal automatic submission cannot exploit the interactive exception to switch
-source chains. Public payloads/callbacks cannot assert trusted authorization.
+A normal automatic or manual-append submission cannot exploit the interactive
+exception to switch source chains. Public payloads/callbacks cannot assert trusted
+authorization; the resolved server-side token context owns the thread and parent.
 
 Reopen #6 for this bounded follow-up and migration/regression design, preserving
 the completed v1 history. No global graph rewrite is required. Existing data must
@@ -146,11 +163,12 @@ default logs and user responses should not become noisy.
    dynamic permission expansion or self-modifying retry/error policies.
 
 Initial regression matrix: `/post` entry/alias, selection, invalid media, old button,
-cross-provider exact parent, nested branch, source rename, A/B interleaving, stale
-selection, duplicate update, partial commit, no second transfer, cancellation at
-each boundary, cleanup failure, unknown/deleted parent, send timeout after effect,
-restart reconciliation and failed button edit without duplicate media. Record the
-safe log and user response expected for every error category.
+cross-provider exact parent with truthful unresolved/Telegram provenance, rejection
+of cross-provider normal append, nested branch, source rename, A/B interleaving,
+stale/forged selection, duplicate update, partial commit, no second transfer,
+cancellation at each boundary, cleanup failure, unknown/deleted parent, send timeout
+after effect, restart reconciliation and failed button edit without duplicate media.
+Record the safe log and user response expected for every error category.
 
 ## Practical delivery order
 
