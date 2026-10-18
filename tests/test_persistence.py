@@ -10,7 +10,7 @@ pytest.importorskip("sqlalchemy")
 pytest.importorskip("aiosqlite")
 
 from alembic.config import Config
-from alembic.operations import Operations
+from alembic.operations import BatchOperations, Operations
 from sqlalchemy.exc import InvalidRequestError
 
 from alembic import command
@@ -340,8 +340,10 @@ def test_initial_alembic_migration_builds_schema(tmp_path, monkeypatch):
         "media_metadata",
         "validation_evidence",
         "provenance",
+        "placement_mode",
+        "selected_parent_post_id",
     } <= submission_columns
-    assert revision == ("0003_reply_chain_domain",)
+    assert revision == ("0004_bot_submission_intake",)
 
 
 @pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
@@ -388,6 +390,75 @@ def test_reply_migration_rollback_downgrade_and_retry(tmp_path, monkeypatch, fai
     command.check(config)
 
 
+def test_intake_migration_preserves_legacy_submissions_and_downgrades(tmp_path, monkeypatch):
+    database_path = tmp_path / "intake-migration.sqlite3"
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    config.set_main_option("script_location", str(root / "alembic"))
+    monkeypatch.setenv("DATABASE_URL", sqlite_url(database_path))
+    command.upgrade(config, "0003_reply_chain_domain")
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            "INSERT INTO cat_video_submissions "
+            "(id,source_provider,source_media_id,status) "
+            "VALUES ('legacy','youtube','old','pending')"
+        )
+
+    command.upgrade(config, "head")
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute(
+            "SELECT placement_mode,selected_parent_post_id "
+            "FROM cat_video_submissions WHERE id='legacy'"
+        ).fetchone() == (None, None)
+
+    command.downgrade(config, "0003_reply_chain_domain")
+    with sqlite3.connect(database_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(cat_video_submissions)")}
+        assert "placement_mode" not in columns
+        assert "selected_parent_post_id" not in columns
+        assert connection.execute(
+            "SELECT id FROM cat_video_submissions WHERE id='legacy'"
+        ).fetchone() == ("legacy",)
+
+    command.upgrade(config, "head")
+    command.check(config)
+
+
+@pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
+def test_intake_migration_rolls_back_and_retries(tmp_path, monkeypatch, failure):
+    database_path = tmp_path / "failed-intake-migration.sqlite3"
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.attributes["configure_logger"] = False
+    config.set_main_option("script_location", str(root / "alembic"))
+    monkeypatch.setenv("DATABASE_URL", sqlite_url(database_path))
+    command.upgrade(config, "0003_reply_chain_domain")
+    create_constraint = BatchOperations.create_check_constraint
+
+    def fail_constraint(operations, constraint_name, condition, **kwargs):
+        result = create_constraint(operations, constraint_name, condition, **kwargs)
+        if constraint_name == "ck_cat_submissions_placement":
+            raise failure("intake migration interrupted")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(BatchOperations, "create_check_constraint", fail_constraint)
+        with pytest.raises(failure, match="intake migration interrupted"):
+            command.upgrade(config, "head")
+
+    with sqlite3.connect(database_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(cat_video_submissions)")}
+        assert "placement_mode" not in columns
+        assert "selected_parent_post_id" not in columns
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "0003_reply_chain_domain",
+        )
+
+    command.upgrade(config, "head")
+    command.check(config)
+
+
 @pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
 def test_failed_sqlite_migration_rolls_back_ddl_and_can_be_retried(tmp_path, monkeypatch, failure):
     database_path = tmp_path / "failed-migration.sqlite3"
@@ -427,7 +498,7 @@ def test_failed_sqlite_migration_rolls_back_ddl_and_can_be_retried(tmp_path, mon
     command.check(config)
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0003_reply_chain_domain",
+            "0004_bot_submission_intake",
         )
 
 

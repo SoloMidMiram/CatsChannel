@@ -7,8 +7,8 @@ This plan records the owner's two confirmed choices on 2026-10-18:
   provider. A Telegram upload can reply under a YouTube-source post without being
   relabeled as YouTube media.
 
-This is a plan, not implemented `/post`, intake, publication or moderation UX.
-It supersedes the attachments' suggested global-feed migration. Keep `CatThread`
+The issue #5 intake portion is implemented; publication and moderation remain
+planned. This document supersedes the attachments' suggested global-feed migration. Keep `CatThread`
 per source; do not introduce `ChannelFeed` or guess parents from Telegram history.
 
 ## Parent behavior
@@ -81,7 +81,7 @@ copies target identity into new submissions.
 
 ## User flow and modular commands (#5)
 
-`/post` is the planned primary posting command; `/submit`, if retained, is an alias
+`/post` is the primary posting command; `/submit` is an alias
 to the same implementation. Bare `/post` starts a fresh flow, shows normal mode
 and explicit source-chain selection where required, then asks for one video.
 It must never silently reuse an old exact-parent context or select a chain from
@@ -93,13 +93,13 @@ starts the same post flow directly in exact-parent mode and asks for media; the
 user does not have to issue a second command. Raw chat/message IDs are not command
 arguments or FSM state. Failed/unavailable links share one safe response.
 
-Planned routing ownership, introduced incrementally when that feature lands:
+Routing ownership after the intake phase:
 
 ```text
-bot/routers/common.py       start/help/cancel and shared entry dispatch
-bot/routers/post.py         /post alias, selection callbacks, awaiting-media input
-bot/routers/media.py        existing probe/download utilities
-bot/routers/pilot.py        explicitly separate admin publication utility
+bot/handlers.py             start/help/cancel and existing pilot utilities
+bot/routers/post.py         /post alias, exact deep-link, selection and media input
+bot/telegram_media.py       bounded Telegram-byte transfer and full validation
+intake/service.py           replay reconciliation, submission and pending intent
 bot/routers/moderation.py   #8 only, when implemented
         -> application intake / placement / publication services
         -> trusted byte adapter and UoW repositories
@@ -176,7 +176,7 @@ Record the safe log and user response expected for every error category.
 
 ## Practical delivery order
 
-1. #5 modular `/post`/deep-link intake with pending result and recovery coverage.
+1. #5 modular `/post`/deep-link intake with pending result and recovery coverage — complete.
 2. #7 one-destination publication, strict parent projections, per-source ownership,
    confirmed/unknown recovery and post-confirmation reply buttons.
 3. #8 auditable moderation over the same durable intent; no retargeting.

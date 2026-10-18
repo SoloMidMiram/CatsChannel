@@ -228,6 +228,7 @@ class SubmissionRequest:
     selected_thread_id: str | None = None
     handoff: HandoffClaim | None = None
     authorized_reply_target: ReplyTarget | None = None
+    inbound_reference: TelegramMessageRef | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.media, (ValidatedLocalMedia, ValidatedTelegramMedia)):
@@ -239,6 +240,15 @@ class SubmissionRequest:
             raise SubmissionError("source_selection_invalid")
         if self.selected_thread_id is not None and self.authorized_reply_target is not None:
             raise SubmissionError("source_selection_invalid")
+        if self.inbound_reference is not None and not isinstance(
+            self.inbound_reference, TelegramMessageRef
+        ):
+            raise SubmissionError("handoff_invalid")
+        if isinstance(self.media, ValidatedTelegramMedia):
+            if self.inbound_reference is None:
+                object.__setattr__(self, "inbound_reference", self.media.reference)
+            elif self.inbound_reference != self.media.reference:
+                raise SubmissionError("handoff_invalid")
         if isinstance(self.media, ValidatedTelegramMedia) and self.handoff is None:
             raise SubmissionError("handoff_invalid")
 

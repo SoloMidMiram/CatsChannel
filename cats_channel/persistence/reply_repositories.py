@@ -3,7 +3,7 @@
 import re
 from datetime import UTC, datetime
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -104,6 +104,13 @@ class SqlAlchemyIntentRepository:
 
     async def get(self, intent_id: str) -> PostIntent | None:
         model = await self._session.get(PostIntentModel, intent_id)
+        return _intent(model) if model is not None else None
+
+    async def get_for_submission(self, submission_id: str) -> PostIntent | None:
+        internal_id(submission_id)
+        model = await self._session.scalar(
+            select(PostIntentModel).where(PostIntentModel.submission_id == submission_id)
+        )
         return _intent(model) if model is not None else None
 
 

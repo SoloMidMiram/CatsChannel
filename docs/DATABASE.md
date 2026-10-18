@@ -31,6 +31,12 @@ Submissions persist a source identity status, source display snapshot, narrow
 and curated provenance. The second migration adds these fields and the durable
 handoff table. Raw handoff tokens are never stored.
 
+Migration `0004_bot_submission_intake` adds nullable durable placement fields to
+submissions. New intake rows store `normal_append` with no selected parent, or
+`interactive_reply` with an exact parent. Legacy rows remain null and unchanged.
+The matching immutable `post_intents` row is created separately; this enables
+recovery after a committed submission without repeating media transfer.
+
 `get_or_create(SourceIdentity(...))` treats display fields as a complete current
 snapshot: `None` clears a stored name or username. This removes obsolete public
 handles when a channel becomes private, even if the old handle is reassigned.

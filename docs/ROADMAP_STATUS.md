@@ -1,14 +1,16 @@
 # Status
 
 Current state: media, aiogram core (#3), persistence (#4), source-aware submission
-foundation (PR #16), and reply-chain domain (#6, PR #24) are merged. Python 3.11
-bootstrap acceptance (#2) is complete. Issue #5 remains open for bot intake.
+foundation (PR #16), and reply-chain domain (#6, PR #24 plus its bounded
+correction) are merged. Python 3.11 bootstrap acceptance (#2) is complete.
+This branch implements issue #5 bot intake; publication remains issue #7.
 
 Owner review retained separate automatic source chains. The bounded #6 follow-up
 now separates truthful provenance from authorized exact-parent placement, allowing
 Telegram media under a YouTube-source parent while keeping normal append strict.
-`/post`, modular intake routers and pilot regression expansion remain planned in
-[BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md), not implemented features.
+`/post`, its `/submit` alias, opaque exact-reply entry, source selection, trusted
+Telegram byte validation, pending intent persistence and partial-commit recovery
+are implemented without publication or moderation side effects.
 
 Completed:
 
@@ -38,6 +40,10 @@ Completed:
 - application-local thread serialization and rollback without orphan posts
 - database-backed opaque reply entry through the existing dispatcher/FSM contract
 - mode-specific source matching with truthful cross-provider exact-parent replies
+- focused `/post` intake router sharing opaque deep-link entry and versioned FSM leases
+- actual Telegram Bot API byte limits, FFprobe inspection and full FFmpeg decode
+- durable normal/exact placement context and private-projection replay reconciliation
+- pending acknowledgement with no post finalization, channel send or reply-button creation
 
 The media, aiogram-core, persistence, and source-aware submission foundations are
 offline-complete. Private-channel Telegram publication remains a separate
@@ -45,11 +51,11 @@ authorized smoke test. Aiogram submission UX, publishing, and moderation
 remain separate phases so transport behavior does
 not become coupled to storage.
 
-Logical graph finalization is implemented. The largest remaining functional gap
-is bot integration: authenticated media intake, explicit source/parent selection,
-moderation and durable delivery are not an end-to-end product flow yet.
+Logical graph finalization and authenticated bot intake are implemented. The
+largest remaining functional gap is durable delivery: moderation and publication
+are not an end-to-end product flow yet.
 The existing `/download` and manual `/publish` commands are pilot utilities.
-Issue #5 now tracks intake, #7 durable delivery and #8 moderation. Their acceptance
+Issue #7 now tracks durable delivery and #8 moderation. Their acceptance
 requires real dispatcher/service integration with fake transport, followed by an
 authorized live pilot. See [PUBLICATION_CONTRACT.md](PUBLICATION_CONTRACT.md) for
 the logical-tail versus confirmed-delivery contract and unknown-send recovery.

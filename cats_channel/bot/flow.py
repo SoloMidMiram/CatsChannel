@@ -37,13 +37,17 @@ async def _clear_preserving_primary(state: FSMContext, primary: BaseException) -
 
 @dataclass(frozen=True)
 class PrivateEntryContext:
-    thread_id: str
-    parent_post_id: str
+    thread_id: str | None = None
+    parent_post_id: str | None = None
     submission_id: str | None = None
 
     def __post_init__(self) -> None:
-        internal_id(self.thread_id)
-        internal_id(self.parent_post_id)
+        if self.thread_id is not None:
+            internal_id(self.thread_id)
+        if self.parent_post_id is not None:
+            internal_id(self.parent_post_id)
+        if self.parent_post_id is not None and self.thread_id is None:
+            raise EntryContractError()
         if self.submission_id is not None:
             internal_id(self.submission_id)
 
@@ -87,6 +91,17 @@ class FlowLease:
                 await _clear_preserving_primary(self.state, error)
             return True
 
+    async def is_current(self) -> bool:
+        async with self.transition.lock:
+            return self.version == self.transition.version
+
+    async def clear(self) -> bool:
+        async with self.transition.lock:
+            if self.version != self.transition.version:
+                return False
+            await complete_cleanup(self.state.clear())
+            return True
+
 
 class PrivateFlowCoordinator:
     def __init__(self) -> None:
@@ -107,6 +122,19 @@ class PrivateFlowCoordinator:
             if not transition.users:
                 self._transitions.pop(state.key, None)
 
+    @asynccontextmanager
+    async def continue_current(self, state: FSMContext) -> AsyncIterator[FlowLease]:
+        transition = self._transitions.setdefault(state.key, _Transition())
+        transition.users += 1
+        try:
+            async with transition.lock:
+                lease = FlowLease(state, transition, transition.version)
+            yield lease
+        finally:
+            transition.users -= 1
+            if not transition.users:
+                self._transitions.pop(state.key, None)
+
     @property
     def pending_count(self) -> int:
         return len(self._transitions)
@@ -119,6 +147,15 @@ class PrivateFlowMiddleware(BaseMiddleware):
         self._coordinator = coordinator
 
     async def __call__(self, handler, event: TelegramObject, data: dict[str, Any]) -> Any:
+        text = getattr(event, "text", None)
+        command = text.split(maxsplit=1)[0] if isinstance(text, str) else ""
+        if not command.startswith("/"):
+            return await handler(event, data)
+        if "@" in command:
+            mention = command.rsplit("@", 1)[1]
+            me = await data["bot"].me()
+            if me.username is None or mention.casefold() != me.username.casefold():
+                return await handler(event, data)
         async with self._coordinator.replace(data["state"]) as lease:
             data["flow_lease"] = lease
             return await handler(event, data)

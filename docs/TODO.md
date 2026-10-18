@@ -13,13 +13,11 @@ Completed:
 - aiogram owned lifecycle, deep links, callback/FSM and reset contracts (#3, PR #23)
 - durable reply intents/tokens, root/append/branch graph and concurrency rules (#6, PR #24)
 - truthful provenance and authorized cross-provider exact-parent placement (#6 follow-up)
+- authenticated `/post`/deep-link intake, trusted Telegram byte validation,
+  durable placement intent, pending acknowledgement and replay reconciliation (#5)
 
 Next:
 
-- #5: connect authenticated bot intake and shared media validation to submission
-  and durable normal/exact-parent intent services; preserve source selection
-- make `/post` the shared primary entry with opaque-button entry into the same
-  FSM; split focused routers incrementally and extend existing error/log policies
 - #7: deliver approved logical posts with durable publication states, confirmed
   parent projections, reply buttons and ambiguous-send reconciliation
 - prove the bot-triggered intake/approval/publication vertical slice with fake

@@ -35,6 +35,8 @@ class SubmissionRepository(Protocol):
         media_metadata: dict[str, object] | None = None,
         validation_evidence: dict[str, object] | None = None,
         provenance: dict[str, object] | None = None,
+        placement_mode: str | None = None,
+        selected_parent_post_id: str | None = None,
     ) -> CatVideoSubmission: ...
 
     async def get(self, submission_id: str) -> CatVideoSubmission | None: ...
@@ -52,6 +54,8 @@ class ThreadRepository(Protocol):
     async def get_or_create(self, source: SourceIdentity) -> CatThread: ...
 
     async def get(self, thread_id: str) -> CatThread | None: ...
+
+    async def list_sources(self, *, limit: int = 20) -> tuple[CatThread, ...]: ...
 
     async def contains_post(self, thread_id: str, post_id: str) -> bool: ...
 
@@ -116,6 +120,8 @@ class HandoffRepository(Protocol):
         conversation_chat_id: int,
         operation: str,
     ) -> HandoffRequest | None: ...
+
+    async def get_for_submission(self, submission_id: str) -> HandoffRequest | None: ...
 
     async def consume(
         self,

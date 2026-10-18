@@ -209,6 +209,17 @@ async def test_command_for_another_bot_does_not_replace_entry():
     assert sent_texts(session) == []
 
 
+async def test_command_for_this_bot_replaces_entry():
+    app, bot, session = make_app()
+    state = context(app, bot)
+    await state.set_state(PrivateEntryStates.reply_entry)
+    await state.set_data(PrivateEntryContext(str(uuid4()), str(uuid4())).to_data())
+    await app.dispatcher.feed_update(bot, update("/cancel@cats_test_bot"))
+    assert await state.get_data() == {}
+    assert await state.get_state() is None
+    assert sent_texts(session) == ["Cancelled."]
+
+
 @pytest.mark.parametrize("user_id,chat_type", [(999, "private"), (ADMIN_ID, "group")])
 async def test_filters_run_before_resolver_or_fsm_reset(user_id, chat_type):
     resolver = AsyncMock()
@@ -253,7 +264,7 @@ async def test_failed_entry_confirmation_does_not_leave_active_state():
     resolver = AsyncMock()
     resolver.resolve.return_value = ReplyTarget(str(uuid4()), str(uuid4()))
     session = RecordingSession(
-        fail_when=lambda method: "Reply context selected" in str(getattr(method, "text", ""))
+        fail_when=lambda method: "Send one Telegram video" in str(getattr(method, "text", ""))
     )
     app, bot, _ = make_app(resolver, session)
     await app.dispatcher.feed_update(bot, update(f"/start catreply_{new_reply_token()}"))

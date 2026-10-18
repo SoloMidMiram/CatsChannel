@@ -102,9 +102,9 @@ class SubmissionService:
         except ValueError:
             raise SubmissionError("submission_media_invalid") from None
         if (
-            isinstance(request.media, ValidatedTelegramMedia)
-            and request.handoff is not None
-            and request.media.reference.chat_id != request.handoff.binding.conversation_chat_id
+            request.handoff is not None
+            and request.inbound_reference is not None
+            and request.inbound_reference.chat_id != request.handoff.binding.conversation_chat_id
         ):
             raise SubmissionError("handoff_invalid")
         try:
@@ -155,12 +155,22 @@ class SubmissionService:
                     media_metadata=request.media.metadata.to_record(),
                     validation_evidence=request.media.validation.to_record(),
                     provenance=provenance,
+                    placement_mode=(
+                        "interactive_reply"
+                        if request.authorized_reply_target is not None
+                        else "normal_append"
+                    ),
+                    selected_parent_post_id=(
+                        request.authorized_reply_target.post_id
+                        if request.authorized_reply_target is not None
+                        else None
+                    ),
                 )
-                if isinstance(request.media, ValidatedTelegramMedia):
+                if request.inbound_reference is not None:
                     await uow.projections.add_for_submission(
                         submission_id=submission.id,
                         purpose="private",
-                        reference=request.media.reference,
+                        reference=request.inbound_reference,
                     )
                 if request.handoff is not None:
                     await self._consume_handoff(uow, request.handoff, submission.id)

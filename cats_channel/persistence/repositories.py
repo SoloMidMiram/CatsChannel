@@ -94,6 +94,8 @@ def _submission(model: CatVideoSubmissionModel) -> CatVideoSubmission:
         provenance=dict(model.provenance),
         created_at=model.created_at,
         updated_at=model.updated_at,
+        placement_mode=model.placement_mode,
+        selected_parent_post_id=model.selected_parent_post_id,
     )
 
 
@@ -167,6 +169,8 @@ class SqlAlchemySubmissionRepository:
         media_metadata: dict[str, object] | None = None,
         validation_evidence: dict[str, object] | None = None,
         provenance: dict[str, object] | None = None,
+        placement_mode: str | None = None,
+        selected_parent_post_id: str | None = None,
     ) -> CatVideoSubmission:
         if source_identity_status not in {"verified", "user_selected", "unresolved"}:
             raise ValueError("source_identity_status is invalid")
@@ -174,6 +178,20 @@ class SqlAlchemySubmissionRepository:
             raise ValueError("status is invalid")
         if media_origin not in {"legacy", "local_library", "telegram_native"}:
             raise ValueError("media_origin is invalid")
+        if placement_mode is None:
+            if selected_parent_post_id is not None:
+                raise ValueError("placement_mode is required for a selected parent")
+        elif placement_mode == "normal_append":
+            if selected_parent_post_id is not None:
+                raise ValueError("normal placement cannot select a parent")
+        elif placement_mode == "interactive_reply":
+            if thread_id is None or selected_parent_post_id is None:
+                raise ValueError("interactive placement requires a thread and parent")
+            parent = await self._session.get(CatPostModel, selected_parent_post_id)
+            if parent is None or parent.thread_id != thread_id:
+                raise ThreadNotFoundError("Interactive placement target is invalid")
+        else:
+            raise ValueError("placement_mode is invalid")
         if thread_id is not None and await self._session.get(CatThreadModel, thread_id) is None:
             raise ThreadNotFoundError("Thread does not exist")
         model = CatVideoSubmissionModel(
@@ -190,6 +208,8 @@ class SqlAlchemySubmissionRepository:
             media_metadata=_json_object(media_metadata, "media_metadata"),
             validation_evidence=_json_object(validation_evidence, "validation_evidence"),
             provenance=submission_provenance_record(provenance, media_origin),
+            placement_mode=placement_mode,
+            selected_parent_post_id=selected_parent_post_id,
         )
         try:
             async with self._session.begin_nested():
@@ -282,6 +302,18 @@ class SqlAlchemyHandoffRepository:
         )
         return _handoff(model) if model is not None else None
 
+    async def get_for_submission(self, submission_id: str) -> HandoffRequest | None:
+        models = list(
+            (
+                await self._session.scalars(
+                    select(MediaHandoffRequestModel).where(
+                        MediaHandoffRequestModel.submission_id == submission_id
+                    )
+                )
+            ).all()
+        )
+        return _handoff(models[0]) if len(models) == 1 else None
+
     async def consume(
         self,
         *,
@@ -359,6 +391,18 @@ class SqlAlchemyThreadRepository:
     async def get(self, thread_id: str) -> CatThread | None:
         model = await self._session.get(CatThreadModel, thread_id)
         return _thread(model) if model is not None else None
+
+    async def list_sources(self, *, limit: int = 20) -> tuple[CatThread, ...]:
+        if isinstance(limit, bool) or not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+        models = (
+            await self._session.scalars(
+                select(CatThreadModel)
+                .order_by(CatThreadModel.created_at, CatThreadModel.id)
+                .limit(limit)
+            )
+        ).all()
+        return tuple(_thread(model) for model in models)
 
     async def contains_post(self, thread_id: str, post_id: str) -> bool:
         model = await self._session.get(CatPostModel, post_id)
