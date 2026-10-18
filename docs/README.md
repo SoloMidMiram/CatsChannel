@@ -13,4 +13,6 @@ Durable placement, reply-token resolution, graph invariants and the publication
 boundary are in REPLY_CHAIN_DOMAIN.md.
 The agreed logical-placement versus confirmed-delivery lifecycle, recovery and
 remaining bot integration gates are in PUBLICATION_CONTRACT.md.
+The confirmed source-chain choice, `/post` UX, modular routers and pilot
+incident-to-regression process are in BOT_POSTING_PLAN.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.

@@ -4,6 +4,12 @@ Current state: media, aiogram core (#3), persistence (#4), source-aware submissi
 foundation (PR #16), and reply-chain domain (#6, PR #24) are merged. Python 3.11
 bootstrap acceptance (#2) is complete. Issue #5 remains open for bot intake.
 
+Owner review retained separate automatic source chains, but exposed a bounded #6
+follow-up: current provider matching rejects Telegram-uploaded replies under
+YouTube-source posts. Provenance and authorized placement must be separated before
+intake. `/post`, modular intake routers and pilot regression expansion remain
+planned in [BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md), not implemented features.
+
 Completed:
 
 - environment definition
