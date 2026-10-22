@@ -60,6 +60,31 @@ async def test_connection_error_is_classified_once_and_client_is_disconnected():
     client.disconnect.assert_awaited_once()
 
 
+async def test_failed_connection_retrieves_telethon_terminal_future():
+    class TrackingFuture(asyncio.Future):
+        result_calls = 0
+
+        def result(self):
+            self.result_calls += 1
+            return super().result()
+
+    terminal = TrackingFuture()
+
+    async def fail_connect():
+        terminal.set_exception(asyncio.IncompleteReadError(b"", 8))
+        raise asyncio.IncompleteReadError(b"", 8)
+
+    client = client_with(connect=fail_connect, disconnected=terminal)
+    middleware = TelethonConnectionMiddleware(client)
+    with pytest.raises(MediaError) as raised:
+        async with middleware:
+            pytest.fail("A failed connection must not enter the operation body")
+
+    assert raised.value.code == "telegram_connect"
+    assert terminal.result_calls == 1
+    assert terminal.done()
+
+
 async def test_nested_operation_error_uses_inner_exception_pattern():
     proxy_error = type("ProxyConnectionError", (Exception,), {})
 

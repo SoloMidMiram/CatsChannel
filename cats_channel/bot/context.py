@@ -15,6 +15,11 @@ from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import Message, TelegramObject
 
 from ..diagnostics import log_operation
+from ..errors import MediaError
+from ..intake import IntakeError
+from ..publication.errors import PublicationError
+from ..reply_chains.errors import ReplyChainError
+from ..submissions import SubmissionError
 
 
 def operation_name(event: TelegramObject) -> str:
@@ -52,6 +57,9 @@ class BotOperation:
     started_at: float
     outcome: str = "success"
     error_category: str | None = None
+    disposition: str | None = None
+    placement_mode: str | None = None
+    publication_state: str | None = None
 
     def fail(self, category: str, *, outcome: str = "error") -> None:
         self.outcome = outcome
@@ -117,10 +125,16 @@ class OperationLoggingMiddleware(BaseMiddleware):
         except asyncio.CancelledError:
             context.fail("cancelled", outcome="cancelled")
             raise
-        except Exception:
-            # Expected MediaError policies are handled in the command router.
-            # Match the outer boundary without inspecting third-party attributes.
-            context.fail("internal_error")
+        except Exception as error:
+            # The router error observer handles these trusted domain types after
+            # outer middleware unwinds, so classify them before completion logs.
+            if isinstance(
+                error,
+                (IntakeError, SubmissionError, ReplyChainError, PublicationError, MediaError),
+            ):
+                context.fail(str(error.code))
+            else:
+                context.fail("internal_error")
             preserve_for_error_boundary = True
             raise
         finally:
@@ -132,6 +146,9 @@ class OperationLoggingMiddleware(BaseMiddleware):
                 duration_ms=duration_ms,
                 outcome=context.outcome,
                 error_category=context.error_category,
+                disposition=context.disposition,
+                placement_mode=context.placement_mode,
+                publication_state=context.publication_state,
             )
             if not preserve_for_error_boundary:
                 self._registry.discard(event)

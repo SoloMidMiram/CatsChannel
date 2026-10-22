@@ -15,6 +15,7 @@ from ..diagnostics import log_failure
 from ..errors import MediaError
 from ..intake import IntakeError
 from ..media import youtube_url
+from ..publication.errors import PublicationError
 from ..reply_chains.errors import ReplyChainError
 from ..services.media_service import MediaService
 from ..submissions import SubmissionError
@@ -87,10 +88,24 @@ def create_admin_router(settings: Settings, operation_registry: BotOperationRegi
         update_event = event.update.message or event.update.callback_query
         operation = bot_operation or operation_registry.take(update_event)
         error = event.exception
-        if isinstance(error, (IntakeError, SubmissionError, ReplyChainError, MediaError)):
+        if isinstance(
+            error,
+            (IntakeError, SubmissionError, ReplyChainError, PublicationError, MediaError),
+        ):
             code = str(error.code)
-            operation = operation or BotOperation("unavailable", "bot_intake", 0.0)
-            _record_failure(logger, operation, "bot_intake_failure", error, code=code)
+            publication_failure = isinstance(error, PublicationError)
+            operation = operation or BotOperation(
+                "unavailable",
+                "pilot_publish" if publication_failure else "bot_intake",
+                0.0,
+            )
+            _record_failure(
+                logger,
+                operation,
+                "bot_publication_failure" if publication_failure else "bot_intake_failure",
+                error,
+                code=code,
+            )
             message = event.update.message or (
                 event.update.callback_query.message if event.update.callback_query else None
             )

@@ -14,7 +14,7 @@ from .process import CancellationToken
 T = TypeVar("T")
 
 _TASK_DRAIN_GRACE_SECONDS = 0.1
-_OWNED_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+_OWNED_BACKGROUND_TASKS: set[asyncio.Future[Any]] = set()
 
 
 @dataclass(frozen=True)
@@ -113,7 +113,7 @@ def _check_cancel(token: CancellationToken | None) -> None:
         raise MediaError(code="cancelled")
 
 
-def _retrieve_task(task: asyncio.Task[Any]) -> None:
+def _retrieve_task(task: asyncio.Future[Any]) -> None:
     """Retrieve a completed task result without exposing its exception text."""
     _OWNED_BACKGROUND_TASKS.discard(task)
     try:
@@ -122,7 +122,7 @@ def _retrieve_task(task: asyncio.Task[Any]) -> None:
         return
 
 
-def _own_pending_task(task: asyncio.Task[Any], owner: set[asyncio.Task[Any]] | None) -> None:
+def _own_pending_task(task: asyncio.Future[Any], owner: set[asyncio.Task[Any]] | None) -> None:
     """Keep a strong reference and always retrieve a late task result."""
     _OWNED_BACKGROUND_TASKS.add(task)
     if owner is not None:
@@ -134,6 +134,20 @@ def _own_pending_task(task: asyncio.Task[Any], owner: set[asyncio.Task[Any]] | N
         _retrieve_task(completed)
 
     task.add_done_callback(finished)
+
+
+def _retrieve_client_disconnected(client: Any) -> None:
+    """Own Telethon's public terminal future so connection errors cannot leak."""
+    try:
+        disconnected = client.disconnected
+    except Exception:  # noqa: BLE001 - cleanup inspection cannot replace the primary error
+        return
+    if not isinstance(disconnected, asyncio.Future):
+        return
+    if disconnected.done():
+        _retrieve_task(disconnected)
+    else:
+        _own_pending_task(disconnected, None)
 
 
 async def _cancel_and_drain(
@@ -285,14 +299,20 @@ class TelethonConnectionMiddleware:
         try:
             await self.call("connection", self.client.connect(), timeout=self.connect_timeout)
         except BaseException as error:
-            replacement = await self._finish(error)
+            try:
+                replacement = await self._finish(error)
+            finally:
+                _retrieve_client_disconnected(self.client)
             if replacement is not None:
                 raise replacement from error
             raise
         return self
 
     async def __aexit__(self, _error_type, error: BaseException | None, _traceback) -> bool:
-        replacement = await self._finish(error)
+        try:
+            replacement = await self._finish(error)
+        finally:
+            _retrieve_client_disconnected(self.client)
         if replacement is not None:
             raise replacement from error
         return False

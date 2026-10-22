@@ -23,6 +23,11 @@ def _parser() -> argparse.ArgumentParser:
     actions.add_argument("--check", action="store_true", help="offline configuration validation")
     actions.add_argument("--bot", action="store_true")
     actions.add_argument(
+        "--bot-diagnose",
+        action="store_true",
+        help="read-only Bot API connectivity, webhook and channel-permission checks",
+    )
+    actions.add_argument(
         "--telegram-login", action="store_true", help="interactive Telegram user-account login"
     )
     actions.add_argument(
@@ -49,6 +54,7 @@ def main() -> int:
                 ("--doctor", args.doctor),
                 ("--check", args.check),
                 ("--bot", args.bot),
+                ("--bot-diagnose", args.bot_diagnose),
                 ("--telegram-login", args.telegram_login),
                 ("--telegram-diagnose", args.telegram_diagnose),
                 ("--probe", args.probe is not None),
@@ -93,6 +99,12 @@ def main() -> int:
         elif args.check:
             settings.require_bot()
             _write({"status": "ok", "message": "Bot configuration is present."})
+        elif args.bot_diagnose:
+            from .bot.preflight import diagnose_bot_api
+
+            report = asyncio.run(diagnose_bot_api(settings))
+            _write(report)
+            return 0 if report["status"] == "ready" else 1
         elif args.probe:
             if settings.media_backend == "telegram_bot":
                 raise MediaError(code="backend_capability")
@@ -145,6 +157,31 @@ def main() -> int:
         )
         _write({"status": "error", "error": error_record("invalid_url")})
         return 1
+    except TimeoutError as error:
+        if operation == "bot":
+            # --bot also owns database and lifecycle work. Only a normalized
+            # TelegramNetworkError establishes Bot API transport ownership.
+            from .bot.errors import bot_api_diagnostic_error
+
+            diagnostic = bot_api_diagnostic_error(error)
+            log_failure(logger, "cli_failure", diagnostic, operation=operation)
+            _write(media_error_report(diagnostic))
+            return 1
+        log_failure(
+            logger,
+            "cli_failure",
+            MediaError(
+                code="local_io",
+                log_analysis={
+                    "phase": operation,
+                    "exception_types": [type(error).__name__],
+                    "raw_log_included": False,
+                },
+            ),
+            operation=operation,
+        )
+        _write({"status": "error", "error": error_record("local_io")})
+        return 1
     except OSError as error:
         log_failure(
             logger,
@@ -177,7 +214,16 @@ def main() -> int:
         )
         _write({"status": "error", "error": error_record("cancelled")})
         return 130
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:  # noqa: BLE001 - recognize the safe Bot API boundary first
+        from aiogram.exceptions import TelegramNetworkError
+
+        if isinstance(error, TelegramNetworkError):
+            from .bot.errors import bot_api_diagnostic_error
+
+            diagnostic = bot_api_diagnostic_error(error)
+            log_failure(logger, "cli_failure", diagnostic, operation=operation)
+            _write(media_error_report(diagnostic))
+            return 1
         log_failure(logger, "cli_failure", error, operation=operation)
         _write(
             {

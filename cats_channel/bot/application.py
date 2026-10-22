@@ -5,13 +5,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.fsm.storage.base import BaseStorage
+from aiogram.methods import GetMe
 
 from ..config import Settings
 from ..diagnostics import configure_logging, log_failure
@@ -21,11 +23,12 @@ from ..submissions import LibraryManifestSourceResolver
 from .context import BotOperationRegistry, OperationLoggingMiddleware
 from .dispatcher import ApplicationDispatcher
 from .entry import ReplyTargetResolver, UnavailableReplyTargetResolver
-from .errors import diagnostic_error
+from .errors import bot_api_diagnostic_error
 from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware
 from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
 from .telegram_media import TelegramMediaAdapter
+from .transport import create_configured_bot
 
 ResourceFactory = Callable[[], AbstractAsyncContextManager[Any]]
 
@@ -48,7 +51,9 @@ class BotApplication:
     intake_service: SubmissionIntakeService | None
     telegram_media_adapter: TelegramMediaAdapter
     resources: tuple[ResourceFactory, ...] = ()
+    startup_sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
     _started: bool = field(default=False, init=False)
+    _startup_identity_attempts: int = field(default=0, init=False)
 
     async def _close(self, stack: AsyncExitStack, bot: Bot) -> None:
         try:
@@ -64,7 +69,40 @@ class BotApplication:
     async def _run_owned(self, stack: AsyncExitStack, bot: Bot) -> None:
         for factory in self.resources:
             await stack.enter_async_context(factory())
+        await self._recover_startup_identity(bot)
         await self.dispatcher.start_polling(bot, close_bot_session=False)
+
+    async def _recover_startup_identity(self, bot: Bot) -> None:
+        """Warm aiogram's identity cache with bounded, read-only recovery."""
+        attempts = self.settings.bot_api_startup_attempts
+        for attempt in range(1, attempts + 1):
+            self._startup_identity_attempts = attempt
+            try:
+                await bot.me()
+                self._startup_identity_attempts = 0
+                return
+            except asyncio.CancelledError:
+                raise
+            except (TelegramNetworkError, TimeoutError) as error:
+                if isinstance(error, TimeoutError):
+                    # Only this call has known Bot API ownership. Database,
+                    # resource and shutdown timeouts retain their own category.
+                    error = TelegramNetworkError(
+                        method=GetMe(), message="Bot API identity timed out"
+                    )
+                if attempt == attempts:
+                    raise error from None
+                log_failure(
+                    self.logger,
+                    "bot_startup_retry",
+                    bot_api_diagnostic_error(
+                        error,
+                        fallback_phase="bot_api_get_me",
+                        operation_attempts=attempt,
+                    ),
+                    operation="bot_startup",
+                )
+                await self.startup_sleep(self.settings.bot_api_startup_backoff_seconds * attempt)
 
     async def _stop_owned(self, task: asyncio.Task) -> None:
         if not self.dispatcher.startup_completed:
@@ -134,18 +172,31 @@ class BotApplication:
             raise cleanup_cancellation
         if primary is not None:
             if isinstance(primary, Exception):
-                self._log_lifecycle_failure(primary)
+                self._log_lifecycle_failure(
+                    primary,
+                    startup_identity_failure=self._startup_identity_attempts > 0,
+                )
             if cleanup_errors:
                 raise primary from cleanup_errors[0]
             raise primary
         if cleanup_errors:
             raise cleanup_errors[0]
 
-    def _log_lifecycle_failure(self, error: BaseException) -> None:
+    def _log_lifecycle_failure(
+        self,
+        error: BaseException,
+        *,
+        startup_identity_failure: bool = False,
+    ) -> None:
+        attempt_count = self._startup_identity_attempts if startup_identity_failure else None
         log_failure(
             self.logger,
             "bot_lifecycle_failure",
-            diagnostic_error(error, code="internal_error", phase="bot_lifecycle"),
+            bot_api_diagnostic_error(
+                error,
+                fallback_phase=("bot_api_get_me" if startup_identity_failure else "bot_lifecycle"),
+                operation_attempts=attempt_count,
+            ),
             operation="bot_lifecycle",
         )
 
@@ -164,6 +215,7 @@ def create_bot_application(
     intake_service: SubmissionIntakeService | None = None,
     telegram_media_adapter: TelegramMediaAdapter | None = None,
     resources: tuple[ResourceFactory, ...] = (),
+    startup_sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> BotApplication:
     """Compose the bot without network access or import-time resource creation."""
     settings.require_bot()
@@ -198,7 +250,7 @@ def create_bot_application(
                 reply_chains=reply_chains,
             )
     publication_service = None
-    owned_bot = bot if bot is not None else Bot(settings.bot_token.get_secret_value())
+    owned_bot = bot if bot is not None else create_configured_bot(settings, logger=app_logger)
     if persistence_unit_of_work is not None:
         from ..adapters.aiogram_publisher import AiogramPublisher
         from ..publication.service import PublicationService
@@ -256,6 +308,7 @@ def create_bot_application(
         intake_service=intake_service,
         telegram_media_adapter=adapter,
         resources=resources,
+        startup_sleep=startup_sleep,
     )
 
 

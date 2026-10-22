@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from aiogram.exceptions import TelegramNetworkError
+from aiogram.methods import GetMe, GetUpdates
 from aiogram.types import ErrorEvent, Message
 
 from ..diagnostics import log_failure
@@ -22,6 +24,38 @@ def diagnostic_error(error: BaseException, *, code: str, phase: str) -> MediaErr
             "raw_log_included": False,
         },
     )
+
+
+def bot_api_failure_phase(error: BaseException, *, fallback: str = "bot_lifecycle") -> str:
+    """Map only known read-only Bot API methods to secret-safe phase names."""
+    method = getattr(error, "method", None)
+    if isinstance(method, GetMe):
+        return "bot_api_get_me"
+    if isinstance(method, GetUpdates):
+        return "bot_api_get_updates"
+    return fallback
+
+
+def bot_api_diagnostic_error(
+    error: BaseException,
+    *,
+    fallback_phase: str = "bot_lifecycle",
+    operation_attempts: int | None = None,
+) -> MediaError:
+    """Classify a Bot API connection failure without retaining request data."""
+    is_network = isinstance(error, TelegramNetworkError)
+    diagnostic = diagnostic_error(
+        error,
+        code="bot_api_network" if is_network else "internal_error",
+        phase=bot_api_failure_phase(error, fallback=fallback_phase),
+    )
+    if operation_attempts is not None:
+        assert diagnostic.log_analysis is not None
+        diagnostic.log_analysis.update(
+            operation_attempts=operation_attempts,
+            automatic_retries=max(0, operation_attempts - 1),
+        )
+    return diagnostic
 
 
 async def answer_error_safely(
