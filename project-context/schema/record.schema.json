@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SoloMidMiram/CatsChannel/project-context/record.schema.json",
+  "title": "CatsChannel project context record",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "area",
+    "tags",
+    "statement",
+    "status",
+    "source",
+    "recorded_at",
+    "freshness",
+    "last_verified_at",
+    "verified_against",
+    "supersedes"
+  ],
+  "properties": {
+    "id": {"type": "string", "pattern": "^(fact|decision|task|blocker|proposal)-[0-9]{3}$"},
+    "kind": {"enum": ["fact", "decision", "task", "blocker", "proposal"]},
+    "area": {"type": "string"},
+    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "statement": {"type": "string", "minLength": 1},
+    "status": {"type": "string"},
+    "source": {"type": "string", "pattern": "^source-[0-9]{3}$"},
+    "recorded_at": {"type": "string", "format": "date"},
+    "freshness": {"enum": ["current", "stable", "historical", "stale", "unknown"]},
+    "last_verified_at": {"type": "string", "format": "date"},
+    "verified_against": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^source-[0-9]{3}$"},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "supersedes": {"type": ["string", "null"]},
+    "scope": {"type": "string"},
+    "details": {"type": "string"},
+    "brief": {
+      "type": "object",
+      "required": ["section", "priority"],
+      "properties": {
+        "section": {"type": "string"},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 100}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
