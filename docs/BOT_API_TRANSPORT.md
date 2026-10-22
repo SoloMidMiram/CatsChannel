@@ -141,3 +141,12 @@ The configured SOCKS upstream therefore remains an operational blocker; no
 identity or permission match for the newly supplied target is claimed. Fix/recheck
 that route before polling or publication. Issue #8 moderation remains the next
 phase after the pilot, not part of this infrastructure follow-up.
+
+The user then confirmed a v2rayN mixed listener at `127.0.0.1:10808`. Windows
+verified that Xray owns that listener. The isolated profile now explicitly selects
+`BOT_API_PROXY=http://127.0.0.1:10808`; HTTP CONNECT checks still failed on Telegram
+TLS, and an independent TLS-verified Requests diagnostic also failed with
+`SSLError`. This distinguishes listener reachability from usable Telegram HTTPS;
+it does not establish which upstream routing/node component is responsible. No
+certificate verification was bypassed, no global proxy rules were changed, and
+the private pilot remains unsent pending a working route.
