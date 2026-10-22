@@ -16,8 +16,4 @@ remaining bot integration gates are in PUBLICATION_CONTRACT.md.
 The confirmed source-chain choice, `/post` UX, modular routers and pilot
 incident-to-regression process are in BOT_POSTING_PLAN.md.
 The implemented pending-intake boundary and replay algorithm are in BOT_INTAKE.md.
-Bot API routing, bounded startup recovery and private-pilot evidence are in
-[BOT_API_TRANSPORT.md](BOT_API_TRANSPORT.md).
-The [current project brief](../project-context/overview.md) and
-[source-record contract](../project-context/README.md) connect decisions to evidence.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.

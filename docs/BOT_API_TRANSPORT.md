@@ -143,10 +143,3 @@ temporary admin-only approval boundary; it is not the separate inspection-channe
 queue, durable reviewer/rejection audit or version-aware callback workflow. Source
 identity selected through a downloader-bot handoff also remains user-selected rather
 than independently verified.
-
-The dated incident summaries and their current status are indexed in
-[`project-context/overview.md`](../project-context/overview.md). Local operator
-reconciliation is available through `python -m cats_channel.publication.admin`
-with `--bot-stopped`; it requires exclusive ownership and independent delivery
-evidence before confirmation or requeue. It is separate from the pending Issue #8
-reviewer workflow.
