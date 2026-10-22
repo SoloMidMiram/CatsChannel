@@ -1,9 +1,11 @@
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock
 
 import pytest
 from aiogram import Bot
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.methods import GetMe, GetUpdates
 from aiogram.types import User
@@ -42,18 +44,139 @@ class Storage(MemoryStorage):
         self.events.append("storage:close")
 
 
-def application(*, resources=(), service=None):
+def application(*, resources=(), service=None, startup_sleep=asyncio.sleep, **setting_updates):
     events = []
     session = PollingSession()
     storage = Storage(events)
     app = create_bot_application(
-        settings(),
+        settings(**setting_updates),
         bot=Bot(BOT_TOKEN, session=session),
         storage=storage,
         resources=resources,
         media_service=service or AsyncMock(),
+        startup_sleep=startup_sleep,
     )
     return app, session, storage, events
+
+
+async def test_startup_get_me_recovers_with_bounded_read_only_retries(capsys):
+    sleep = AsyncMock()
+    app, session, storage, _ = application(
+        startup_sleep=sleep,
+        bot_api_startup_attempts=3,
+        bot_api_startup_backoff_seconds=0.5,
+    )
+    original_request = session.make_request
+    attempts = 0
+
+    async def flaky_get_me(bot, method, timeout=None):
+        nonlocal attempts
+        if isinstance(method, GetMe):
+            attempts += 1
+            if attempts < 3:
+                raise TelegramNetworkError(method=method, message="token=private")
+        return await original_request(bot, method, timeout)
+
+    session.make_request = flaky_get_me
+    running = asyncio.create_task(app.start_polling())
+    await asyncio.wait_for(session.polling.wait(), 2)
+    await app.dispatcher.stop_polling()
+    await running
+
+    assert attempts == 3
+    assert [call.args for call in sleep.await_args_list] == [(0.5,), (1.0,)]
+    assert session.close_count == storage.close_count == 1
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    retries = [record for record in records if record["event"] == "bot_startup_retry"]
+    assert [record["analysis"]["operation_attempts"] for record in retries] == [1, 2]
+    assert all(record["analysis"]["phase"] == "bot_api_get_me" for record in retries)
+    assert "private" not in json.dumps(records)
+
+
+async def test_startup_get_me_stops_at_bound_and_reports_exact_phase(capsys):
+    sleep = AsyncMock()
+    app, session, storage, _ = application(
+        startup_sleep=sleep,
+        bot_api_startup_attempts=3,
+        bot_api_startup_backoff_seconds=0,
+    )
+    attempts = 0
+
+    async def fail_get_me(bot, method, timeout=None):
+        nonlocal attempts
+        attempts += 1
+        raise TelegramNetworkError(method=method, message="token=private")
+
+    session.make_request = fail_get_me
+    with pytest.raises(TelegramNetworkError):
+        await app.start_polling()
+
+    assert attempts == 3
+    assert sleep.await_count == 2
+    assert session.close_count == storage.close_count == 1
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    final = next(record for record in records if record["event"] == "bot_lifecycle_failure")
+    assert final["code"] == "bot_api_network"
+    assert final["analysis"]["phase"] == "bot_api_get_me"
+    assert final["analysis"]["operation_attempts"] == 3
+    assert final["analysis"]["automatic_retries"] == 2
+    assert "private" not in json.dumps(records)
+
+
+async def test_startup_timeout_without_method_still_reports_get_me_phase(capsys):
+    app, session, storage, _ = application(bot_api_startup_attempts=1)
+
+    async def time_out(bot, method, timeout=None):
+        raise TimeoutError("token=private")
+
+    session.make_request = time_out
+    with pytest.raises(TelegramNetworkError):
+        await app.start_polling()
+
+    assert session.close_count == storage.close_count == 1
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    final = next(record for record in records if record["event"] == "bot_lifecycle_failure")
+    assert final["analysis"]["phase"] == "bot_api_get_me"
+    assert final["analysis"]["operation_attempts"] == 1
+    assert final["code"] == "bot_api_network"
+    assert "private" not in json.dumps(records)
+
+
+@pytest.mark.parametrize("phase", ["resource", "database_recovery", "shutdown"])
+async def test_non_bot_api_timeouts_remain_internal_and_close_owned_resources(phase, capsys):
+    error = TimeoutError("private-database-or-shutdown")
+
+    @asynccontextmanager
+    async def resource():
+        raise error
+        yield
+
+    app, session, storage, _ = application(resources=(resource,) if phase == "resource" else ())
+
+    async def fail():
+        raise error
+
+    if phase == "database_recovery":
+        app.dispatcher.startup.register(fail)
+    elif phase == "shutdown":
+        app.dispatcher.shutdown.register(fail)
+
+    running = asyncio.create_task(app.start_polling())
+    if phase == "shutdown":
+        await asyncio.wait_for(session.polling.wait(), 2)
+        await app.dispatcher.stop_polling()
+    with pytest.raises(TimeoutError) as caught:
+        await running
+
+    assert caught.value is error
+    assert session.close_count == storage.close_count == 1
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    failures = [record for record in records if record["event"] == "bot_lifecycle_failure"]
+    assert failures
+    assert all(record["code"] == "internal_error" for record in failures)
+    assert all(record["analysis"]["phase"] == "bot_lifecycle" for record in failures)
+    assert "private-database-or-shutdown" not in output
 
 
 async def test_factory_does_not_enter_resources_or_call_bot_api():

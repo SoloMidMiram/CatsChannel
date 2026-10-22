@@ -409,6 +409,48 @@ async def test_invalid_native_media_is_rejected_without_clearing_the_retryable_f
     )
 
 
+async def test_intake_media_timeout_has_consistent_failure_and_completion_category(capsys):
+    thread_id = str(uuid4())
+    app, bot, _session, intake, _media, adapter = application(
+        logger=configure_logging("INFO"),
+        correlation_id_factory=lambda: "intake-timeout-1",
+    )
+    intake.list_source_options.return_value = (SourceOption(thread_id, "telegram", "Cat source"),)
+    adapter.acquire.side_effect = MediaError(code="timeout")
+
+    async def process(**kwargs):
+        await kwargs["acquire"]()
+
+    intake.process.side_effect = process
+    await app.dispatcher.feed_update(bot, message_update(text="/post"))
+    await app.dispatcher.feed_update(bot, callback_update(thread_id))
+    await app.dispatcher.feed_update(
+        bot,
+        message_update(
+            update_id=3,
+            video=Video(
+                file_id="private-file-id",
+                file_unique_id="private-unique-id",
+                width=360,
+                height=640,
+                duration=10,
+            ),
+        ),
+    )
+
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    failure = next(record for record in records if record["event"] == "bot_intake_failure")
+    completion = next(
+        record
+        for record in records
+        if record["event"] == "bot_operation_finished" and record["operation"] == "post_intake"
+    )
+    assert failure["code"] == completion["error_category"] == "timeout"
+    assert failure["correlation_id"] == completion["correlation_id"] == "intake-timeout-1"
+    assert completion["outcome"] == "error"
+    assert "private" not in json.dumps(records)
+
+
 async def test_intake_completion_log_is_allowlisted_and_secret_safe(capsys):
     thread_id = str(uuid4())
     app, bot, _session, intake, _media, adapter = application(
@@ -445,6 +487,8 @@ async def test_intake_completion_log_is_allowlisted_and_secret_safe(capsys):
     completion = records[-1]
     assert completion["operation"] == "post_intake"
     assert completion["outcome"] == "pending_created"
+    assert completion["disposition"] == "created"
+    assert completion["placement_mode"] == "normal_append"
     assert completion["correlation_id"] == "intake-log-1"
     assert "private-caption-secret" not in output
     assert "private-file-id" not in output

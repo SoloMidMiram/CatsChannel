@@ -16,7 +16,7 @@ from aiogram.methods import (
     SendVideo,
 )
 from aiogram.types import File
-from test_bot_application import RecordingSession, settings, update
+from test_bot_application import RecordingSession, sent_texts, settings, update
 from test_submission_contracts import library_item
 
 pytest.importorskip("sqlalchemy")
@@ -24,6 +24,7 @@ pytest.importorskip("aiosqlite")
 
 from cats_channel.adapters.aiogram_publisher import AiogramPublisher, destination_link
 from cats_channel.bot import create_bot_application
+from cats_channel.diagnostics import configure_logging
 from cats_channel.persistence import Database, TelegramMessageRef
 from cats_channel.publication.errors import DeliveryRejected
 from cats_channel.submissions import (
@@ -146,7 +147,7 @@ async def test_native_file_requires_bot_usability_and_no_reply_fallback(db, tmp_
     assert len([m for m in session.methods if isinstance(m, SendVideo)]) == 2
 
 
-async def test_dispatcher_intake_approval_projection_button_and_duplicate(db, tmp_path):
+async def test_dispatcher_intake_approval_projection_button_and_duplicate(db, tmp_path, capsys):
     # Real /post intake, application service, production adapter, fake Bot API session.
     session = PublishingSession()
     bot = Bot("123456:TEST_TOKEN", session=session)
@@ -165,6 +166,8 @@ async def test_dispatcher_intake_approval_projection_button_and_duplicate(db, tm
         bot=bot,
         media_service=media,
         persistence_unit_of_work=db.unit_of_work,
+        logger=configure_logging("INFO"),
+        correlation_id_factory=lambda: "approval-log-1",
     )
     await app.dispatcher.feed_update(bot, update("/post"))
     await app.dispatcher.feed_update(bot, update("https://youtu.be/abcdefghijk", update_id=2))
@@ -197,6 +200,47 @@ async def test_dispatcher_intake_approval_projection_button_and_duplicate(db, tm
         assert (await uow.publications.get_for_post(post.id, DEST)).state == "confirmed"
         assert await uow.projections.get_destination(post_id=post.id, chat_id=DEST)
     assert any("confirmed" in (m.text or "") for m in session.methods if isinstance(m, SendMessage))
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    completions = [
+        record
+        for record in records
+        if record["event"] == "bot_operation_finished" and record["operation"] == "pilot_publish"
+    ]
+    assert len(completions) == 2
+    assert all(
+        record["outcome"] == record["publication_state"] == "confirmed" for record in completions
+    )
+    assert (
+        len([record for record in records if record["event"] == "publication_operation_finished"])
+        == 2
+    )
+    await bot.session.close()
+
+
+async def test_ineligible_pilot_has_matching_failure_and_completion_logs(db, capsys):
+    session = PublishingSession()
+    bot = Bot("123456:TEST_TOKEN", session=session)
+    app = create_bot_application(
+        settings(),
+        bot=bot,
+        persistence_unit_of_work=db.unit_of_work,
+        logger=configure_logging("INFO"),
+        correlation_id_factory=lambda: "approval-error-1",
+    )
+
+    await app.dispatcher.feed_update(
+        bot, update("/pilot_publish 00000000-0000-4000-8000-000000000001")
+    )
+
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    failure = next(record for record in records if record["event"] == "bot_publication_failure")
+    completion = next(record for record in records if record["event"] == "bot_operation_finished")
+    assert failure["code"] == completion["error_category"] == "publication_not_eligible"
+    assert failure["correlation_id"] == completion["correlation_id"] == "approval-error-1"
+    assert completion["operation"] == "pilot_publish"
+    assert completion["outcome"] == "error"
+    assert any("not eligible" in text for text in sent_texts(session))
+    assert not any(isinstance(method, (SendVideo, SendDocument)) for method in session.methods)
     await bot.session.close()
 
 

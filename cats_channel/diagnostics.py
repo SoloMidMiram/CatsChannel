@@ -210,13 +210,17 @@ def log_operation(
     duration_ms: int,
     outcome: str,
     error_category: str | None = None,
+    event: str = "bot_operation_finished",
+    disposition: str | None = None,
+    placement_mode: str | None = None,
+    publication_state: str | None = None,
 ) -> None:
     """Emit one allowlisted bot-operation record without message or exception text."""
     try:
         payload: dict[str, object] = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": "info",
-            "event": "bot_operation_finished",
+            "event": _safe_token(event, "operation_finished"),
             "correlation_id": _safe_token(correlation_id),
             "operation": _safe_token(operation),
             "duration_ms": max(0, int(duration_ms)),
@@ -224,6 +228,12 @@ def log_operation(
         }
         if error_category is not None:
             payload["error_category"] = _safe_token(error_category, "internal_error")
+        if disposition is not None:
+            payload["disposition"] = _safe_token(disposition)
+        if placement_mode is not None:
+            payload["placement_mode"] = _safe_token(placement_mode)
+        if publication_state is not None:
+            payload["publication_state"] = _safe_token(publication_state)
         logger.info(json.dumps(payload, ensure_ascii=True, sort_keys=True, allow_nan=False))
     except Exception:  # noqa: BLE001 - observability must not alter the operation result
         return
