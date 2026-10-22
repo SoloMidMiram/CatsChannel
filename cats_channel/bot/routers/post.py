@@ -148,13 +148,15 @@ def create_post_router() -> Router:
         bot_operation.operation = "post_intake"
         if intake_service is None or message.video is None or message.from_user is None:
             raise IntakeError("intake_unavailable")
-        context = await read_private_entry(state)
-        if context is None:
-            raise IntakeError("intake_superseded")
-        placement = _placement(context)
-        await intake_service.require_compatible_provider(placement, "telegram")
-        reference = TelegramMessageRef(message.chat.id, message.message_id)
         async with flow_coordinator.continue_current(state) as lease:
+            context = await read_private_entry(state)
+            if context is None:
+                raise IntakeError("intake_superseded")
+            placement = _placement(context)
+            await intake_service.require_compatible_provider(placement, "telegram")
+            if not await lease.is_current():
+                raise IntakeError("intake_superseded")
+            reference = TelegramMessageRef(message.chat.id, message.message_id)
             result = await intake_service.process(
                 actor_id=message.from_user.id,
                 inbound_reference=reference,

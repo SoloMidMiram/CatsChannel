@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
 from aiogram.methods import GetMe, TelegramMethod
@@ -215,6 +216,56 @@ async def test_deep_link_keeps_exact_parent_for_pending_intake():
         message_update(update_id=2, text="https://youtu.be/abcdefghijk"),
     )
     intake.process.assert_awaited_once()
+
+
+@pytest.mark.parametrize("replacement", ["/cancel", "/post"])
+async def test_replacement_during_provider_lookup_does_not_acquire_or_clear_new_flow(replacement):
+    thread_id = str(uuid4())
+    app, bot, session, intake, _media, adapter = application()
+    intake.list_source_options.return_value = (SourceOption(thread_id, "telegram", "Cat source"),)
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def check_provider(*_args):
+        started.set()
+        await release.wait()
+
+    intake.require_compatible_provider.side_effect = check_provider
+    await app.dispatcher.feed_update(bot, message_update(text="/post"))
+    await app.dispatcher.feed_update(bot, callback_update(thread_id))
+    pending = asyncio.create_task(
+        app.dispatcher.feed_update(
+            bot,
+            message_update(
+                update_id=3,
+                video=Video(
+                    file_id="file-id",
+                    file_unique_id="unique-id",
+                    width=360,
+                    height=640,
+                    duration=10,
+                ),
+            ),
+        )
+    )
+    try:
+        await asyncio.wait_for(started.wait(), 2)
+        await app.dispatcher.feed_update(bot, message_update(update_id=4, text=replacement))
+        state = app.dispatcher.fsm.get_context(bot=bot, chat_id=ADMIN_ID, user_id=ADMIN_ID)
+        expected_state, expected_data = await state.get_state(), await state.get_data()
+        release.set()
+        await asyncio.wait_for(pending, 2)
+        intake.process.assert_not_awaited()
+        adapter.acquire.assert_not_awaited()
+        assert await state.get_state() == expected_state
+        assert await state.get_data() == expected_data
+        assert not any(
+            "Accepted as pending" in str(getattr(method, "text", "")) for method in session.methods
+        )
+    finally:
+        release.set()
+        if not pending.done():
+            pending.cancel()
+        await asyncio.gather(pending, return_exceptions=True)
 
 
 async def test_cancel_supersedes_slow_intake_before_persistence():
