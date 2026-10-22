@@ -78,11 +78,18 @@ class FlowLease:
     version: int
 
     async def select(
-        self, context: PrivateEntryContext, notify: Callable[[], Awaitable[Any]]
+        self,
+        context: PrivateEntryContext,
+        notify: Callable[[], Awaitable[Any]],
+        *,
+        invalidate_previous: bool = False,
     ) -> bool:
         async with self.transition.lock:
             if self.version != self.transition.version:
                 return False  # A newer recognized command replaced this entry.
+            if invalidate_previous:
+                self.transition.version += 1
+                self.version = self.transition.version
             try:
                 await self.state.set_data(context.to_data())
                 await self.state.set_state(PrivateEntryStates.reply_entry)
@@ -94,6 +101,12 @@ class FlowLease:
     async def is_current(self) -> bool:
         async with self.transition.lock:
             return self.version == self.transition.version
+
+    @asynccontextmanager
+    async def commit_guard(self) -> AsyncIterator[bool]:
+        """Order durable intake against replacement; never hold during acquisition."""
+        async with self.transition.lock:
+            yield self.version == self.transition.version
 
     async def clear(self) -> bool:
         async with self.transition.lock:

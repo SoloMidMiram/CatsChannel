@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 from datetime import datetime
 
 from ..persistence.contracts import PersistenceUnitOfWork
@@ -26,6 +27,16 @@ from .entities import IntakePlacement, IntakeResult, SourceOption
 from .errors import IntakeError
 
 _OPERATION = "bot_post_intake"
+
+
+@asynccontextmanager
+async def _owned_commit(
+    guard: Callable[[], AbstractAsyncContextManager[bool]] | None,
+) -> AsyncIterator[None]:
+    async with guard() if guard is not None else nullcontext(True) as owned:
+        if not owned:
+            raise IntakeError("intake_superseded")
+        yield
 
 
 class SubmissionIntakeService:
@@ -99,6 +110,7 @@ class SubmissionIntakeService:
         placement: IntakePlacement,
         acquire: Callable[[], Awaitable[SubmissionMedia]],
         continue_if: Callable[[], Awaitable[bool]] | None = None,
+        commit_guard: Callable[[], AbstractAsyncContextManager[bool]] | None = None,
     ) -> IntakeResult:
         if type(actor_id) is not int or actor_id <= 0:
             raise IntakeError("intake_conflict")
@@ -108,7 +120,8 @@ class SubmissionIntakeService:
             raise IntakeError("intake_conflict")
         key = f"{inbound_reference.chat_id}:{inbound_reference.message_id}"
         async with self._coordinator.hold(key):
-            existing = await self._reconcile(actor_id, inbound_reference, placement)
+            async with _owned_commit(commit_guard):
+                existing = await self._reconcile(actor_id, inbound_reference, placement)
             if existing is not None:
                 return existing
             media = await acquire()
@@ -120,6 +133,8 @@ class SubmissionIntakeService:
                 operation=_OPERATION,
             )
             issued = await self._submissions.issue_handoff(binding)
+            if continue_if is not None and not await continue_if():
+                raise IntakeError("intake_superseded")
             request = SubmissionRequest(
                 media=media,
                 selected_thread_id=(
@@ -133,29 +148,30 @@ class SubmissionIntakeService:
                 ),
                 inbound_reference=inbound_reference,
             )
-            try:
-                submitted = await self._submissions.submit(request)
-            except asyncio.CancelledError:
-                raise
-            except SubmissionError as error:
-                if error.code in {"handoff_invalid", "submission_persistence"}:
-                    reconciled = await self._reconcile(actor_id, inbound_reference, placement)
-                    if reconciled is not None:
-                        return reconciled
-                raise
-            intent = await self._create_intent(
-                submitted.submission_id,
-                submitted.thread_id,
-                placement.mode,
-                placement.selected_parent_post_id,
-            )
-            return IntakeResult(
-                "created",
-                submitted.submission_id,
-                intent.id,
-                submitted.thread_id,
-                placement.mode,
-            )
+            async with _owned_commit(commit_guard):
+                try:
+                    submitted = await self._submissions.submit(request)
+                except asyncio.CancelledError:
+                    raise
+                except SubmissionError as error:
+                    if error.code in {"handoff_invalid", "submission_persistence"}:
+                        reconciled = await self._reconcile(actor_id, inbound_reference, placement)
+                        if reconciled is not None:
+                            return reconciled
+                    raise
+                intent = await self._create_intent(
+                    submitted.submission_id,
+                    submitted.thread_id,
+                    placement.mode,
+                    placement.selected_parent_post_id,
+                )
+                return IntakeResult(
+                    "created",
+                    submitted.submission_id,
+                    intent.id,
+                    submitted.thread_id,
+                    placement.mode,
+                )
 
     async def _reconcile(
         self,

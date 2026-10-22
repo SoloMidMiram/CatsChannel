@@ -6,13 +6,17 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.fsm.storage.memory import MemoryStorage
 from test_submission_contracts import library_item
 from test_submission_service import telegram_media
 
 pytest.importorskip("sqlalchemy")
 pytest.importorskip("aiosqlite")
 
-from cats_channel.intake import IntakePlacement, SubmissionIntakeService
+from cats_channel.bot.flow import PrivateFlowCoordinator
+from cats_channel.intake import IntakeError, IntakePlacement, SubmissionIntakeService
 from cats_channel.persistence import Database, SourceIdentity, TelegramMessageRef
 from cats_channel.reply_chains.errors import ReplyChainError
 from cats_channel.reply_chains.service import ReplyChainService
@@ -289,3 +293,94 @@ async def test_cancellation_releases_intake_slot_without_persistence(database):
     assert service.pending_count == 0
     async with database.unit_of_work() as uow:
         assert await uow.projections.get_by_reference(reference) is None
+
+
+async def test_commit_guard_rejects_replacement_after_last_ownership_check(
+    database, tmp_path, monkeypatch
+):
+    service = intake(database)
+    coordinator = PrivateFlowCoordinator()
+    state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=42, user_id=42))
+    checked, release = asyncio.Event(), asyncio.Event()
+    checks = 0
+    submit = AsyncMock(wraps=service._submissions.submit)
+    monkeypatch.setattr(service._submissions, "submit", submit)
+    reference = TelegramMessageRef(42, 800)
+    async with coordinator.continue_current(state) as lease:
+
+        async def check():
+            nonlocal checks
+            checks += 1
+            current = await lease.is_current()
+            if checks == 2:
+                checked.set()
+                await release.wait()
+            return current
+
+        task = asyncio.create_task(
+            service.process(
+                actor_id=42,
+                inbound_reference=reference,
+                placement=IntakePlacement.normal(),
+                acquire=AsyncMock(
+                    return_value=local_media_from_library_item(library_item(tmp_path))
+                ),
+                continue_if=check,
+                commit_guard=lease.commit_guard,
+            )
+        )
+        try:
+            await asyncio.wait_for(checked.wait(), 2)
+            async with coordinator.replace(state):
+                pass
+            release.set()
+            with pytest.raises(IntakeError) as caught:
+                await asyncio.wait_for(task, 2)
+            assert caught.value.code == "intake_superseded"
+            submit.assert_not_awaited()
+            async with database.unit_of_work() as uow:
+                assert await uow.projections.get_by_reference(reference) is None
+        finally:
+            release.set()
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+    assert coordinator.pending_count == service.pending_count == 0
+
+
+async def test_task_cancellation_during_guarded_submit_releases_flow_lock(
+    database, tmp_path, monkeypatch
+):
+    service = intake(database)
+    coordinator = PrivateFlowCoordinator()
+    state = FSMContext(MemoryStorage(), StorageKey(bot_id=1, chat_id=42, user_id=42))
+    started = asyncio.Event()
+
+    async def blocked_submit(_request):
+        started.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(service._submissions, "submit", blocked_submit)
+    async with coordinator.continue_current(state) as lease:
+        task = asyncio.create_task(
+            service.process(
+                actor_id=42,
+                inbound_reference=TelegramMessageRef(42, 801),
+                placement=IntakePlacement.normal(),
+                acquire=AsyncMock(
+                    return_value=local_media_from_library_item(library_item(tmp_path))
+                ),
+                continue_if=lease.is_current,
+                commit_guard=lease.commit_guard,
+            )
+        )
+        try:
+            await asyncio.wait_for(started.wait(), 2)
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        async with asyncio.timeout(2):
+            async with coordinator.replace(state):
+                pass
+    assert coordinator.pending_count == service.pending_count == 0

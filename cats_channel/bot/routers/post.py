@@ -121,16 +121,17 @@ def create_post_router() -> Router:
         if intake_service is None or query.message is None:
             raise IntakeError("intake_unavailable")
         thread_id = (query.data or "").removeprefix("postsrc:")
-        options = await intake_service.list_source_options()
-        if thread_id not in {option.thread_id for option in options}:
-            raise IntakeError("intake_conflict")
         async with flow_coordinator.continue_current(state) as lease:
             current = await read_private_entry(state)
             if current is None or current.parent_post_id is not None:
                 raise IntakeError("intake_superseded")
+            options = await intake_service.list_source_options()
+            if thread_id not in {option.thread_id for option in options}:
+                raise IntakeError("intake_conflict")
             selected = await lease.select(
                 PrivateEntryContext(thread_id=thread_id),
                 lambda: query.answer("Source selected."),
+                invalidate_previous=True,
             )
             if not selected:
                 raise IntakeError("intake_superseded")
@@ -163,9 +164,11 @@ def create_post_router() -> Router:
                 placement=placement,
                 acquire=lambda: telegram_media_adapter.acquire(bot, message.video, reference),
                 continue_if=lease.is_current,
+                commit_guard=lease.commit_guard,
             )
-            if not await lease.clear():
-                raise IntakeError("intake_superseded")
+            # Preserve replacement state after durable success without claiming
+            # that an already committed submission was cancelled.
+            await lease.clear()
         bot_operation.outcome = f"pending_{result.disposition}"
         await message.answer(f"Accepted as pending submission {result.submission_id}.")
 
@@ -181,31 +184,31 @@ def create_post_router() -> Router:
         bot_operation.operation = "post_intake"
         if intake_service is None or message.from_user is None:
             raise IntakeError("intake_unavailable")
-        context = await read_private_entry(state)
-        if context is None:
-            raise IntakeError("intake_superseded")
-        try:
-            url = youtube_url((message.text or "").strip())
-        except ValueError as error:
-            raise MediaError(code="invalid_url") from error
-        placement = _placement(context)
-        reference = TelegramMessageRef(message.chat.id, message.message_id)
-
-        async def acquire():
-            media = local_media_from_library_item(await media_service.acquire_async(url))
-            await intake_service.require_compatible_provider(placement, media.source_provider)
-            return media
-
         async with flow_coordinator.continue_current(state) as lease:
+            context = await read_private_entry(state)
+            if context is None:
+                raise IntakeError("intake_superseded")
+            try:
+                url = youtube_url((message.text or "").strip())
+            except ValueError as error:
+                raise MediaError(code="invalid_url") from error
+            placement = _placement(context)
+            reference = TelegramMessageRef(message.chat.id, message.message_id)
+
+            async def acquire():
+                media = local_media_from_library_item(await media_service.acquire_async(url))
+                await intake_service.require_compatible_provider(placement, media.source_provider)
+                return media
+
             result = await intake_service.process(
                 actor_id=message.from_user.id,
                 inbound_reference=reference,
                 placement=placement,
                 acquire=acquire,
                 continue_if=lease.is_current,
+                commit_guard=lease.commit_guard,
             )
-            if not await lease.clear():
-                raise IntakeError("intake_superseded")
+            await lease.clear()
         bot_operation.outcome = f"pending_{result.disposition}"
         await message.answer(f"Accepted as pending submission {result.submission_id}.")
 

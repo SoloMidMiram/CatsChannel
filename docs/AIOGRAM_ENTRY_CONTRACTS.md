@@ -72,6 +72,23 @@ Default state is in-memory and ephemeral. Durable product workflow state, if
 needed later, belongs to its application/persistence owner rather than raw FSM
 message dumps. Injected persistent storage must obey the same ownership contract.
 
+## Intake ownership at persistence boundaries
+
+Source selection increments the flow version, invalidating downloads for the
+previous source. Capture the lease before reading entry state or awaiting source
+lookups. A slow selection lookup cannot adopt a newer command's lease.
+
+Intake rechecks ownership after handoff issuance. Both media handlers pass a
+commit guard that validates the lease and serializes submission/intent persistence
+and recovery against command or source replacement. Acquisition and handoff
+issuance run outside that guard. If replacement wins before the guard, the old
+operation cannot submit. Once the guarded commit starts, replacement waits until
+it finishes; cancellation cannot retroactively undo committed intake. Successful
+intake reports pending even if a newer command runs before acknowledgement, and
+its stale clear cannot erase the new state. Task cancellation still propagates and
+releases the guard. Non-bot callers without replaceable flow ownership may omit
+the guard; a standalone boolean ownership check does not serialize replacement.
+
 ## Callback convention
 
 `ModerationCallback` packs/unpacks `catmod:<approve|reject>:<internal-submission-uuid>`

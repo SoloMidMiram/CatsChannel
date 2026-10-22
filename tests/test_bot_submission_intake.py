@@ -268,6 +268,66 @@ async def test_replacement_during_provider_lookup_does_not_acquire_or_clear_new_
         await asyncio.gather(pending, return_exceptions=True)
 
 
+async def test_source_change_supersedes_downloading_video_and_preserves_new_selection():
+    old_id, new_id = str(uuid4()), str(uuid4())
+    app, bot, session, intake, _media, adapter = application()
+    intake.list_source_options.return_value = tuple(
+        SourceOption(value, "telegram", "Cat source") for value in (old_id, new_id)
+    )
+    started, release = asyncio.Event(), asyncio.Event()
+    persisted = []
+
+    async def acquire(*_args):
+        started.set()
+        await release.wait()
+        return object()
+
+    async def process(**kwargs):
+        await kwargs["acquire"]()
+        if not await kwargs["continue_if"]():
+            raise IntakeError("intake_superseded")
+        persisted.append(kwargs["placement"])
+        return intake.process.return_value
+
+    adapter.acquire.side_effect = acquire
+    intake.process.side_effect = process
+    await app.dispatcher.feed_update(bot, message_update(text="/post"))
+    await app.dispatcher.feed_update(bot, callback_update(old_id))
+    pending = asyncio.create_task(
+        app.dispatcher.feed_update(
+            bot,
+            message_update(
+                update_id=3,
+                video=Video(
+                    file_id="file",
+                    file_unique_id="unique",
+                    width=360,
+                    height=640,
+                    duration=10,
+                ),
+            ),
+        )
+    )
+    try:
+        await asyncio.wait_for(started.wait(), 2)
+        await app.dispatcher.feed_update(bot, callback_update(new_id, update_id=4))
+        release.set()
+        await asyncio.wait_for(pending, 2)
+        assert persisted == []
+        state = app.dispatcher.fsm.get_context(bot=bot, chat_id=ADMIN_ID, user_id=ADMIN_ID)
+        assert await state.get_state() == PrivateEntryStates.reply_entry.state
+        assert await state.get_data() == {"thread_id": new_id}
+        assert not any(
+            "Accepted as pending" in str(getattr(m, "text", "")) for m in session.methods
+        )
+        assert app.flow_coordinator.pending_count == 0
+    finally:
+        release.set()
+        if not pending.done():
+            pending.cancel()
+        await asyncio.gather(pending, return_exceptions=True)
+
+
 async def test_cancel_supersedes_slow_intake_before_persistence():
     thread_id = str(uuid4())
     app, bot, _session, intake, _media, adapter = application()
