@@ -43,7 +43,7 @@ def bot_api_diagnostic_error(
     operation_attempts: int | None = None,
 ) -> MediaError:
     """Classify a Bot API connection failure without retaining request data."""
-    is_network = isinstance(error, (TelegramNetworkError, TimeoutError))
+    is_network = isinstance(error, TelegramNetworkError)
     diagnostic = diagnostic_error(
         error,
         code="bot_api_network" if is_network else "internal_error",

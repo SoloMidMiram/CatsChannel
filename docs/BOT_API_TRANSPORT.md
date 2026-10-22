@@ -1,7 +1,7 @@
 # Bot API transport and private pilot readiness
 
-This follow-up is based on PR #29 head
-`72b7cc19c10d33c40c95b317322a30141296d235`. Publication behavior, logical placement,
+This follow-up incorporates PR #29's merge into main at
+`57927938c24fd7fe076a5fe7fdf114b171b712b7`. Publication behavior, logical placement,
 and the newer reconciliation-destination guard are unchanged.
 
 ## Explicit routes
@@ -35,6 +35,19 @@ aiogram's cached identity with the bounded policy above, after which aiogram's n
 not copy token-bearing URLs or proxy exception text. No TLS verification is disabled.
 Publication/file sends remain single-attempt; an ambiguous send is recorded for
 reconciliation and is never blindly retried by this startup policy.
+
+Only `TelegramNetworkError` establishes network ownership in the general
+lifecycle/CLI classifier. A bare timeout is normalized at the known Bot API
+session or cached-identity request boundary; a database, resource or shutdown
+timeout remains an internal failure rather than directing operators to Telegram.
+
+The configured session emits one `bot_polling_failure` JSON event per failed
+`getUpdates` call before aiogram catches it. Its phase is `bot_api_get_updates`;
+`operation_attempts` counts consecutive failed requests, and `automatic_retries`
+counts prior failures in that series. A successful response, including an empty
+poll, resets the series. Aiogram still owns backoff; the session adds no retry,
+and cancellation does not count as a failed poll. These structured events
+supplement aiogram's own logging without copying exception text or request data.
 
 ## Read-only preflight
 
@@ -108,9 +121,10 @@ Local Python 3.11 checks:
 
 | Gate | Result |
 | --- | --- |
-| WSL `uv run --frozen pytest --capture=sys -q` | 451 passed, 61 skipped |
+| WSL Python 3.11 `python -m pytest --capture=sys -q` | 457 passed, 61 skipped |
+| Windows Python 3.11 `python -m pytest --capture=sys -q` | 456 passed, 62 skipped |
 | `uv run --frozen ruff check .` | Passed |
-| `uv run --frozen ruff format --check .` | Passed, 146 files |
+| `uv run --frozen ruff format --check .` | Passed, 147 files |
 | `python -m compileall -q cats_channel tests` | Passed |
 | `git diff --check` | Passed |
 

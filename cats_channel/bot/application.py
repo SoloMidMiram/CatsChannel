@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from aiogram import Bot
 from aiogram.exceptions import TelegramNetworkError
 from aiogram.fsm.storage.base import BaseStorage
+from aiogram.methods import GetMe
 
 from ..config import Settings
 from ..diagnostics import configure_logging, log_failure
@@ -83,8 +84,14 @@ class BotApplication:
             except asyncio.CancelledError:
                 raise
             except (TelegramNetworkError, TimeoutError) as error:
+                if isinstance(error, TimeoutError):
+                    # Only this call has known Bot API ownership. Database,
+                    # resource and shutdown timeouts retain their own category.
+                    error = TelegramNetworkError(
+                        method=GetMe(), message="Bot API identity timed out"
+                    )
                 if attempt == attempts:
-                    raise
+                    raise error from None
                 log_failure(
                     self.logger,
                     "bot_startup_retry",
@@ -243,7 +250,7 @@ def create_bot_application(
                 reply_chains=reply_chains,
             )
     publication_service = None
-    owned_bot = bot if bot is not None else create_configured_bot(settings)
+    owned_bot = bot if bot is not None else create_configured_bot(settings, logger=app_logger)
     if persistence_unit_of_work is not None:
         from ..adapters.aiogram_publisher import AiogramPublisher
         from ..publication.service import PublicationService

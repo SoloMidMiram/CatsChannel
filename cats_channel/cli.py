@@ -159,6 +159,8 @@ def main() -> int:
         return 1
     except TimeoutError as error:
         if operation == "bot":
+            # --bot also owns database and lifecycle work. Only a normalized
+            # TelegramNetworkError establishes Bot API transport ownership.
             from .bot.errors import bot_api_diagnostic_error
 
             diagnostic = bot_api_diagnostic_error(error)

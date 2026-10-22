@@ -13,10 +13,32 @@ Before this split, head `9bfe147bf38455ea462c425609e27395973c8036` passed CI run
 `39785789857` on Ubuntu, Windows and PostgreSQL. The split heads require their
 own CI; prior results are historical evidence, not a substitute for final checks.
 
-Local post-split WSL Python 3.11 verification: 451 passed, 61 skipped with
+Historical post-split WSL Python 3.11 verification: 451 passed, 61 skipped with
 `python -m pytest --capture=sys -q`; Ruff lint/format, byte compilation and
 whitespace checks passed. Runtime and test files are unchanged from transport
-head `5e144ba`; the remaining reconciliation edits are documentation only.
+head `5e144ba` at that stage; the subsequent review corrections below change
+transport diagnostics and add regressions.
+
+## Follow-up P2 corrections
+
+The review of `de403a2` correctly found broad timeout classification and polling
+failures hidden inside aiogram's listener. The general classifier now recognizes
+only `TelegramNetworkError`; raw timeouts are normalized only at known Bot API
+request boundaries. Resource, database-startup and shutdown timeouts retain an
+internal category in lifecycle/CLI diagnostics.
+
+Configured sessions now emit structured `getUpdates` failures with consecutive
+attempt counts before aiogram consumes them. A healthy empty response resets the
+series. Aiogram owns the same polling backoff, cancellation propagates, and media
+sends remain single-attempt. Regressions exercise the actual aiogram listener,
+counter reset, cancellation, redaction, API rejection and one failed media send.
+
+Post-correction Python 3.11 validation: WSL full suite 457 passed/61 skipped;
+Windows full suite 456 passed/62 skipped. Targeted transport, lifecycle,
+publication, intake and Telethon regressions: 98 passed on WSL. Ruff lint/format,
+byte compilation and whitespace checks passed. Local regression transport uses
+fakes and loopback SOCKS; no live Telegram requests, sends or runtime restart
+occurred. Exact-head CI remains a separate check after the correction is pushed.
 
 ## Findings and acceptance boundaries
 

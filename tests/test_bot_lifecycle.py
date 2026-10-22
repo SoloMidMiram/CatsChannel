@@ -130,7 +130,7 @@ async def test_startup_timeout_without_method_still_reports_get_me_phase(capsys)
         raise TimeoutError("token=private")
 
     session.make_request = time_out
-    with pytest.raises(TimeoutError):
+    with pytest.raises(TelegramNetworkError):
         await app.start_polling()
 
     assert session.close_count == storage.close_count == 1
@@ -138,7 +138,45 @@ async def test_startup_timeout_without_method_still_reports_get_me_phase(capsys)
     final = next(record for record in records if record["event"] == "bot_lifecycle_failure")
     assert final["analysis"]["phase"] == "bot_api_get_me"
     assert final["analysis"]["operation_attempts"] == 1
+    assert final["code"] == "bot_api_network"
     assert "private" not in json.dumps(records)
+
+
+@pytest.mark.parametrize("phase", ["resource", "database_recovery", "shutdown"])
+async def test_non_bot_api_timeouts_remain_internal_and_close_owned_resources(phase, capsys):
+    error = TimeoutError("private-database-or-shutdown")
+
+    @asynccontextmanager
+    async def resource():
+        raise error
+        yield
+
+    app, session, storage, _ = application(resources=(resource,) if phase == "resource" else ())
+
+    async def fail():
+        raise error
+
+    if phase == "database_recovery":
+        app.dispatcher.startup.register(fail)
+    elif phase == "shutdown":
+        app.dispatcher.shutdown.register(fail)
+
+    running = asyncio.create_task(app.start_polling())
+    if phase == "shutdown":
+        await asyncio.wait_for(session.polling.wait(), 2)
+        await app.dispatcher.stop_polling()
+    with pytest.raises(TimeoutError) as caught:
+        await running
+
+    assert caught.value is error
+    assert session.close_count == storage.close_count == 1
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    failures = [record for record in records if record["event"] == "bot_lifecycle_failure"]
+    assert failures
+    assert all(record["code"] == "internal_error" for record in failures)
+    assert all(record["analysis"]["phase"] == "bot_lifecycle" for record in failures)
+    assert "private-database-or-shutdown" not in output
 
 
 async def test_factory_does_not_enter_resources_or_call_bot_api():

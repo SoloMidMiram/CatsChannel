@@ -6,16 +6,20 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from aiogram import Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.exceptions import TelegramNetworkError, TelegramUnauthorizedError
-from aiogram.methods import GetMe
+from aiogram.methods import GetMe, GetUpdates, SendVideo
+from aiogram.utils.backoff import Backoff
 from aiohttp_socks import ProxyConnector
-from test_bot_application import settings
+from test_bot_application import settings, update
 
 from cats_channel.bot import create_bot_application
 from cats_channel.bot.preflight import diagnose_bot_api
 from cats_channel.bot.transport import create_configured_bot
 from cats_channel.config import Settings
+from cats_channel.diagnostics import configure_logging
 
 
 @pytest.mark.parametrize(
@@ -213,15 +217,13 @@ async def test_owned_preflight_closes_session_and_cancellation_propagates(monkey
 
 
 @pytest.mark.parametrize(
-    "error",
+    "error,category",
     [
-        TelegramNetworkError(method=GetMe(), message="token=private"),
-        TimeoutError("token=private"),
+        (TelegramNetworkError(method=GetMe(), message="token=private"), "bot_api_network"),
+        (TimeoutError("token=private"), "internal_error"),
     ],
 )
-def test_bot_cli_preserves_network_classification_after_startup_exhaustion(
-    monkeypatch, capsys, error
-):
+def test_bot_cli_classifies_only_owned_bot_api_failures(monkeypatch, capsys, error, category):
     import sys
 
     from cats_channel.cli import main
@@ -235,7 +237,7 @@ def test_bot_cli_preserves_network_classification_after_startup_exhaustion(
     output = capsys.readouterr()
     response = json.loads(output.out)
     record = json.loads(output.err)
-    assert response["error"]["code"] == record["code"] == "bot_api_network"
+    assert response["error"]["code"] == record["code"] == category
     expected_phase = (
         "bot_api_get_me" if isinstance(error, TelegramNetworkError) else "bot_lifecycle"
     )
@@ -258,3 +260,88 @@ def test_diagnostic_cli_reports_readiness_without_starting_polling(
     assert main() == exit_code
     assert json.loads(capsys.readouterr().out)["publishing"] == "not_attempted"
     diagnose.assert_awaited_once()
+
+
+async def test_real_polling_listener_logs_failures_resets_and_preserves_backoff(
+    monkeypatch, capsys
+):
+    bot = create_configured_bot(settings(), logger=configure_logging("INFO"))
+    calls = []
+    blocked = asyncio.Event()
+    sleep = AsyncMock()
+    monkeypatch.setattr(Backoff, "asleep", sleep)
+
+    async def request(self, client, method, timeout=None):
+        assert isinstance(method, GetUpdates)
+        calls.append(method)
+        if len(calls) <= 2:
+            raise TelegramNetworkError(method=method, message="private-token-and-offset")
+        if len(calls) == 3:
+            return []  # A healthy empty long poll resets the failure series.
+        if len(calls) == 4:
+            raise TimeoutError("private-request-url")
+        if len(calls) == 5:
+            return [update("/start")]
+        blocked.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(AiohttpSession, "make_request", request)
+    listener = Dispatcher._listen_updates(bot)
+    try:
+        received = await asyncio.wait_for(anext(listener), 2)
+        assert received.update_id == update("/start").update_id
+        assert len(calls) == 5
+        assert sleep.await_count == 3  # Aiogram, not the session, owns each delay.
+        waiting = asyncio.create_task(anext(listener))
+        await asyncio.wait_for(blocked.wait(), 2)
+        waiting.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiting
+    finally:
+        await listener.aclose()
+        await bot.session.close()
+
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    failures = [record for record in records if record["event"] == "bot_polling_failure"]
+    assert [record["analysis"]["operation_attempts"] for record in failures] == [1, 2, 1]
+    assert [record["analysis"]["automatic_retries"] for record in failures] == [0, 1, 0]
+    assert all(record["code"] == "bot_api_network" for record in failures)
+    assert all(record["analysis"]["phase"] == "bot_api_get_updates" for record in failures)
+    assert all(record["operation"] == "bot_polling" for record in failures)
+    assert "private-" not in output
+
+
+async def test_publication_failure_is_not_polled_logged_or_retried(monkeypatch, capsys):
+    bot = create_configured_bot(settings(), logger=configure_logging("INFO"))
+    request = AsyncMock(side_effect=TimeoutError("private-media-send"))
+    monkeypatch.setattr(AiohttpSession, "make_request", request)
+    try:
+        with pytest.raises(TelegramNetworkError):
+            await bot(SendVideo(chat_id=42, video="private-file-id"))
+    finally:
+        await bot.session.close()
+
+    assert request.await_count == 1
+    assert capsys.readouterr().err == ""
+
+
+async def test_polling_api_rejection_is_recorded_and_propagated(monkeypatch, capsys):
+    bot = create_configured_bot(settings(), logger=configure_logging("INFO"))
+    error = TelegramUnauthorizedError(method=GetUpdates(), message="private-api-body")
+    request = AsyncMock(side_effect=error)
+    monkeypatch.setattr(AiohttpSession, "make_request", request)
+    try:
+        with pytest.raises(TelegramUnauthorizedError) as caught:
+            await bot.get_updates()
+    finally:
+        await bot.session.close()
+
+    assert caught.value is error
+    assert request.await_count == 1
+    output = capsys.readouterr().err
+    record = json.loads(output)
+    assert record["analysis"]["phase"] == "bot_api_get_updates"
+    assert record["analysis"]["operation_attempts"] == 1
+    assert record["code"] == "internal_error"
+    assert "private-api-body" not in output
