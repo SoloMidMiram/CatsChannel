@@ -143,3 +143,6 @@ temporary admin-only approval boundary; it is not the separate inspection-channe
 queue, durable reviewer/rejection audit or version-aware callback workflow. Source
 identity selected through a downloader-bot handoff also remains user-selected rather
 than independently verified.
+
+See [PR #30 review reconciliation](PR30_REVIEW_READINESS.md) for the merged
+publication baseline, scope split and remaining live acceptance gates.
