@@ -133,6 +133,11 @@ cookie export through its WSL path, explicitly selects yt-dlp, and uses an isola
 database upgraded to `0005_durable_publication`. The original profile was preserved.
 The pilot database contains zero logical posts and zero publications. No live
 Telegram message was sent, no public-channel pilot occurred, and no private
-channel permissions or restart/delivery pilot are claimed. A valid private test
-destination and bot membership are the remaining prerequisites. Issue #8 moderation
-remains the next phase after that pilot, not part of this infrastructure follow-up.
+channel permissions or restart/delivery pilot are claimed. The user subsequently
+provided a private test destination and the intended bot username. That destination
+is now selected in the ignored pilot profile, but repeated read-only identity
+checks encountered connection resets before `getMe` completed on WSL and Windows.
+The configured SOCKS upstream therefore remains an operational blocker; no
+identity or permission match for the newly supplied target is claimed. Fix/recheck
+that route before polling or publication. Issue #8 moderation remains the next
+phase after the pilot, not part of this infrastructure follow-up.
