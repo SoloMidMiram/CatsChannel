@@ -151,15 +151,17 @@ def run_checks(
             }
         )
         failed = failed or category != "passed"
-        report["status"] = "fail" if failed else ("pass" if index == repeat else "running")
+        report["status"] = (
+            "fail" if failed else ("pass" if index == repeat and log is None else "running")
+        )
         # Persist after each completed/failed invocation, not just at the end.
         _save_report(output / "report.json", report)
         if interrupted:
             break
     if log is not None:
         report["log_audit"] = audit_log(log, allow_incomplete=allow_incomplete)
-        if report["log_audit"]["status"] != "pass":
-            report["status"] = "fail"
+        failed = failed or report["log_audit"]["status"] != "pass"
+    report["status"] = "fail" if failed else "pass"
     _save_report(output / "report.json", report)
     return report
 

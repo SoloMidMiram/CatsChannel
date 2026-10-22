@@ -27,6 +27,9 @@ No pytest process is restarted as an automatic response to a failure.
 
 Reports are checkpointed after each invocation using a same-directory atomic
 replace. An unfinished report remains `running` rather than implying success.
+When `--log` is requested, successful test repetitions remain `running` until the
+log audit also finishes. Interruption during the audit leaves that incomplete
+checkpoint on disk; an earlier test failure remains `fail` throughout.
 Raw test output can contain local details or synthetic secret sentinels: keep it
 local and ignored. Only sanitized summaries belong in shared evidence.
 

@@ -205,6 +205,53 @@ def test_log_failure_makes_successful_regressions_fail(tmp_path):
     assert result["status"] == "fail"
 
 
+@pytest.mark.parametrize("test_code,audit_status", [(0, "pass"), (0, "fail"), (1, "pass")])
+def test_report_waits_for_requested_audit_before_passing(
+    tmp_path, monkeypatch, test_code, audit_status
+):
+    def audit(path, **kwargs):
+        report_path = next((tmp_path / ".runtime/regress").glob("*/report.json"))
+        checkpoint = json.loads(report_path.read_text())
+        assert len(checkpoint["runs"]) == 2
+        assert checkpoint["status"] == ("fail" if test_code else "running")
+        assert "log_audit" not in checkpoint
+        return {"status": audit_status, "issues": []}
+
+    monkeypatch.setattr(regress, "audit_log", audit)
+    result = regress.run_checks(
+        tmp_path,
+        "context",
+        2,
+        5,
+        log=tmp_path / "events.jsonl",
+        runner=lambda *args, **kwargs: SimpleNamespace(returncode=test_code),
+    )
+    assert result["status"] == ("pass" if test_code == 0 and audit_status == "pass" else "fail")
+    assert result["log_audit"]["status"] == audit_status
+    assert json.loads(Path(result["report"]).read_text()) == result
+
+
+def test_interrupted_audit_cannot_leave_passing_checkpoint(tmp_path, monkeypatch):
+    def interrupt(*args, **kwargs):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(regress, "audit_log", interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        regress.run_checks(
+            tmp_path,
+            "context",
+            1,
+            5,
+            log=tmp_path / "events.jsonl",
+            runner=lambda *args, **kwargs: SimpleNamespace(returncode=0),
+        )
+    report_path = next((tmp_path / ".runtime/regress").glob("*/report.json"))
+    checkpoint = json.loads(report_path.read_text())
+    assert checkpoint["status"] == "running"
+    assert checkpoint["runs"][0]["category"] == "passed"
+    assert "log_audit" not in checkpoint
+
+
 @pytest.mark.parametrize("repeat,timeout", [(0, 5), (11, 5), (1, 0), (1, 601)])
 def test_runner_rejects_unbounded_invocations(tmp_path, repeat, timeout):
     with pytest.raises(ValueError):
