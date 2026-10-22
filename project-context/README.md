@@ -46,12 +46,23 @@ useful records within the requested record and character budgets. Compact output
 always preserves audit fields. Semantic retrieval is intentionally a proposal,
 not implemented behavior.
 
+`--max-chars` bounds the complete selected-context stdout in both text and JSON,
+including headers, formatting and the final newline, using Python Unicode
+character counts rather than bytes or tokens. The minimum is 300. Text displays
+at most `min(512, max_chars // 4)` query characters (including any ellipsis);
+retrieval still uses the full query. JSON remains an array. Optional details are
+dropped before whole records; audit/provenance fields are never sliced. If no
+record fits, text returns a bounded explanation and JSON returns `[]` plus a
+newline. Empty-result and oversized-query output obey the same bound.
+
 ## Record a material change
 
 1. Preserve or catalog the evidence in `sources.jsonl`. Prefer immutable commit
    IDs, GitHub URLs, or repository paths.
 2. Append or supersede a record in `records.jsonl`; do not rewrite history just to
    make the current state look cleaner.
+   Supersession must form an acyclic directed graph. Validation rejects self-links,
+   two-record cycles and longer cycles before selection or generation can hide records.
 3. Use `current` only for recently reverified external/current-state claims.
    Current entries expire after the taxonomy window. Use `stable` for durable
    contracts and `historical` for past events.

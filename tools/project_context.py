@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -18,7 +17,7 @@ from tools.context_render import (
     render_overview,
     write_generated,
 )
-from tools.context_select import render_selection, select_records
+from tools.context_select import render_json_selection, render_selection, select_records
 from tools.context_store import (
     ROOT,
     ContextDataError,
@@ -40,6 +39,7 @@ __all__ = [
     "load_context",
     "main",
     "render_decision",
+    "render_json_selection",
     "render_overview",
     "render_selection",
     "select_records",
@@ -108,27 +108,14 @@ def _run(argv: list[str] | None = None) -> int:
         max_records=args.max_records,
     )
     if args.as_json:
-        payload = []
-        for score, record in selected:
-            compact = {
-                key: record[key]
-                for key in (
-                    "id",
-                    "kind",
-                    "area",
-                    "statement",
-                    "status",
-                    "source",
-                    "freshness",
-                    "last_verified_at",
-                    "verified_against",
-                )
-            }
-            compact["score"] = score
-            if args.include_details and record.get("details"):
-                compact["details"] = record["details"]
-            payload.append(compact)
-        print(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False))
+        print(
+            render_json_selection(
+                selected,
+                include_details=args.include_details,
+                max_chars=args.max_chars,
+            ),
+            end="",
+        )
     else:
         print(
             render_selection(

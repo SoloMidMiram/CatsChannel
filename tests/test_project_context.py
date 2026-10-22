@@ -1,13 +1,18 @@
+import json
 from copy import deepcopy
 from datetime import date
 from pathlib import Path
 
+import pytest
+
+from tools import context_store, project_context
 from tools.project_context import (
     _local_locator_error,
     _sensitive_memory_locations,
     _validate_freshness,
     check_generated,
     load_context,
+    render_json_selection,
     render_overview,
     render_selection,
     select_records,
@@ -203,3 +208,94 @@ def test_local_evidence_cannot_escape_or_point_at_private_runtime_paths(tmp_path
         "local locator points at an excluded private/runtime path"
     )
     assert _local_locator_error(tmp_path, "docs/decision.md") is None
+
+
+@pytest.mark.parametrize("selected_records", [False, True])
+def test_text_budget_includes_oversized_unicode_query_and_fallback(selected_records):
+    _, sources, records = load_context(ROOT)
+    selected = select_records(records, sources, "context") if selected_records else []
+    rendered = render_selection(
+        "context 🐈\n" * 2000,
+        selected,
+        sources,
+        include_details=True,
+        max_chars=300,
+    )
+    assert len(rendered) <= 300
+    assert rendered.endswith("\n")
+    assert "…" in rendered
+
+
+def test_json_budget_drops_details_before_records_and_preserves_audit_fields():
+    _, _, records = load_context(ROOT)
+    record = deepcopy(records[0])
+    record["details"] = "large details " * 2000
+    rendered = render_json_selection([(10, record)], include_details=True, max_chars=900)
+    payload = json.loads(rendered)
+    assert len(rendered) <= 900
+    assert len(payload) == 1
+    assert "details" not in payload[0]
+    for field in ("source", "status", "freshness", "verified_against", "last_verified_at"):
+        assert payload[0][field] == record[field]
+    assert rendered.endswith("\n")
+
+
+def test_json_budget_skips_oversized_record_without_slicing_json():
+    _, _, records = load_context(ROOT)
+    large = deepcopy(records[0])
+    large["statement"] = '🐈 "quoted"\n' * 2000
+    small = deepcopy(records[0])
+    rendered = render_json_selection(
+        [(20, large), (10, small)], include_details=False, max_chars=900
+    )
+    assert len(rendered) <= 900
+    assert [record["statement"] for record in json.loads(rendered)] == [small["statement"]]
+    assert render_json_selection([(20, large)], include_details=True, max_chars=300) == "[]\n"
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_select_cli_enforces_complete_stdout_budget(as_json, capsys):
+    args = ["select", "context 🐈" * 2000, "--max-chars", "300", "--include-details"]
+    if as_json:
+        args.append("--json")
+    assert project_context.main(args) == 0
+    captured = capsys.readouterr()
+    assert len(captured.out) <= 300
+    assert captured.err == ""
+    if as_json:
+        assert isinstance(json.loads(captured.out), list)
+
+
+@pytest.mark.parametrize(
+    "links,expected",
+    [
+        ([1, 0], ["fact-901", "fact-902"]),
+        ([1, 2, 0], ["fact-901", "fact-902", "fact-903"]),
+        ([1, 2, 3, 1], ["fact-902", "fact-903", "fact-904"]),
+        ([1, 2, None], []),
+    ],
+)
+def test_repository_rejects_cyclic_supersession_but_accepts_chains(monkeypatch, links, expected):
+    taxonomy, sources, records = load_context(ROOT)
+    added = []
+    for index, target in enumerate(links):
+        record = deepcopy(records[0])
+        record["id"] = f"fact-{901 + index}"
+        record["supersedes"] = None if target is None else f"fact-{901 + target}"
+        added.append(record)
+    monkeypatch.setattr(
+        context_store, "load_context", lambda root: (taxonomy, sources, records + added)
+    )
+    errors = validate_repository(ROOT)
+    assert errors == ([f"records: supersession cycle: {', '.join(expected)}"] if expected else [])
+
+
+def test_cycles_block_cli_before_context_generation(monkeypatch, capsys, tmp_path):
+    taxonomy, sources, records = load_context(ROOT)
+    bad = deepcopy(records)
+    bad[0]["supersedes"] = bad[1]["id"]
+    bad[1]["supersedes"] = bad[0]["id"]
+    monkeypatch.setattr(context_store, "load_context", lambda root: (taxonomy, sources, bad))
+    assert project_context.main(["--root", str(tmp_path), "generate"]) == 1
+    assert "supersession cycle" in capsys.readouterr().err
+    assert not (tmp_path / "project-context").exists()

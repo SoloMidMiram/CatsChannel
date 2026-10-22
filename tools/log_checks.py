@@ -135,6 +135,9 @@ def audit_records(records: list[tuple[int, dict]], *, allow_incomplete: bool = F
             issue(line, "failure_logged_as_success")
         if any(error.get("code") != finished.get("error_category") for _, error in errors):
             issue(line, "failure_category_mismatch")
+    for key, (line, finished) in completions.items():
+        if finished.get("outcome") == "error" and key not in failures and not allow_incomplete:
+            issue(line, "error_completion_without_failure")
     if checked == 0:
         issue(0, "no_supported_events")
     return {

@@ -126,3 +126,4 @@
 {"id":"source-126","kind":"document","title":"PR #30 merge and PR #31 offline tooling","locator":"project-context/evidence/pr30-merge-pr31-offline-checks-2026-10-22.md","captured_at":"2026-10-22","freshness":"current","last_verified_at":"2026-10-22"}
 {"id":"source-127","kind":"pull_request","title":"PR #31 independent context and offline checks","locator":"https://github.com/SoloMidMiram/CatsChannel/pull/31","captured_at":"2026-10-22","freshness":"current","last_verified_at":"2026-10-22"}
 {"id":"source-128","kind":"document","title":"Repeatable offline regression and log contracts","locator":"docs/OFFLINE_CHECKS.md","captured_at":"2026-10-22","freshness":"current","last_verified_at":"2026-10-22"}
+{"id":"source-129","kind":"document","title":"PR #31 reverse correlation, budget and supersession corrections","locator":"project-context/evidence/pr31-review-corrections-2026-10-22.md","captured_at":"2026-10-22","freshness":"current","last_verified_at":"2026-10-22"}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -92,8 +93,12 @@ def render_selection(
     include_details: bool,
     max_chars: int,
 ) -> str:
+    if max_chars < 300:
+        raise ValueError("max_chars must be at least 300")
     source_by_id = {source["id"]: source for source in sources}
-    header = f"# Selected project context\n\nQuery: {query}\n"
+    query_limit = min(512, max_chars // 4)
+    displayed_query = query if len(query) <= query_limit else query[: query_limit - 1] + "…"
+    header = f"# Selected project context\n\nQuery: {displayed_query}\n"
     if not selected:
         return f"{header}\nNo matching records.\n"
     chunks: list[str] = []
@@ -123,3 +128,43 @@ def render_selection(
     if not chunks:
         return f"{header}\nNo record fits the requested context budget.\n"
     return f"{header}\n" + "\n".join(chunks)
+
+
+def render_json_selection(
+    selected: list[tuple[int, dict[str, Any]]],
+    *,
+    include_details: bool,
+    max_chars: int,
+) -> str:
+    """Budget the final serialized array, retaining complete provenance fields."""
+    if max_chars < 300:
+        raise ValueError("max_chars must be at least 300")
+
+    def serialize(payload: list[dict]) -> str:
+        return json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+
+    payload: list[dict] = []
+    for score, record in selected:
+        compact = {
+            key: record[key]
+            for key in (
+                "id",
+                "kind",
+                "area",
+                "statement",
+                "status",
+                "source",
+                "freshness",
+                "last_verified_at",
+                "verified_against",
+            )
+        }
+        compact["score"] = score
+        detailed = compact.copy()
+        if include_details and record.get("details"):
+            detailed["details"] = record["details"]
+        if len(serialize([*payload, detailed])) <= max_chars:
+            payload.append(detailed)
+        elif len(serialize([*payload, compact])) <= max_chars:
+            payload.append(compact)
+    return serialize(payload)

@@ -61,8 +61,40 @@ def test_audit_catches_misleading_completion(change, category):
 def test_audit_distinguishes_incomplete_window_and_duplicate_completion():
     assert audit_records([(1, failure())])["status"] == "fail"
     assert audit_records([(1, failure())], allow_incomplete=True)["status"] == "pass"
-    result = audit_records([(1, completion()), (2, completion())])
+    success = completion(outcome="success", error_category=None)
+    result = audit_records([(1, success), (2, success)])
     assert result["issues"] == [{"line": 2, "category": "duplicate_completion"}]
+
+
+def test_error_completion_requires_failure_unless_window_is_incomplete():
+    orphan = [(7, completion())]
+    assert audit_records(orphan)["issues"] == [
+        {"line": 7, "category": "error_completion_without_failure"}
+    ]
+    assert audit_records(orphan, allow_incomplete=True)["status"] == "pass"
+    assert (
+        audit_records([(1, completion(outcome="success", error_category=None))])["status"] == "pass"
+    )
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_unrelated_failure_does_not_satisfy_error_completion(reverse):
+    events = [failure() | {"correlation_id": "other"}, completion()]
+    if reverse:
+        events.reverse()
+    result = audit_records(list(enumerate(events, 1)))
+    assert {item["category"] for item in result["issues"]} == {
+        "failure_without_completion",
+        "error_completion_without_failure",
+    }
+
+
+def test_incomplete_policy_does_not_allow_mismatched_correlated_records():
+    result = audit_records(
+        [(1, completion(error_category="internal_error")), (2, failure())],
+        allow_incomplete=True,
+    )
+    assert result["issues"] == [{"line": 1, "category": "failure_category_mismatch"}]
 
 
 def test_polling_counts_reset_but_cannot_silently_skip():

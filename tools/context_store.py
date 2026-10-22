@@ -297,6 +297,32 @@ def _validate_record(
     return errors
 
 
+def _supersession_cycles(records: list[dict[str, Any]]) -> list[list[str]]:
+    """Find directed cycles iteratively, including cycles reached through a tail."""
+    links = {
+        record["id"]: record["supersedes"]
+        for record in records
+        if isinstance(record.get("id"), str) and isinstance(record.get("supersedes"), str)
+    }
+    visited: set[str] = set()
+    cycles: list[list[str]] = []
+    for start in sorted(links):
+        path: list[str] = []
+        positions: dict[str, int] = {}
+        node = start
+        while node in links and node not in visited:
+            if node in positions:
+                cycle = path[positions[node] :]
+                if len(cycle) > 1:  # Self-supersession already has its own diagnostic.
+                    cycles.append(sorted(cycle))
+                break
+            positions[node] = len(path)
+            path.append(node)
+            node = links[node]
+        visited.update(path)
+    return cycles
+
+
 def validate_repository(root: Path = ROOT, *, today: date | None = None) -> list[str]:
     """Return every deterministic validation problem without contacting a service."""
     today = today or date.today()
@@ -327,6 +353,10 @@ def validate_repository(root: Path = ROOT, *, today: date | None = None) -> list
                 errors.append(f"{record.get('id')}: supersedes unknown record {supersedes}")
             elif supersedes == record.get("id"):
                 errors.append(f"{record.get('id')}: cannot supersede itself")
+    errors.extend(
+        f"records: supersession cycle: {', '.join(cycle)}"
+        for cycle in _supersession_cycles(records)
+    )
     for schema in ("record.schema.json", "source.schema.json"):
         if not (root / CONTEXT_DIR / "schema" / schema).is_file():
             errors.append(f"schema: missing {schema}")

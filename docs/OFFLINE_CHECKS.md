@@ -42,6 +42,9 @@ uv run --frozen python tools/regress.py run --profile lifecycle --repeat 2 \
 ```
 
 The auditor checks correlated bot failures/completions in either log order,
+including the reverse requirement that an `outcome=error` completion has its
+failure event. Successful completions do not require a failure; returned publication
+states such as `unknown` are not reinterpreted as exception completions.
 success logged after failure, mismatched categories, duplicate completions,
 intake/publication outcome fields, and polling phase/consecutive counters. It also
 recognizes startup/lifecycle/CLI failure phases. Service-level publication events
@@ -50,8 +53,9 @@ lines, malformed JSON, empty/unsupported input, and known private payload fields
 fail the audit. Input is bounded to 20 MiB total and 256 KiB per line. Reports
 contain fixed categories and line numbers, never log values or exception text.
 
-For a deliberately truncated log window, `--allow-incomplete` allows a failure
-without its completion. It does not excuse duplicates, category/outcome mismatch,
+For a deliberately truncated log window, `--allow-incomplete` allows either a failure
+without its completion or an error completion without its failure. It does not
+excuse duplicates, category/outcome mismatch,
 malformed data or private fields. A passing audit means the supported diagnostic
 contracts agree; `error_events` can still be nonzero. It does not prove application
 health, verified media identity, successful delivery, production readiness, or
