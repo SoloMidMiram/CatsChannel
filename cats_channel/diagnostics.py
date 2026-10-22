@@ -227,3 +227,30 @@ def log_operation(
         logger.info(json.dumps(payload, ensure_ascii=True, sort_keys=True, allow_nan=False))
     except Exception:  # noqa: BLE001 - observability must not alter the operation result
         return
+
+
+def log_publication(
+    logger: logging.Logger,
+    *,
+    publication_id: str,
+    phase: str,
+    state: str,
+    attempt_number: int,
+    error_category: str | None = None,
+    recovery_action: str | None = None,
+) -> None:
+    """Allowlisted delivery events: no transport objects, references, tokens or paths."""
+    try:
+        payload = {
+            "event": "publication_stage",
+            "publication_id": _safe_token(publication_id),
+            "correlation_id": _safe_token(publication_id),
+            "phase": _safe_token(phase),
+            "state": _safe_token(state),
+            "attempt_number": max(0, int(attempt_number)),
+            "error_category": _safe_token(error_category) if error_category else None,
+            "recovery_action": _safe_token(recovery_action) if recovery_action else None,
+        }
+        logger.info(json.dumps(payload, sort_keys=True, allow_nan=False))
+    except Exception:  # noqa: BLE001 - observability cannot change delivery outcomes
+        return

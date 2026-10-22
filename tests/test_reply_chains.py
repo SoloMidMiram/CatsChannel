@@ -639,6 +639,10 @@ async def test_ambiguous_destination_projection_is_unavailable(chain_database):
     root = await normal(db, chains)
     await project(db, root)
     issued = await chains.issue_reply_token(root.post_id)
+    # Reproduce pre-0005 legacy ambiguity. Current schema rejects this write;
+    # preserve the resolver's defensive legacy-read regression independently.
+    async with db.engine.begin() as connection:
+        await connection.execute(text("DROP INDEX uq_destination_post_chat"))
     await project(db, root, 2)
     resolver = DatabaseReplyTargetResolver(chains, authorize_actor=allow_actor)
     assert await resolver.resolve(issued.token, actor_id=42) is None

@@ -183,11 +183,25 @@ def test_disposable_postgres_migrations_transactions_and_handoffs(monkeypatch):
     assert "selected_parent_post_id" not in columns
     assert revision == "0003_reply_chain_domain"
 
+    command.upgrade(config, "0004_bot_submission_intake")
+    create_table = Operations.create_table
+
+    def fail_publication_migration(operations, table_name, *args, **kwargs):
+        result = create_table(operations, table_name, *args, **kwargs)
+        if table_name == "publication_attempts":
+            raise RuntimeError("publication migration rollback")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Operations, "create_table", fail_publication_migration)
+        with pytest.raises(RuntimeError, match="publication migration rollback"):
+            command.upgrade(config, "head")
+    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0004_bot_submission_intake"
     command.upgrade(config, "head")
     command.check(config)
     columns, revision = asyncio.run(_schema_state(POSTGRES_URL))
     assert {"placement_mode", "selected_parent_post_id"} <= columns
-    assert revision == "0004_bot_submission_intake"
+    assert revision == "0005_durable_publication"
     asyncio.run(_transaction_contracts(POSTGRES_URL))
     command.downgrade(config, "0002_source_aware_submissions")
     assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"

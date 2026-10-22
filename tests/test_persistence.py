@@ -343,7 +343,7 @@ def test_initial_alembic_migration_builds_schema(tmp_path, monkeypatch):
         "placement_mode",
         "selected_parent_post_id",
     } <= submission_columns
-    assert revision == ("0004_bot_submission_intake",)
+    assert revision == ("0005_durable_publication",)
 
 
 @pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
@@ -498,7 +498,7 @@ def test_failed_sqlite_migration_rolls_back_ddl_and_can_be_retried(tmp_path, mon
     command.check(config)
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0004_bot_submission_intake",
+            "0005_durable_publication",
         )
 
 

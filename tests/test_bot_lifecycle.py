@@ -72,7 +72,14 @@ async def test_persistent_run_bot_owns_database_and_preserves_startup_failure(
     from cats_channel.bot import application as application_module
 
     database = AsyncMock()
-    database.unit_of_work = lambda: None  # No database query during startup.
+
+    @asynccontextmanager
+    async def startup_uow():
+        uow = AsyncMock()
+        uow.publications.list_sending.return_value = ()
+        yield uow
+
+    database.unit_of_work = startup_uow
     if cleanup_fails:
         database.dispose.side_effect = RuntimeError("database close failed")
 

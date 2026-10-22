@@ -21,9 +21,11 @@ from ..submissions import SubmissionError
 from .context import BotOperation, BotOperationRegistry
 from .errors import answer_error_safely, contain_unexpected_bot_error, diagnostic_error
 from .routers import create_post_router
+from .routers.pilot import create_pilot_router
 
 HELP_TEXT = (
     "/post — submit a video or YouTube URL for a pending channel post\n"
+    "/pilot_publish SUBMISSION_ID — explicitly approve one pending submission for delivery\n"
     "/probe URL — metadata only\n"
     "/download URL — fetch one short video to this chat\n"
     "/publish — reply to a Telegram video to copy it to CHANNEL_ID. "
@@ -70,6 +72,7 @@ def _record_failure(
 def create_admin_router(settings: Settings, operation_registry: BotOperationRegistry) -> Router:
     """Build the private, admin-only command router without creating resources."""
     router = Router(name="admin")
+    router.include_router(create_pilot_router())
     router.message.filter(F.chat.type == "private", F.from_user.id == settings.admin_user_id)
     router.callback_query.filter(
         F.message.chat.type == "private", F.from_user.id == settings.admin_user_id

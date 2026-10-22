@@ -197,6 +197,19 @@ def create_bot_application(
                 LibraryManifestSourceResolver(),
                 reply_chains=reply_chains,
             )
+    publication_service = None
+    owned_bot = bot if bot is not None else Bot(settings.bot_token.get_secret_value())
+    if persistence_unit_of_work is not None:
+        from ..adapters.aiogram_publisher import AiogramPublisher
+        from ..publication.service import PublicationService
+
+        publication_service = PublicationService(
+            persistence_unit_of_work,
+            reply_chains=reply_chains,
+            transport=AiogramPublisher(owned_bot, settings, destination_chat_id=destination),
+            destination_chat_id=destination,
+            logger=app_logger,
+        )
     adapter = telegram_media_adapter or TelegramMediaAdapter(settings)
     dispatcher = ApplicationDispatcher(
         storage=storage,
@@ -206,9 +219,12 @@ def create_bot_application(
         logger=app_logger,
         reply_target_resolver=reply_target_resolver or UnavailableReplyTargetResolver(),
         intake_service=intake_service,
+        publication_service=publication_service,
         telegram_media_adapter=adapter,
         flow_coordinator=flow_coordinator,
     )
+    if publication_service is not None:
+        dispatcher.startup.register(publication_service.recover_abandoned)
     router = create_admin_router(settings, operation_registry)
     router.message.middleware(PrivateFlowMiddleware(flow_coordinator))
     router.message.outer_middleware(
@@ -235,7 +251,7 @@ def create_bot_application(
         media_gate=media_gate,
         operation_registry=operation_registry,
         logger=app_logger,
-        bot=bot if bot is not None else Bot(settings.bot_token.get_secret_value()),
+        bot=owned_bot,
         flow_coordinator=flow_coordinator,
         intake_service=intake_service,
         telegram_media_adapter=adapter,

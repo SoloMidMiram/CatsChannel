@@ -6,6 +6,7 @@ from datetime import datetime
 from types import TracebackType
 from typing import Protocol, Self
 
+from ..publication.contracts import PublicationRepository
 from ..reply_chains.contracts import IntentRepository, ReplyTokenRepository
 from .entities import (
     CatPost,
@@ -133,6 +134,9 @@ class HandoffRepository(Protocol):
 
 
 class PersistenceUnitOfWork(Protocol):
+    @property
+    def publications(self) -> PublicationRepository: ...
+
     @property
     def intents(self) -> IntentRepository: ...
 
