@@ -274,7 +274,7 @@ class ReplyChainService:
                 return await self._projection(uow, post.parent_post_id)
 
     async def issue_reply_token(
-        self, post_id: str, *, expires_at: datetime | None = None
+        self, post_id: str, *, expires_at: datetime | None = None, publication_id: str | None = None
     ) -> IssuedReplyToken:
         async with _boundary():
             internal_id(post_id)
@@ -299,6 +299,15 @@ class ReplyChainService:
                 await uow.reply_tokens.create(
                     token_digest=digest, post_id=post.id, created_at=now, expires_at=expires_at
                 )
+                if publication_id is not None:
+                    publication = await uow.publications.get(publication_id)
+                    if (
+                        publication is None
+                        or publication.post_id != post_id
+                        or publication.destination_chat_id != self.destination_chat_id
+                    ):
+                        raise ReplyChainError("reply_token_invalid")
+                    await uow.publications.replace_token(publication_id, digest)
             return IssuedReplyToken(token, post_id, expires_at)
 
     async def revoke_reply_token(self, token: str) -> bool:

@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -169,6 +170,14 @@ class TelegramMessageRefModel(Base):
         ),
         Index("ix_telegram_message_post", "post_id"),
         Index("ix_telegram_message_submission", "submission_id"),
+        Index(
+            "uq_destination_post_chat",
+            "post_id",
+            "chat_id",
+            unique=True,
+            sqlite_where=text("purpose = 'destination' AND post_id IS NOT NULL"),
+            postgresql_where=text("purpose = 'destination' AND post_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -223,3 +232,61 @@ class ReplyEntryTokenModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PublicationModel(TimestampMixin, Base):
+    __tablename__ = "publications"
+    __table_args__ = (
+        UniqueConstraint("post_id", "destination_chat_id", name="uq_publication_post_chat"),
+        CheckConstraint(
+            "state IN ('pending','blocked','sending','confirmed','failed','unknown')",
+            name="ck_publication_state",
+        ),
+        CheckConstraint("version >= 0", name="ck_publication_version"),
+        CheckConstraint(
+            "markup_status IN ('pending','installed','failed')", name="ck_publication_markup"
+        ),
+        CheckConstraint(
+            "state NOT IN ('sending','unknown','confirmed','failed') OR current_attempt_id IS NOT NULL",
+            name="ck_publication_attempt",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    post_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cat_posts.id", ondelete="RESTRICT"), nullable=False
+    )
+    destination_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, server_default="pending")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    # Avoid circular DDL; finish always checks publication ID and claim token.
+    current_attempt_id: Mapped[str | None] = mapped_column(String(36))
+    error_category: Mapped[str | None] = mapped_column(String(64))
+    markup_status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="pending")
+    markup_token_digest: Mapped[str | None] = mapped_column(String(64))
+    navigation_post_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("cat_posts.id", ondelete="RESTRICT")
+    )
+
+
+class PublicationAttemptModel(Base):
+    __tablename__ = "publication_attempts"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "number", name="uq_publication_attempt_number"),
+        UniqueConstraint("claim_token", name="uq_publication_claim"),
+        CheckConstraint("number > 0", name="ck_publication_attempt_number"),
+        CheckConstraint(
+            "outcome IS NULL OR outcome IN ('confirmed','failed','unknown')",
+            name="ck_publication_attempt_outcome",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    publication_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("publications.id", ondelete="RESTRICT"), nullable=False
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    claim_token: Mapped[str] = mapped_column(String(36), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[str | None] = mapped_column(String(16))
+    error_category: Mapped[str | None] = mapped_column(String(64))
+    recovery: Mapped[str | None] = mapped_column(String(64))

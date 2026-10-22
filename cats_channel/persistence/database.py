@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from ..async_cleanup import complete_cleanup
 from ..config import Settings
 from .models import Base
+from .publication_repositories import SqlAlchemyPublicationRepository
 from .reply_repositories import SqlAlchemyIntentRepository, SqlAlchemyReplyTokenRepository
 from .repositories import (
     SqlAlchemyHandoffRepository,
@@ -39,6 +40,13 @@ class SqlAlchemyUnitOfWork:
         self._handoffs: SqlAlchemyHandoffRepository | None = None
         self._intents: SqlAlchemyIntentRepository | None = None
         self._reply_tokens: SqlAlchemyReplyTokenRepository | None = None
+        self._publications: SqlAlchemyPublicationRepository | None = None
+
+    @property
+    def publications(self) -> SqlAlchemyPublicationRepository:
+        if self._publications is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._publications
 
     @property
     def intents(self) -> SqlAlchemyIntentRepository:
@@ -85,6 +93,7 @@ class SqlAlchemyUnitOfWork:
         self._handoffs = None
         self._intents = None
         self._reply_tokens = None
+        self._publications = None
 
     async def __aenter__(self) -> Self:
         if self._session is not None:
@@ -100,6 +109,7 @@ class SqlAlchemyUnitOfWork:
             self._handoffs = SqlAlchemyHandoffRepository(session)
             self._intents = SqlAlchemyIntentRepository(session)
             self._reply_tokens = SqlAlchemyReplyTokenRepository(session)
+            self._publications = SqlAlchemyPublicationRepository(session)
         except BaseException:
             try:
                 await session.close()

@@ -137,6 +137,17 @@ Rollback leaves a pending token retryable and removes all partial submission
 state. Raw tokens and private message bodies are excluded from persistence and
 structured logs.
 
+## Explicit publication pilot (#7)
+
+Intake continues to acknowledge pending and never publishes automatically.
+With persistence enabled, the configured admin may explicitly approve one
+validated submission's durable intent through `/pilot_publish <submission-id>`
+in a private chat. The publisher reconciles existing logical placement, retains
+the immutable intent's exact parent, and reports durable delivery/markup state.
+Repeated approval never resends confirmed or uncertain media. Durable approval
+queues, reviewer audit, rejection and approve/reject UI remain Issue #8.
+See `PUBLICATION_CONTRACT.md` for failure recovery and operator commands.
+
 ## PostgreSQL evidence
 
 The dedicated `postgres` CI job uses a disposable PostgreSQL 16 service. It

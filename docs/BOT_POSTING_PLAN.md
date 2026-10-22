@@ -176,9 +176,10 @@ Record the safe log and user response expected for every error category.
 
 ## Practical delivery order
 
-1. #5 modular `/post`/deep-link intake with pending result and recovery coverage — complete.
+1. #5 modular `/post`/deep-link intake with pending result and recovery coverage â€” complete.
 2. #7 one-destination publication, strict parent projections, per-source ownership,
-   confirmed/unknown recovery and post-confirmation reply buttons.
+   confirmed/unknown recovery and post-confirmation reply buttons — implemented
+   with an explicit admin pilot; see `PUBLICATION_CONTRACT.md`.
 3. #8 auditable moderation over the same durable intent; no retargeting.
 4. An authorized private pilot, incident regressions throughout, and later measured
    operational hardening. #9 observability begins with #5/#7, not after incidents.

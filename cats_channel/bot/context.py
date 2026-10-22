@@ -27,7 +27,18 @@ def operation_name(event: TelegramObject) -> str:
     command = text.split(maxsplit=1)[0].removeprefix("/").split("@", 1)[0].lower()
     return (
         command
-        if command in {"start", "help", "post", "submit", "probe", "download", "publish", "cancel"}
+        if command
+        in {
+            "start",
+            "help",
+            "post",
+            "submit",
+            "probe",
+            "download",
+            "publish",
+            "pilot_publish",
+            "cancel",
+        }
         else "command"
     )
 

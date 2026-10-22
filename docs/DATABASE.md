@@ -37,6 +37,18 @@ submissions. New intake rows store `normal_append` with no selected parent, or
 The matching immutable `post_intents` row is created separately; this enables
 recovery after a committed submission without repeating media transfer.
 
+Migration `0005_durable_publication` adds `publications` and `publication_attempts`.
+Each post/destination pair has one versioned delivery state, current owned attempt,
+independent markup state, managed token digest and latest confirmed direct-reply
+pointer. Attempts retain claim ownership, number, timestamps, outcome and safe
+recovery categories. A partial unique index permits at most one destination
+projection per `(post_id, chat_id)`; Telegram coordinate uniqueness is retained.
+SQLite and PostgreSQL share these constraints. Duplicate legacy projections fail
+upgrade without choosing or deleting data. Downgrade removes publication history
+and the new index, retaining logical posts/projections and existing reply tokens.
+Do not downgrade during active publishing. See `PUBLICATION_CONTRACT.md` for
+exclusive-process operator recovery and the sending/unknown no-resend policy.
+
 `get_or_create(SourceIdentity(...))` treats display fields as a complete current
 snapshot: `None` clears a stored name or username. This removes obsolete public
 handles when a channel becomes private, even if the old handle is reassigned.
