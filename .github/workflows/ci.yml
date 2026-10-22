@@ -20,6 +20,8 @@ jobs:
       - run: uv run --frozen pytest
       - run: uv run --frozen ruff check .
       - run: uv run --frozen ruff format --check .
+      - run: uv run --frozen python tools/project_context.py validate
+      - run: uv run --frozen python tools/project_context.py generate --check
 
   postgres:
     runs-on: ubuntu-latest

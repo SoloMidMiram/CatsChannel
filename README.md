@@ -14,6 +14,9 @@ Async persistence contracts and migrations are documented in
 [`docs/DATABASE.md`](docs/DATABASE.md).
 The source-aware submission service is documented in
 [`docs/SUBMISSIONS.md`](docs/SUBMISSIONS.md).
+For the current project brief, decisions and source-linked evidence, start with
+[`project-context/overview.md`](project-context/overview.md). See
+[`project-context/README.md`](project-context/README.md) for focused context selection.
 
 ## Mission
 
@@ -34,6 +37,8 @@ Build a scalable Telegram bot that manages cat video submissions, publishing, re
 uv sync --locked
 uv run --frozen pytest
 uv run --frozen ruff check .
+uv run --frozen python tools/project_context.py validate
+uv run --frozen python tools/project_context.py generate --check
 ```
 
 See `docs/ROADMAP.md` for execution phases.
