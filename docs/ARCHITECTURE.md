@@ -26,7 +26,10 @@ cats_channel/
     application.py              # application factory and polling lifecycle
     context.py                  # correlation/timing middleware and operation context
     errors.py                   # safe bot response adapter and unexpected-error boundary
-    handlers.py                 # private admin commands and explicit publication
+    handlers.py                 # common commands and explicit pilot publication
+    routers/post.py             # /post, exact deep-link, selection and media intake
+    telegram_media.py           # bounded Bot API bytes and full local validation
+  intake/                       # reconcile-first submission and durable intent service
   config.py                      # validated environment configuration
   diagnostics.py                 # ordered regex rules and secret-safe JSON logging
   errors.py                      # stable error and retry policies
@@ -88,7 +91,7 @@ run_bot()
 ```
 
 The router preserves the initial pilot behavior: only the configured admin in a
-private chat reaches `/start`, `/help`, `/probe`, `/download`, or `/publish`; one
+private chat reaches `/start`, `/post`, `/help`, `/probe`, `/download`, or `/publish`; one
 media operation runs at a time; and an upload can only use the `LibraryItem`
 returned by `MediaService`. The application core does not construct persistence
 until a product workflow needs it. The concrete persistence contracts now exist
@@ -96,8 +99,8 @@ under `cats_channel.persistence`. `reply_chains` owns logical placement and
 durable reply-target resolution; moderation and live pilot optimization remain
 later features. Persistent lookup is explicitly enabled at composition time.
 
-The remaining entry conventions are implemented in `bot/entry.py` and
-`bot/flow.py`: opaque reply payloads, internal-ID callbacks, and private-state
+Entry conventions are implemented in `bot/entry.py`, `bot/flow.py`, and the
+focused post router: opaque reply payloads, internal-ID callbacks, and private-state
 reset/replacement. `bot/dispatcher.py` drains accepted updates before closing FSM
 storage; `bot/lifecycle.py` preserves cleanup ownership across repeated
 cancellation. See [entry contracts](AIOGRAM_ENTRY_CONTRACTS.md).
@@ -145,6 +148,16 @@ releasing the thread lock. Hashed, revocable reply tokens resolve through an
 explicit actor policy and destination-projection check. Handlers consume internal
 targets through the existing resolver protocol; graph decisions stay out of them.
 See [reply-chain invariants and publication boundary](REPLY_CHAIN_DOMAIN.md).
+
+## Bot intake boundary
+
+`SubmissionIntakeService` reconciles the authenticated private Telegram
+projection before acquisition. It persists the validated submission and its
+normal or exact-parent intent, then returns a `pending` result. If a prior attempt
+committed the submission but failed before intent creation, replay creates only
+the missing intent and never invokes the acquisition callback again. The service
+does not finalize a `CatPost`, send to the channel, moderate, or create buttons.
+See [BOT_INTAKE.md](BOT_INTAKE.md).
 
 ## Optional Telegram downloader backend
 

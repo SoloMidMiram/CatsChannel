@@ -11,7 +11,7 @@ pytest.importorskip("sqlalchemy")
 pytest.importorskip("asyncpg")
 
 from alembic.config import Config
-from alembic.operations import Operations
+from alembic.operations import BatchOperations, Operations
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -59,6 +59,8 @@ async def _transaction_contracts(url):
             legacy = await uow.submissions.get("legacy")
             assert legacy.source_identity_status == "unresolved"
             assert legacy.provenance == {}
+            assert legacy.placement_mode is None
+            assert legacy.selected_parent_post_id is None
             first = await uow.submissions.create(source_provider="youtube", source_media_id="first")
             second = await uow.submissions.create(
                 source_provider="youtube", source_media_id="second"
@@ -163,9 +165,29 @@ def test_disposable_postgres_migrations_transactions_and_handoffs(monkeypatch):
         with pytest.raises(RuntimeError, match="reply migration rollback"):
             command.upgrade(config, "head")
     assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"
+    command.upgrade(config, "0003_reply_chain_domain")
+    create_constraint = BatchOperations.create_check_constraint
+
+    def fail_intake_migration(operations, constraint_name, condition, **kwargs):
+        result = create_constraint(operations, constraint_name, condition, **kwargs)
+        if constraint_name == "ck_cat_submissions_placement":
+            raise RuntimeError("intake migration rollback")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(BatchOperations, "create_check_constraint", fail_intake_migration)
+        with pytest.raises(RuntimeError, match="intake migration rollback"):
+            command.upgrade(config, "head")
+    columns, revision = asyncio.run(_schema_state(POSTGRES_URL))
+    assert "placement_mode" not in columns
+    assert "selected_parent_post_id" not in columns
+    assert revision == "0003_reply_chain_domain"
+
     command.upgrade(config, "head")
     command.check(config)
-    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0003_reply_chain_domain"
+    columns, revision = asyncio.run(_schema_state(POSTGRES_URL))
+    assert {"placement_mode", "selected_parent_post_id"} <= columns
+    assert revision == "0004_bot_submission_intake"
     asyncio.run(_transaction_contracts(POSTGRES_URL))
     command.downgrade(config, "0002_source_aware_submissions")
     assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"

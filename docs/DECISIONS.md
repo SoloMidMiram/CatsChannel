@@ -32,6 +32,7 @@ relabeled as the target source, and an exact-parent placement must not manufactu
 verified source identity. A bounded #6 follow-up was required because provider
 matching originally rejected Telegram uploads under YouTube-source posts. That
 correction is implemented with mode-specific validation and an internal
-`authorized_reply_target` input; `/post` intake remains planned. See
+`authorized_reply_target` input. `/post` now persists that placement separately
+from truthful media provenance and acknowledges only a pending result. See
 [BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md) for command, error, pilot regression and
 dependency details.

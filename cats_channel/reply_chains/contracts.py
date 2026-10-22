@@ -18,6 +18,8 @@ class IntentRepository(Protocol):
 
     async def get(self, intent_id: str) -> PostIntent | None: ...
 
+    async def get_for_submission(self, submission_id: str) -> PostIntent | None: ...
+
 
 class ReplyTokenRepository(Protocol):
     async def create(

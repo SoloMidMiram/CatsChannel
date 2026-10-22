@@ -50,7 +50,7 @@ external string. These shape checks do not turn an untrusted constructor into a
 trusted adapter.
 
 The local adapter accepts only the `LibraryItem` returned by `MediaService` after
-its real validation/cache-integrity path. A future Telegram adapter must obtain
+its real validation/cache-integrity path. The Telegram Bot API adapter obtains
 the reference and actor/conversation from authenticated transport context, fetch
 the bytes through the configured transport, run local media policy, inspection
 and full decoding, and construct evidence from those actual results. It must
@@ -58,10 +58,9 @@ derive the media key from Telegram's `file_unique_id`, not user-provided text.
 Neither the evidence nor a correlated handoff proves the original channel's
 identity; that still needs the separate trusted resolver or manual selection.
 
-This PR exposes no submission handler or external deserializer. Completing #3
-and wiring a trusted Telegram validator are explicit gates before exposing the
-submission/reply UI. Fake evidence in tests supplies the trusted adapter role;
-it is not a production validation shortcut.
+The authenticated `/post` router now exposes only this trusted adapter and the
+existing validated `MediaService` path. Fake evidence remains test-only; it is
+not a production validation shortcut.
 
 ## Provenance persistence schema
 
@@ -141,9 +140,10 @@ structured logs.
 ## PostgreSQL evidence
 
 The dedicated `postgres` CI job uses a disposable PostgreSQL 16 service. It
-executes 0001, seeds a legacy record, injects a 0002 migration failure and checks
-transactional DDL rollback, upgrades to 0002, checks schema parity, and exercises
-UoW rollback, source-media uniqueness, and competing handoff consumption.
+executes 0001, seeds a legacy record, injects failures into migrations 0002, 0003
+and 0004, checks transactional DDL rollback, upgrades to head, checks placement
+schema parity, and exercises UoW rollback, source-media uniqueness, and competing
+handoff consumption.
 
 The test is opt-in locally with `CATS_TEST_POSTGRES_URL` and
 `CATS_TEST_POSTGRES_DISPOSABLE=1`. It requires a fresh loopback-only database/user

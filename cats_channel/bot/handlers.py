@@ -7,20 +7,23 @@ import logging
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramAPIError
-from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import FSInputFile, Message
 
 from ..config import Settings
 from ..diagnostics import log_failure
 from ..errors import MediaError
+from ..intake import IntakeError
 from ..media import youtube_url
+from ..reply_chains.errors import ReplyChainError
 from ..services.media_service import MediaService
+from ..submissions import SubmissionError
 from .context import BotOperation, BotOperationRegistry
-from .entry import EntryContractError, ReplyTarget, ReplyTargetResolver, parse_reply_payload
 from .errors import answer_error_safely, contain_unexpected_bot_error, diagnostic_error
-from .flow import FlowLease, PrivateEntryContext
+from .routers import create_post_router
 
 HELP_TEXT = (
+    "/post — submit a video or YouTube URL for a pending channel post\n"
     "/probe URL — metadata only\n"
     "/download URL — fetch one short video to this chat\n"
     "/publish — reply to a Telegram video to copy it to CHANNEL_ID. "
@@ -68,6 +71,9 @@ def create_admin_router(settings: Settings, operation_registry: BotOperationRegi
     """Build the private, admin-only command router without creating resources."""
     router = Router(name="admin")
     router.message.filter(F.chat.type == "private", F.from_user.id == settings.admin_user_id)
+    router.callback_query.filter(
+        F.message.chat.type == "private", F.from_user.id == settings.admin_user_id
+    )
 
     @router.errors()
     async def unexpected_error(
@@ -75,43 +81,30 @@ def create_admin_router(settings: Settings, operation_registry: BotOperationRegi
         logger: logging.Logger,
         bot_operation: BotOperation | None = None,
     ) -> bool:
-        operation = bot_operation or operation_registry.take(event.update.message)
+        update_event = event.update.message or event.update.callback_query
+        operation = bot_operation or operation_registry.take(update_event)
+        error = event.exception
+        if isinstance(error, (IntakeError, SubmissionError, ReplyChainError, MediaError)):
+            code = str(error.code)
+            operation = operation or BotOperation("unavailable", "bot_intake", 0.0)
+            _record_failure(logger, operation, "bot_intake_failure", error, code=code)
+            message = event.update.message or (
+                event.update.callback_query.message if event.update.callback_query else None
+            )
+            if isinstance(message, Message):
+                await answer_error_safely(
+                    message,
+                    code=code,
+                    logger=logger,
+                    operation=operation,
+                    event="bot_error_notification_failure",
+                )
+            return True
         return await contain_unexpected_bot_error(event, logger, operation)
 
-    @router.message(CommandStart())
-    async def start_message(
-        message: Message,
-        command: CommandObject,
-        flow_lease: FlowLease,
-        reply_target_resolver: ReplyTargetResolver,
-        logger: logging.Logger,
-        bot_operation: BotOperation,
-    ) -> None:
-        if command.args is None:
-            await message.answer(HELP_TEXT)
-            return
-        try:
-            token = parse_reply_payload(command.args)
-            target = await reply_target_resolver.resolve(token, actor_id=message.from_user.id)
-            if target is None:
-                raise EntryContractError()
-            if not isinstance(target, ReplyTarget):
-                raise TypeError("Reply resolver returned an invalid target contract")
-            selected = await flow_lease.select(
-                PrivateEntryContext(thread_id=target.thread_id, parent_post_id=target.post_id),
-                lambda: message.answer("Reply context selected. Use /cancel to clear it."),
-            )
-            if not selected:
-                bot_operation.outcome = "superseded"
-        except EntryContractError:
-            bot_operation.fail("reply_entry_invalid")
-            await answer_error_safely(
-                message,
-                code="reply_entry_invalid",
-                logger=logger,
-                operation=bot_operation,
-                event="bot_error_notification_failure",
-            )
+    @router.message(CommandStart(deep_link=False))
+    async def start_message(message: Message) -> None:
+        await message.answer(HELP_TEXT)
 
     @router.message(Command("help"))
     async def help_message(message: Message) -> None:
@@ -251,4 +244,5 @@ def create_admin_router(settings: Settings, operation_registry: BotOperationRegi
             return
         await message.answer("Published to the configured channel.")
 
+    router.include_router(create_post_router())
     return router

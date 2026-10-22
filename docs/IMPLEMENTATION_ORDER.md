@@ -8,7 +8,7 @@ Remaining delivery order:
 The bounded #6 follow-up is complete: exact-parent placement is separate from
 actual media provenance, while normal append remains source-matched.
 
-1. #5 modular `/post` intake and durable source/parent intent integration.
+1. #5 modular `/post` intake and durable source/parent intent integration is complete.
 2. #7 single-channel publication, durable delivery state and reconciliation;
    prove the bot-triggered slice with an explicit authorized pilot approval policy.
 3. #8 durable moderation queue and audited actions over that same intent/flow.
@@ -18,5 +18,5 @@ Safe logging and pilot incident-to-regression coverage are acceptance gates for
 each phase, not a deferred infrastructure project. See
 [BOT_POSTING_PLAN.md](BOT_POSTING_PLAN.md) for modular command and error boundaries.
 
-The boundaries exist; the next work must connect them into usable bot behavior.
+The intake boundary is usable and deliberately stops at `pending`; #7 is next.
 See [PUBLICATION_CONTRACT.md](PUBLICATION_CONTRACT.md). Issues are tracked in GitHub.

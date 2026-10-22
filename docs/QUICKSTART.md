@@ -322,14 +322,18 @@ The sample is an integration spike, not the completed moderation/reply-chain
 platform. Tests use local mocks; real tokens, Telegram posting, YouTube extraction,
 cookie validity, JS runtime and FFmpeg behavior need live smoke validation.
 
-Local validation on 2026-10-17 produced these offline results from the lockfile:
+Local validation on 2026-10-18 produced these offline results from the lockfile:
 
-- WSL Python 3.11.16 with all extras: 219 passed, 1 Windows-only test skipped;
-- WSL Python 3.13.15 with all extras: 219 passed, 1 Windows-only test skipped;
-- Windows Python 3.11.4 with all extras: 218 passed, 2 POSIX-only tests skipped;
-- WSL Python 3.11 baseline install: 185 passed, 3 optional tests skipped;
-- Ruff lint/formatting, lock consistency, SQLite migration parity, PostgreSQL
-  offline migration rendering, and offline source/wheel builds passed.
+- WSL Python 3.11.16 with all extras: 363 passed, 37 platform/service tests skipped;
+- Windows Python 3.11.4 with all extras: 362 passed, 38 platform/service tests skipped;
+- WSL Python 3.11 baseline install: 274 passed, 7 optional tests skipped;
+- Ruff lint/formatting passed on WSL and Windows;
+- lock consistency, SQLite migration parity, PostgreSQL offline migration
+  rendering, `git diff --check`, and offline source/wheel builds passed.
+
+Python 3.13 was not rerun and remains only a future migration rehearsal, not a
+supported runtime or CI gate. A live PostgreSQL service was not used for this
+local check; its dedicated CI job remains the integration gate.
 
 Real Telegram credentials, YouTube access, cookie validity, JavaScript challenges,
 FFmpeg behavior, and private-channel publication still require authorized live

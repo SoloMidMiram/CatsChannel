@@ -305,6 +305,26 @@ ERROR_POLICIES = MappingProxyType(
             "Reconcile the handoff and database state before one explicit retry.",
             "after_reconciliation",
         ),
+        "intake_conflict": ErrorPolicy(
+            "This intake conflicts with its stored owner or placement.",
+            "Cancel and start from the original post entry; do not transfer the media again.",
+            "after_reconciliation",
+        ),
+        "intake_persistence": ErrorPolicy(
+            "The intake state could not be reconciled safely.",
+            "Inspect the stored projection and intent before one explicit retry.",
+            "after_reconciliation",
+        ),
+        "intake_superseded": ErrorPolicy(
+            "This intake was replaced by a newer command.",
+            "Continue with the newest active post flow.",
+            "do_not_retry",
+        ),
+        "intake_unavailable": ErrorPolicy(
+            "Bot submission intake is not configured.",
+            "Enable persistence and restart the bot before using /post.",
+            "after_local_fix",
+        ),
         "internal_error": ErrorPolicy(
             "An unexpected internal error was safely contained.",
             "Inspect local application logs/code; no automatic retry is allowed.",

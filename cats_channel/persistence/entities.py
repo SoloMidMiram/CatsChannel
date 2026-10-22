@@ -50,6 +50,8 @@ class CatVideoSubmission:
     provenance: dict[str, object]
     created_at: datetime
     updated_at: datetime
+    placement_mode: str | None = None
+    selected_parent_post_id: str | None = None
 
 
 @dataclass(frozen=True)

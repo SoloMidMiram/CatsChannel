@@ -15,7 +15,9 @@ from aiogram.fsm.storage.base import BaseStorage
 
 from ..config import Settings
 from ..diagnostics import configure_logging, log_failure
+from ..intake import SubmissionIntakeService
 from ..services.media_service import MediaService
+from ..submissions import LibraryManifestSourceResolver
 from .context import BotOperationRegistry, OperationLoggingMiddleware
 from .dispatcher import ApplicationDispatcher
 from .entry import ReplyTargetResolver, UnavailableReplyTargetResolver
@@ -23,6 +25,7 @@ from .errors import diagnostic_error
 from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware
 from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
+from .telegram_media import TelegramMediaAdapter
 
 ResourceFactory = Callable[[], AbstractAsyncContextManager[Any]]
 
@@ -42,6 +45,8 @@ class BotApplication:
     logger: logging.Logger
     bot: Bot
     flow_coordinator: PrivateFlowCoordinator
+    intake_service: SubmissionIntakeService | None
+    telegram_media_adapter: TelegramMediaAdapter
     resources: tuple[ResourceFactory, ...] = ()
     _started: bool = field(default=False, init=False)
 
@@ -156,6 +161,8 @@ def create_bot_application(
     storage: BaseStorage | None = None,
     reply_target_resolver: ReplyTargetResolver | None = None,
     persistence_unit_of_work: Callable[[], PersistenceUnitOfWork] | None = None,
+    intake_service: SubmissionIntakeService | None = None,
+    telegram_media_adapter: TelegramMediaAdapter | None = None,
     resources: tuple[ResourceFactory, ...] = (),
 ) -> BotApplication:
     """Compose the bot without network access or import-time resource creation."""
@@ -179,10 +186,18 @@ def create_bot_application(
         async def authorize_actor(actor_id, target):
             return actor_id == settings.admin_user_id
 
+        reply_chains = ReplyChainService(persistence_unit_of_work, destination_chat_id=destination)
         reply_target_resolver = DatabaseReplyTargetResolver(
-            ReplyChainService(persistence_unit_of_work, destination_chat_id=destination),
+            reply_chains,
             authorize_actor=authorize_actor,
         )
+        if intake_service is None:
+            intake_service = SubmissionIntakeService(
+                persistence_unit_of_work,
+                LibraryManifestSourceResolver(),
+                reply_chains=reply_chains,
+            )
+    adapter = telegram_media_adapter or TelegramMediaAdapter(settings)
     dispatcher = ApplicationDispatcher(
         storage=storage,
         settings=settings,
@@ -190,10 +205,21 @@ def create_bot_application(
         media_gate=media_gate,
         logger=app_logger,
         reply_target_resolver=reply_target_resolver or UnavailableReplyTargetResolver(),
+        intake_service=intake_service,
+        telegram_media_adapter=adapter,
+        flow_coordinator=flow_coordinator,
     )
     router = create_admin_router(settings, operation_registry)
     router.message.middleware(PrivateFlowMiddleware(flow_coordinator))
     router.message.outer_middleware(
+        OperationLoggingMiddleware(
+            app_logger,
+            registry=operation_registry,
+            clock=clock,
+            correlation_id_factory=correlation_id_factory,
+        )
+    )
+    router.callback_query.outer_middleware(
         OperationLoggingMiddleware(
             app_logger,
             registry=operation_registry,
@@ -211,6 +237,8 @@ def create_bot_application(
         logger=app_logger,
         bot=bot if bot is not None else Bot(settings.bot_token.get_secret_value()),
         flow_coordinator=flow_coordinator,
+        intake_service=intake_service,
+        telegram_media_adapter=adapter,
         resources=resources,
     )
 

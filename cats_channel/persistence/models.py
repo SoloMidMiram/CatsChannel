@@ -62,6 +62,12 @@ class CatVideoSubmissionModel(TimestampMixin, Base):
         UniqueConstraint(
             "source_provider", "source_media_id", name="uq_cat_submissions_source_media"
         ),
+        CheckConstraint(
+            "(placement_mode IS NULL AND selected_parent_post_id IS NULL) OR "
+            "(placement_mode = 'normal_append' AND selected_parent_post_id IS NULL) OR "
+            "(placement_mode = 'interactive_reply' AND selected_parent_post_id IS NOT NULL)",
+            name="ck_cat_submissions_placement",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -89,6 +95,8 @@ class CatVideoSubmissionModel(TimestampMixin, Base):
     provenance: Mapped[dict[str, object]] = mapped_column(
         JSON, nullable=False, default=dict, server_default="{}"
     )
+    placement_mode: Mapped[str | None] = mapped_column(String(24))
+    selected_parent_post_id: Mapped[str | None] = mapped_column(String(36))
 
 
 class MediaHandoffRequestModel(Base):
