@@ -22,6 +22,7 @@ jobs:
       - run: uv run --frozen ruff format --check .
       - run: uv run --frozen python tools/project_context.py validate
       - run: uv run --frozen python tools/project_context.py generate --check
+      - run: uv run --frozen python tools/regress.py run --profile context --repeat 2 --timeout 120
 
   postgres:
     runs-on: ubuntu-latest

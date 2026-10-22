@@ -7,6 +7,7 @@
 - Recorded: `2026-10-16`
 - Last verified: `2026-10-16`
 - Tags: `audit`, `context`, `memory`, `records`, `sources`
+- Scope: PR #31 separates validation, rendering and selection behind a compatible CLI; offline repeated regression and sanitized log checking remain developer tooling
 
 ## Rationale and consequences
 
@@ -18,3 +19,4 @@ Original evidence stays in Git, GitHub, checked-in documents, test reports, and 
 - `source-016` — [Project context operating contract](../README.md)
 - `source-017` — [Project context validator, generator, and selector](../../tools/project_context.py)
 - `source-018` — [Project context regression suite](../../tests/test_project_context.py)
+- `source-128` — [Repeatable offline regression and log contracts](../../docs/OFFLINE_CHECKS.md)

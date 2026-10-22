@@ -75,3 +75,8 @@ proof for questions such as “is this fixed?” or “are we ready?”. For tho
 the relevant records and then check the current branch, code, tests, commit, issue,
 or pull-request state. If reality differs, update the source catalog and supersede
 or refresh the record before regenerating the brief.
+
+The context CLI delegates validation, rendering and selection to separate modules;
+existing file and module entry points remain compatible. For bounded repeated
+checks, process ownership, local reports and sanitized log auditing, see
+[`docs/OFFLINE_CHECKS.md`](../docs/OFFLINE_CHECKS.md).
