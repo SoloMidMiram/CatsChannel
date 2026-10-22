@@ -4,9 +4,8 @@ import argparse
 import asyncio
 import json
 
-from aiogram import Bot
-
 from ..adapters.aiogram_publisher import AiogramPublisher
+from ..bot.transport import create_configured_bot
 from ..config import Settings
 from ..persistence import Database, TelegramMessageRef
 from ..reply_chains.service import ReplyChainService
@@ -19,7 +18,7 @@ async def execute(settings: Settings, args: argparse.Namespace):
     settings.require_bot()
     destination = int(settings.channel_id or "")
     database = Database.from_settings(settings)
-    bot = Bot(settings.bot_token.get_secret_value())
+    bot = create_configured_bot(settings)
     try:
         service = PublicationService(
             database.unit_of_work,

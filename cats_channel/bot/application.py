@@ -26,6 +26,7 @@ from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware
 from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
 from .telegram_media import TelegramMediaAdapter
+from .transport import create_configured_bot
 
 ResourceFactory = Callable[[], AbstractAsyncContextManager[Any]]
 
@@ -198,7 +199,7 @@ def create_bot_application(
                 reply_chains=reply_chains,
             )
     publication_service = None
-    owned_bot = bot if bot is not None else Bot(settings.bot_token.get_secret_value())
+    owned_bot = bot if bot is not None else create_configured_bot(settings)
     if persistence_unit_of_work is not None:
         from ..adapters.aiogram_publisher import AiogramPublisher
         from ..publication.service import PublicationService

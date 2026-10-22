@@ -23,6 +23,11 @@ def _parser() -> argparse.ArgumentParser:
     actions.add_argument("--check", action="store_true", help="offline configuration validation")
     actions.add_argument("--bot", action="store_true")
     actions.add_argument(
+        "--bot-diagnose",
+        action="store_true",
+        help="read-only Bot API connectivity, webhook and channel-permission checks",
+    )
+    actions.add_argument(
         "--telegram-login", action="store_true", help="interactive Telegram user-account login"
     )
     actions.add_argument(
@@ -49,6 +54,7 @@ def main() -> int:
                 ("--doctor", args.doctor),
                 ("--check", args.check),
                 ("--bot", args.bot),
+                ("--bot-diagnose", args.bot_diagnose),
                 ("--telegram-login", args.telegram_login),
                 ("--telegram-diagnose", args.telegram_diagnose),
                 ("--probe", args.probe is not None),
@@ -93,6 +99,12 @@ def main() -> int:
         elif args.check:
             settings.require_bot()
             _write({"status": "ok", "message": "Bot configuration is present."})
+        elif args.bot_diagnose:
+            from .bot.preflight import diagnose_bot_api
+
+            report = asyncio.run(diagnose_bot_api(settings))
+            _write(report)
+            return 0 if report["status"] == "ready" else 1
         elif args.probe:
             if settings.media_backend == "telegram_bot":
                 raise MediaError(code="backend_capability")

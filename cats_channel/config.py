@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     admin_user_id: int | None = None
     channel_id: str | None = None
     reply_entries_enabled: bool = False
+    bot_api_proxy: AnyUrl | None = None
+    bot_api_timeout_seconds: int = Field(default=60, ge=5, le=180)
     youtube_cookie_file: Path | None = None
     youtube_profile: Literal["baseline", "pot_bgutil"] = "baseline"
     youtube_pot_provider_url: AnyHttpUrl | None = None
@@ -87,6 +89,27 @@ class Settings(BaseSettings):
             raise ValueError("TELEGRAM_PROXY must be an origin without credentials")
         if value.host is None or value.port is None:
             raise ValueError("TELEGRAM_PROXY must include a host and port")
+        return value
+
+    @field_validator("bot_api_proxy")
+    @classmethod
+    def validate_bot_api_proxy(cls, value: AnyUrl | None) -> AnyUrl | None:
+        if value is None:
+            return None
+        if value.scheme not in {"http", "socks4", "socks4a", "socks5", "socks5h"}:
+            raise ValueError("BOT_API_PROXY must use HTTP or SOCKS")
+        if (
+            value.username
+            or value.password
+            or value.query
+            or value.fragment
+            or value.path not in {None, "", "/"}
+            or value.host is None
+            or value.port is None
+        ):
+            raise ValueError(
+                "BOT_API_PROXY must be an origin with host and port, without credentials"
+            )
         return value
 
     @field_validator("youtube_pot_provider_url")
