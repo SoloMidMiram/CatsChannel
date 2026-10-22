@@ -79,6 +79,7 @@ class TelegramMediaAdapter:
                     await bot.download(
                         video,
                         destination=_BoundedWriter(destination, limit),
+                        timeout=self._settings.bot_api_file_timeout_seconds,
                         seek=False,
                     )
             except asyncio.CancelledError:
@@ -175,9 +176,5 @@ class TelegramMediaAdapter:
                     full_decode=validation.get("full_decode") == "passed",
                 ),
                 source_metadata=SourceMetadata(),
-                provenance={
-                    "adapter": "telegram_bot_api",
-                    "validation": "full_decode",
-                    "telegram_file_unique_id": video.file_unique_id,
-                },
+                provenance={"adapter": "telegram_native"},
             )

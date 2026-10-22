@@ -100,6 +100,11 @@ ERROR_POLICIES = MappingProxyType(
             "Inspect channel history and posting permissions; do not blindly resend.",
             "after_reconciliation",
         ),
+        "bot_api_network": ErrorPolicy(
+            "The Telegram Bot API connection failed.",
+            "Check the configured Bot API route before starting one later process.",
+            "after_network_change",
+        ),
         "backend_capability": ErrorPolicy(
             "This backend does not support a metadata-only YouTube probe.",
             "Use --download with the Telegram backend; it never contacts YouTube directly.",
@@ -324,6 +329,36 @@ ERROR_POLICIES = MappingProxyType(
             "Bot submission intake is not configured.",
             "Enable persistence and restart the bot before using /post.",
             "after_local_fix",
+        ),
+        "publication_not_eligible": ErrorPolicy(
+            "This submission is not eligible for publication.",
+            "Inspect its durable submission and intent state; do not resend the media.",
+            "after_reconciliation",
+        ),
+        "publication_unavailable": ErrorPolicy(
+            "Publication is not currently available.",
+            "Inspect the durable publication state and application logs before another command.",
+            "after_investigation",
+        ),
+        "publication_not_found": ErrorPolicy(
+            "The publication record is unavailable.",
+            "Reconcile the submission, logical post, and destination state before retrying.",
+            "after_reconciliation",
+        ),
+        "publication_transition_invalid": ErrorPolicy(
+            "The requested publication transition is not allowed.",
+            "Inspect the current durable state; never retry an uncertain send blindly.",
+            "after_reconciliation",
+        ),
+        "delivery_coordinates_invalid": ErrorPolicy(
+            "Telegram returned invalid delivery coordinates.",
+            "Inspect channel history and reconcile delivery before any retry.",
+            "after_reconciliation",
+        ),
+        "delivery_coordinates_conflict": ErrorPolicy(
+            "Delivery evidence conflicts with the stored destination reference.",
+            "Stop and reconcile both references manually; do not send again.",
+            "after_reconciliation",
         ),
         "internal_error": ErrorPolicy(
             "An unexpected internal error was safely contained.",

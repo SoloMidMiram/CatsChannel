@@ -157,6 +157,29 @@ def main() -> int:
         )
         _write({"status": "error", "error": error_record("invalid_url")})
         return 1
+    except TimeoutError as error:
+        if operation == "bot":
+            from .bot.errors import bot_api_diagnostic_error
+
+            diagnostic = bot_api_diagnostic_error(error)
+            log_failure(logger, "cli_failure", diagnostic, operation=operation)
+            _write(media_error_report(diagnostic))
+            return 1
+        log_failure(
+            logger,
+            "cli_failure",
+            MediaError(
+                code="local_io",
+                log_analysis={
+                    "phase": operation,
+                    "exception_types": [type(error).__name__],
+                    "raw_log_included": False,
+                },
+            ),
+            operation=operation,
+        )
+        _write({"status": "error", "error": error_record("local_io")})
+        return 1
     except OSError as error:
         log_failure(
             logger,
@@ -189,7 +212,16 @@ def main() -> int:
         )
         _write({"status": "error", "error": error_record("cancelled")})
         return 130
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:  # noqa: BLE001 - recognize the safe Bot API boundary first
+        from aiogram.exceptions import TelegramNetworkError
+
+        if isinstance(error, TelegramNetworkError):
+            from .bot.errors import bot_api_diagnostic_error
+
+            diagnostic = bot_api_diagnostic_error(error)
+            log_failure(logger, "cli_failure", diagnostic, operation=operation)
+            _write(media_error_report(diagnostic))
+            return 1
         log_failure(logger, "cli_failure", error, operation=operation)
         _write(
             {

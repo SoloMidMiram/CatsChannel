@@ -212,6 +212,37 @@ async def test_owned_preflight_closes_session_and_cancellation_propagates(monkey
     assert bot.session.close.await_count == 2
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        TelegramNetworkError(method=GetMe(), message="token=private"),
+        TimeoutError("token=private"),
+    ],
+)
+def test_bot_cli_preserves_network_classification_after_startup_exhaustion(
+    monkeypatch, capsys, error
+):
+    import sys
+
+    from cats_channel.cli import main
+
+    run = AsyncMock(side_effect=error)
+    monkeypatch.setattr("cats_channel.bot.run_bot", run)
+    monkeypatch.setattr("cats_channel.cli.Settings", lambda: settings())
+    monkeypatch.setattr(sys, "argv", ["cats-channel", "--bot"])
+
+    assert main() == 1
+    output = capsys.readouterr()
+    response = json.loads(output.out)
+    record = json.loads(output.err)
+    assert response["error"]["code"] == record["code"] == "bot_api_network"
+    expected_phase = (
+        "bot_api_get_me" if isinstance(error, TelegramNetworkError) else "bot_lifecycle"
+    )
+    assert record["analysis"]["phase"] == expected_phase
+    assert "private" not in output.out + output.err
+
+
 @pytest.mark.parametrize("status,exit_code", [("ready", 0), ("blocked", 1)])
 def test_diagnostic_cli_reports_readiness_without_starting_polling(
     monkeypatch, capsys, status, exit_code

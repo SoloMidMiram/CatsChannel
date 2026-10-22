@@ -170,6 +170,8 @@ def create_post_router() -> Router:
             # that an already committed submission was cancelled.
             await lease.clear()
         bot_operation.outcome = f"pending_{result.disposition}"
+        bot_operation.disposition = result.disposition
+        bot_operation.placement_mode = result.mode
         await message.answer(f"Accepted as pending submission {result.submission_id}.")
 
     @router.message(PrivateEntryStates.reply_entry, F.text, ~F.text.startswith("/"))
@@ -210,6 +212,8 @@ def create_post_router() -> Router:
             )
             await lease.clear()
         bot_operation.outcome = f"pending_{result.disposition}"
+        bot_operation.disposition = result.disposition
+        bot_operation.placement_mode = result.mode
         await message.answer(f"Accepted as pending submission {result.submission_id}.")
 
     return router

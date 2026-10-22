@@ -49,9 +49,11 @@ class FakeBot:
     def __init__(self, payload=b"video"):
         self.payload = payload
         self.calls = 0
+        self.download_kwargs = []
 
-    async def download(self, _video, destination, **_kwargs):
+    async def download(self, _video, destination, **kwargs):
         self.calls += 1
+        self.download_kwargs.append(kwargs)
         destination.write(self.payload)
 
 
@@ -78,7 +80,46 @@ async def test_adapter_validates_actual_bytes_and_builds_truthful_media():
     assert result.validation.size_bytes == 5
     assert result.validation.full_decode is True
     assert result.metadata.title is None
+    assert bot.download_kwargs == [{"timeout": 180, "seek": False}]
     assert not seen["path"].exists()
+
+
+async def test_real_adapter_output_reaches_durable_pending_intake(tmp_path):
+    from cats_channel.intake import IntakePlacement, SubmissionIntakeService
+    from cats_channel.persistence import Database, SourceIdentity
+    from cats_channel.submissions import LibraryManifestSourceResolver
+
+    database = Database(f"sqlite+aiosqlite:///{(tmp_path / 'native.sqlite3').as_posix()}")
+    await database.create_schema_for_tests()
+    try:
+        async with database.unit_of_work() as uow:
+            thread = await uow.threads.get_or_create(SourceIdentity("telegram", "downloader"))
+        reference = TelegramMessageRef(42, 7)
+        adapter = TelegramMediaAdapter(settings(), validator=lambda *_args, **_kwargs: validation())
+        intake = SubmissionIntakeService(database.unit_of_work, LibraryManifestSourceResolver())
+
+        async def acquire():
+            return await adapter.acquire(FakeBot(), video(), reference)
+
+        result = await intake.process(
+            actor_id=42,
+            inbound_reference=reference,
+            placement=IntakePlacement.normal(thread.id),
+            acquire=acquire,
+        )
+        async with database.unit_of_work() as uow:
+            submission = await uow.submissions.get(result.submission_id)
+            intent = await uow.intents.get_for_submission(result.submission_id)
+            post = await uow.threads.get_post_for_submission(result.submission_id)
+        assert submission.status == "validated"
+        assert submission.source_provider == "telegram"
+        assert submission.source_identity_status == "user_selected"
+        assert submission.provenance["media"] == {"adapter": "telegram_native"}
+        assert submission.validation_evidence["full_decode"] is True
+        assert submission.provenance["telegram"]["file_unique_id"] == "stable-file-id"
+        assert intent is not None and post is None
+    finally:
+        await database.dispose()
 
 
 async def test_adapter_rejects_declared_and_streamed_oversize_without_validation():

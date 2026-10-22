@@ -6,6 +6,7 @@ from aiogram.types import Message
 
 from ...publication.errors import PublicationError
 from ...publication.service import PublicationService
+from ..context import BotOperation
 
 
 def create_pilot_router() -> Router:
@@ -14,24 +15,24 @@ def create_pilot_router() -> Router:
 
     @router.message(Command("pilot_publish"))
     async def pilot_publish(
-        message: Message, publication_service: PublicationService | None = None
+        message: Message,
+        bot_operation: BotOperation,
+        publication_service: PublicationService | None = None,
     ):
         parts = (message.text or "").split()
         if len(parts) != 2:
             await message.answer(
                 "Usage: /pilot_publish <submission-id>. This explicitly approves that pending submission."
             )
+            bot_operation.outcome = "invalid_request"
             return
         if publication_service is None:
-            await message.answer("Publication unavailable.")
-            return
-        try:
-            result = await publication_service.approve_pilot(parts[1])
-        except PublicationError:
-            await message.answer(
-                "Publication unavailable or submission not eligible. No automatic retry."
-            )
-            return
+            raise PublicationError("publication_unavailable")
+        result = await publication_service.approve_pilot(parts[1])
+        bot_operation.outcome = result.state
+        bot_operation.publication_state = result.state
+        if result.error_category is not None:
+            bot_operation.error_category = result.error_category
         state = (
             "pending (owned sending attempt; do not retry)"
             if result.state == "sending"

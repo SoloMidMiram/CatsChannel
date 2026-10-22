@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     reply_entries_enabled: bool = False
     bot_api_proxy: AnyUrl | None = None
     bot_api_timeout_seconds: int = Field(default=60, ge=5, le=180)
+    bot_api_file_timeout_seconds: int = Field(default=180, ge=30, le=600)
+    bot_api_startup_attempts: int = Field(default=3, ge=1, le=10)
+    bot_api_startup_backoff_seconds: float = Field(default=1.0, ge=0, le=30)
     youtube_cookie_file: Path | None = None
     youtube_profile: Literal["baseline", "pot_bgutil"] = "baseline"
     youtube_pot_provider_url: AnyHttpUrl | None = None

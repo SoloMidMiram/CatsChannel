@@ -70,6 +70,9 @@ class PublicationService:
                 operation="pilot_publish",
                 outcome=result.state,
                 duration_ms=(time.monotonic() - started) * 1000,
+                event="publication_operation_finished",
+                error_category=result.error_category,
+                publication_state=result.state,
             )
             return result
         except EntryContractError:
@@ -235,6 +238,8 @@ class PublicationService:
                 operation="publication",
                 outcome="sending",
                 error_category="uncertainty_persistence_failed",
+                event="publication_operation_finished",
+                publication_state="sending",
             )
 
     async def recover_abandoned(self) -> None:
