@@ -165,6 +165,10 @@ class PublicationService:
             raise PublicationError("delivery_coordinates_invalid")
         async with self.unit_of_work() as uow:
             publication = await uow.publications.get(publication_id)
+            if publication is None:
+                raise PublicationError("publication_not_found")
+            if publication.destination_chat_id != self.destination:
+                raise PublicationError("delivery_coordinates_conflict")
             existing = await uow.projections.get_destination(
                 post_id=publication.post_id, chat_id=self.destination
             )

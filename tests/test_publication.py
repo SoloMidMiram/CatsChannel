@@ -271,6 +271,42 @@ async def test_restart_abandoned_attempt_and_operator_reconciliation(chain_datab
         assert (await uow.threads.get(post.thread_id)).tail_post_id == post.post_id
 
 
+async def test_reconciliation_rejects_changed_destination_without_writing(chain_database):
+    db = chain_database
+    original = publisher(db)
+    submission, _ = await pending(db, original)
+    original.transport.error = TimeoutError()
+    unknown = await original.approve_pilot(submission.id)
+    changed_destination = DESTINATION - 1
+    changed = PublicationService(
+        db.unit_of_work,
+        reply_chains=ReplyChainService(db.unit_of_work, destination_chat_id=changed_destination),
+        transport=Transport(),
+        destination_chat_id=changed_destination,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(PublicationError, match="delivery_coordinates_conflict"):
+        await changed.reconcile(
+            unknown.id,
+            reference=TelegramMessageRef(changed_destination, 77),
+        )
+
+    async with db.unit_of_work() as uow:
+        stored = await uow.publications.get(unknown.id)
+        assert stored is not None and stored.state == "unknown"
+        assert (
+            await uow.projections.get_destination(
+                post_id=unknown.post_id, chat_id=changed_destination
+            )
+            is None
+        )
+        assert (
+            await uow.projections.get_destination(post_id=unknown.post_id, chat_id=DESTINATION)
+            is None
+        )
+
+
 async def test_proven_non_delivery_allows_only_explicit_retry(chain_database):
     service = publisher(chain_database)
     submission, _ = await pending(chain_database, service)
