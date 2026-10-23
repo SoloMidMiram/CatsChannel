@@ -16,4 +16,6 @@ remaining bot integration gates are in PUBLICATION_CONTRACT.md.
 The confirmed source-chain choice, `/post` UX, modular routers and pilot
 incident-to-regression process are in BOT_POSTING_PLAN.md.
 The implemented pending-intake boundary and replay algorithm are in BOT_INTAKE.md.
+Optional isolated MCP developer setup is in MCP_TOOLS.md; the bounded Phase 2R
+protocol and validity findings are in MCP_EXPERIMENT.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.
