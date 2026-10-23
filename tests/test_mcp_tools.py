@@ -822,6 +822,7 @@ def test_serena_command_rejects_wrong_version(
     (environment / "bin" / "serena").write_text("", encoding="utf-8")
     (metadata / "METADATA").write_text("Name: serena-agent\nVersion: 2.0.0\n", encoding="utf-8")
     monkeypatch.setattr(launch, "ROOT", root)
+    monkeypatch.setattr(launch.shutil, "which", lambda *args, **kwargs: "/usr/bin/node")
 
     pyright = tmp_path / "pyright"
     pyright.mkdir()
