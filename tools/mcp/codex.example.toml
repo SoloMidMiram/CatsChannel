@@ -1,0 +1,16 @@
+# Inert example. Replace every /ABSOLUTE/... placeholder before copying selected
+# sections into your user Codex configuration. Nothing in this repository loads it.
+
+[mcp_servers.cats_context7]
+command = "/usr/bin/python3"
+args = ["/ABSOLUTE/REPOSITORY/tools/mcp/launch.py", "--runtime-dir", "/ABSOLUTE/REPOSITORY/.runtime/mcp", "context7", "--package-root", "/ABSOLUTE/EXTERNAL/CACHE/context7"]
+startup_timeout_sec = 60
+tool_timeout_sec = 30
+enabled_tools = ["resolve-library-id", "query-docs"]
+
+[mcp_servers.cats_serena]
+command = "/usr/bin/python3"
+args = ["/ABSOLUTE/REPOSITORY/tools/mcp/launch.py", "--runtime-dir", "/ABSOLUTE/REPOSITORY/.runtime/mcp", "serena", "--tool-environment", "/ABSOLUTE/EXTERNAL/TOOLS/serena", "--project-root", "/ABSOLUTE/REPOSITORY"]
+startup_timeout_sec = 60
+tool_timeout_sec = 90
+enabled_tools = ["find_declaration", "find_implementations", "find_referencing_symbols", "find_symbol", "get_symbols_overview"]
