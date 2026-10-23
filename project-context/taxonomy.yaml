@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "record_kinds": {
+    "fact": {
+      "description": "An observable claim that can be checked against evidence.",
+      "statuses": ["observed", "verified", "superseded"]
+    },
+    "decision": {
+      "description": "A choice with an explicit acceptance and implementation state.",
+      "statuses": ["proposed", "accepted", "implemented", "superseded"]
+    },
+    "task": {
+      "description": "Work with a trackable completion state.",
+      "statuses": ["pending", "in_progress", "completed", "blocked", "cancelled"]
+    },
+    "blocker": {
+      "description": "A condition preventing a stated readiness or task outcome.",
+      "statuses": ["open", "resolved", "superseded"]
+    },
+    "proposal": {
+      "description": "An option under consideration that is not yet a decision.",
+      "statuses": ["proposed", "accepted", "rejected", "superseded"]
+    }
+  },
+  "source_kinds": {
+    "conversation": "A redacted, checked-in conversation evidence extract.",
+    "document": "A repository or remotely pinned document.",
+    "code_revision": "An immutable Git commit.",
+    "pull_request": "A GitHub pull request and its review state.",
+    "issue": "A GitHub issue.",
+    "test_result": "A durable local or CI validation record."
+  },
+  "freshness": {
+    "values": ["current", "stable", "historical", "stale", "unknown"],
+    "current_max_age_days": 30,
+    "description": "Current claims require recent verification; stable and historical claims do not expire automatically."
+  },
+  "areas": [
+    "architecture",
+    "media",
+    "operations",
+    "product",
+    "project_memory",
+    "roadmap",
+    "runtime",
+    "security",
+    "telegram",
+    "testing",
+    "youtube"
+  ],
+  "brief_sections": [
+    {"id": "goal", "title": "Goal"},
+    {"id": "current_state", "title": "Current state"},
+    {"id": "recent_changes", "title": "Recent changes"},
+    {"id": "unresolved_questions", "title": "Unresolved questions"},
+    {"id": "next_steps", "title": "Next steps"}
+  ]
+}

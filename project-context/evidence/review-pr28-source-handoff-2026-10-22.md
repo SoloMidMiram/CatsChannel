@@ -1,0 +1,11 @@
+# PR #28 source replacement and handoff ownership review
+
+Reviewed comments 4344313076 and 4344313078 against 14d33d1. Both valid; reproduced as three failing event-barrier dispatcher tests before changing implementation (source change during video acquisition, /cancel and /post during handoff issuance).
+
+Fixed and pushed as cdd4d942cf7d003ee65b4b884157283fa69925c1. Source selection invalidates old leases atomically. Its lease is captured before source-option lookup. Both video and URL intake capture leases before reading state. Intake rechecks after issue_handoff and receives a transport-independent commit-guard context factory. The guard checks ownership and serializes submission, intent persistence and reconciliation against source/command replacement. It is never held across acquisition or handoff issuance. An earlier replacement prevents old submission; an already-started guarded commit completes before replacement is acknowledged. The old success path cannot clear a new flow or falsely label committed intake cancelled. The guard is local pilot coordination, not a distributed lock or a transaction spanning media acquisition.
+
+Seven added cases cover source replacement during download, /cancel and /post during handoff, both commands during guarded submit, replacement after a successful boolean check before lock acquisition, and task cancellation releasing the guarded persistence lock. Existing partial-commit recovery regression still passes.
+
+Validation: focused dispatcher/intake/entry/recovery suite 69 passed; full Windows Python 3.11 suite 371 passed, 38 skipped (17.82s). Ruff check and format (127 files) passed; diff whitespace passed. No live Telegram/YouTube or production database calls. Threads PRRT_kwDOU2eqSc6vCcJT and PRRT_kwDOU2eqSc6vCcJV resolved after replies 4344390129 and 4344390339. Exact-head CI run 39719511424 initially running. No PR merge or #7 branch created. Context evidence stays unstaged in separate project-memory checkout.
+
+Final verification: all three exact-head CI jobs passed in run 39719511424 (Ubuntu, Windows and PostgreSQL). Feature checkout is clean and HEAD equals origin/feat/bot-submission-intake-v2 at cdd4d942cf7d003ee65b4b884157283fa69925c1. Context validation and 11 context tests passed.
