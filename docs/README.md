@@ -18,6 +18,8 @@ incident-to-regression process are in BOT_POSTING_PLAN.md.
 The implemented pending-intake boundary and replay algorithm are in BOT_INTAKE.md.
 The [current project brief](../project-context/overview.md) and
 [source-record contract](../project-context/README.md) connect decisions to evidence.
+Optional isolated MCP developer setup is in MCP_TOOLS.md; the bounded Phase 2R
+protocol and validity findings are in MCP_EXPERIMENT.md.
 The review that defined the first feature branch is in FOUNDATION_REVIEW.md.
 Repeatable regression profiles and sanitized diagnostic-log checks are documented
 in [OFFLINE_CHECKS.md](OFFLINE_CHECKS.md).

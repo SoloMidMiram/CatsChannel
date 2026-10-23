@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "context7": {
+    "package": "@upstash/context7-mcp",
+    "version": "4.4.4",
+    "entrypoint": "dist/index.js",
+    "observed_mcp_runtime": "2.3.1"
+  },
+  "serena": {
+    "distribution": "serena-agent",
+    "version": "2.1.0",
+    "tested_python": "3.13"
+  },
+  "pyright": {
+    "package": "pyright",
+    "version": "1.1.403",
+    "entrypoint": "langserver.index.js"
+  },
+  "support": {
+    "helper_python": "3.11",
+    "platform": "Linux or WSL with bubblewrap",
+    "transitive_lock": false
+  }
+}
