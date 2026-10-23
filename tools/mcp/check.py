@@ -14,8 +14,12 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, TextIO
+from urllib.parse import urlsplit
 
 SOURCE_URL = re.compile(r"https://(?:docs\.aiogram\.dev|docs\.sqlalchemy\.org|github\.com)/\S+")
+PROTOCOL_VERSION = "2024-11-05"
+EXPECTED_LIBRARY_ID = "/aiogram/aiogram"
+LIBRARY_ID = re.compile(r"(?m)^\s*- Context7-compatible library ID:\s*(/[^\s]+)\s*$")
 
 
 class RpcClient:
@@ -71,6 +75,38 @@ def _content(response: dict[str, Any]) -> str:
     )
 
 
+def _initialization_valid(result: Any) -> bool:
+    if not isinstance(result, dict) or result.get("protocolVersion") != PROTOCOL_VERSION:
+        return False
+    capabilities, info = result.get("capabilities"), result.get("serverInfo")
+    if not isinstance(capabilities, dict) or not isinstance(capabilities.get("tools"), dict):
+        return False
+    if "listChanged" in capabilities["tools"] and not isinstance(
+        capabilities["tools"]["listChanged"], bool
+    ):
+        return False
+    return isinstance(info, dict) and all(
+        isinstance(info.get(key), str) and bool(info[key].strip()) for key in ("name", "version")
+    )
+
+
+def _documentation_sources(text: str) -> list[str]:
+    """Match public references to the requested library, without fetching pages."""
+    sources = set()
+    for line in text.splitlines():
+        if not line.startswith("Source:"):
+            continue
+        for url in SOURCE_URL.findall(line):
+            parsed = urlsplit(url)
+            if parsed.query or parsed.username or parsed.password:
+                continue
+            if (parsed.hostname == "docs.aiogram.dev" and parsed.path.startswith("/en/")) or (
+                parsed.hostname == "github.com" and parsed.path.startswith("/aiogram/aiogram/blob/")
+            ):
+                sources.add(url)
+    return sorted(sources)
+
+
 def _result_row(name: str, response: dict[str, Any], elapsed: float) -> dict[str, Any]:
     text = _content(response)
     error = response.get("error")
@@ -81,6 +117,8 @@ def _result_row(name: str, response: dict[str, Any], elapsed: float) -> dict[str
         row.update({"ok": False, "error": "invalid_json_rpc_response"})
     elif isinstance(error, dict):
         row.update({"ok": False, "error_code": error.get("code"), "error": "json_rpc_error"})
+    elif name == "initialize":
+        row["ok"] = _initialization_valid(response.get("result"))
     elif name == "tools/list":
         result = response.get("result")
         tools = result.get("tools") if isinstance(result, dict) else None
@@ -96,13 +134,19 @@ def _result_row(name: str, response: dict[str, Any], elapsed: float) -> dict[str
             }
         )
     else:
+        sources = _documentation_sources(text)
+        if name == "tools/call:resolve-library-id":
+            ok = EXPECTED_LIBRARY_ID in LIBRARY_ID.findall(text)
+        else:
+            body = re.sub(r"(?m)^Source:.*$", "", text).strip()
+            ok = bool(body and sources)
         row.update(
             {
-                "ok": bool(text) if name.startswith("tools/call") else "result" in response,
+                "ok": ok,
                 "content_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()
                 if text
                 else None,
-                "source_urls": sorted(set(SOURCE_URL.findall(text))),
+                "source_urls": sources,
             }
         )
     return row
@@ -153,7 +197,7 @@ def run_check(
             1,
             "initialize",
             {
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {},
                 "clientInfo": {"name": "cats-channel-mcp-check", "version": "1"},
             },

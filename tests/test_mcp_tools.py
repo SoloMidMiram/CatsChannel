@@ -73,6 +73,19 @@ for line in sys.stdin:
             "result": {"isError": True, "content": [{"type": "text", "text": "upstream detail"}]},
         }
     elif method == "tools/call":
+        text = (
+            "- Context7-compatible library ID: /aiogram/aiogram"
+            if name == "resolve-library-id"
+            else "### Router registration\n\nSource: https://docs.aiogram.dev/en/latest/dispatcher/router.html\n\nUse Router.include_router to register a child Router."
+        )
+        if mode == "arbitrary-text":
+            text = "arbitrary nonempty response without evidence"
+        elif mode == "wrong-library" and name == "resolve-library-id":
+            text = "- Context7-compatible library ID: /unrelated/library"
+        elif mode == "wrong-source" and name == "query-docs":
+            text = "Source: https://github.com/unrelated/library/blob/main/docs.md\nUnrelated docs."
+        elif mode == "no-source" and name == "query-docs":
+            text = "Router.include_router attaches a child router."
         response = {
             "jsonrpc": "2.0",
             "id": request["id"],
@@ -80,7 +93,7 @@ for line in sys.stdin:
                 "content": [
                     {
                         "type": "text",
-                        "text": "Router docs https://docs.aiogram.dev/en/latest/dispatcher/router.html",
+                        "text": text,
                     }
                 ]
             },
@@ -92,7 +105,16 @@ for line in sys.stdin:
             "result": {"tools": [{"name": "resolve-library-id"}, {"name": "query-docs"}]},
         }
     else:
-        response = {"jsonrpc": "2.0", "id": request["id"], "result": {"ok": True}}
+        result = {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "offline-fixture", "version": "1"},
+        }
+        if mode == "invalid-initialize":
+            result = {"ok": True}
+        elif mode == "wrong-protocol-version":
+            result["protocolVersion"] = "1999-01-01"
+        response = {"jsonrpc": "2.0", "id": request["id"], "result": result}
     print(json.dumps(response), flush=True)
 """
 
@@ -177,6 +199,71 @@ def test_guard_frames_errors_and_recovers_on_same_connection(tmp_path: Path) -> 
         }
         for record in records
     )
+
+
+def test_guard_rejects_unsupported_protocol_payloads_and_recovers(tmp_path: Path) -> None:
+    backend_log = tmp_path / "backend.jsonl"
+    backend = write_script(tmp_path, "backend.py", BACKEND)
+    private = "token=synthetic-private-canary"
+    invalid = [
+        {"method": "private/upload", "params": {"text": private}},
+        {"method": "ping", "params": {"text": private}},
+        {"method": "tools/list", "params": {"text": private}},
+        {"method": "notifications/initialized", "params": {"text": private}},
+        {
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"experimental": {"text": private}},
+                "clientInfo": {"name": "test", "version": "1"},
+            },
+        },
+        {
+            "method": "notifications/cancelled",
+            "params": {"requestId": 1, "reason": private},
+        },
+    ]
+    messages = [dict(jsonrpc="2.0", id=index, **item) for index, item in enumerate(invalid, 1)]
+    allowed = call_message(7)
+    completed = subprocess.run(
+        guard_command(tmp_path, [sys.executable, str(backend), str(backend_log)]),
+        input="".join(json.dumps(item) + "\n" for item in [*messages, allowed]),
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    responses = [json.loads(line) for line in completed.stdout.splitlines()]
+    assert all("error" in response for response in responses[:-1])
+    assert responses[-1]["id"] == 7
+    assert [json.loads(line) for line in backend_log.read_text().splitlines()] == [allowed]
+    assert private not in (tmp_path / "audit.jsonl").read_text() + completed.stdout
+
+
+@pytest.mark.parametrize(
+    ("method", "params"),
+    [
+        (
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"roots": {"listChanged": True}},
+                "clientInfo": {"name": "offline-client", "version": "1"},
+            },
+        ),
+        ("notifications/initialized", {}),
+        ("ping", {}),
+        ("tools/list", {}),
+        ("resources/list", {"cursor": "next-page"}),
+        ("resources/templates/list", {}),
+        ("prompts/list", {}),
+        ("notifications/cancelled", {"requestId": 2, "reason": "Client cancelled"}),
+    ],
+)
+def test_guard_allows_required_protocol_shapes(method: str, params: dict[str, object]) -> None:
+    assert guard.validate_request({"method": method, "params": params})[0]
 
 
 @pytest.mark.parametrize(
@@ -752,6 +839,12 @@ def test_health_check_reports_tool_failure_despite_clean_process_exit(tmp_path: 
     [
         ("fail-initialize", "initialize"),
         ("invalid-list-protocol", "tools/list"),
+        ("invalid-initialize", "initialize"),
+        ("wrong-protocol-version", "initialize"),
+        ("arbitrary-text", "tools/call:resolve-library-id"),
+        ("wrong-library", "tools/call:resolve-library-id"),
+        ("wrong-source", "tools/call:query-docs"),
+        ("no-source", "tools/call:query-docs"),
     ],
 )
 def test_health_check_includes_protocol_failures_in_verdict(

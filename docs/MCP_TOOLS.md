@@ -31,6 +31,9 @@ inside WSL instead. Missing prerequisites and version mismatches fail closed.
 
 Filtering is defense in depth, not proof that every encoding of private material
 can be recognized. Send only generic public-library questions to Context7.
+The guard rejects unsupported methods. It permits typed initialization,
+initialized/cancelled notifications, ping, and paginated tool/resource/prompt
+discovery only; negotiation extensions with arbitrary payloads are not forwarded.
 
 ## External installation
 
@@ -101,7 +104,17 @@ ID is promptly rejected by local policy, and confirms a valid query still works 
 the same connection. Initialization and inventory protocol rows participate in the
 final verdict alongside retrieval rows. Each call has its own status. A clean
 process exit cannot hide a protocol or tool failure, and successful retrieval
-requires non-empty documentation content rather than only process completion.
+requires the negotiated protocol version, server information and tools capability,
+the expected `/aiogram/aiogram` resolution, and documentation carrying a matching
+official aiogram or aiogram-repository source reference. Arbitrary nonempty text
+and unrelated URLs fail. Source references are validated structurally; the check
+does not independently fetch those pages or establish exact-version coverage.
+
+The latest real Serena semantic acceptance check reached the packaged server but
+failed Python language-server initialization: the sandbox PATH did not contain
+`uv`/`uvx`. Host installation alone does not satisfy that sandbox prerequisite.
+Keep semantic readiness unconfirmed until the prerequisite is supplied and a real
+symbol call succeeds; initialization or an advertised tool list is insufficient.
 
 ## Offline validation
 

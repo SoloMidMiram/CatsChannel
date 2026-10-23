@@ -21,6 +21,15 @@ ALLOWED_LIBRARY_NAMES = frozenset({"aiogram", "sqlalchemy"})
 ALLOWED_LANGUAGES = frozenset({"", "Python"})
 ALLOWED_TOOLS = frozenset({"resolve-library-id", "resolve_library_id", "query-docs", "query_docs"})
 QUERY_TOOLS = frozenset({"query-docs", "query_docs"})
+DISCOVERY_METHODS = frozenset(
+    {"tools/list", "resources/list", "resources/templates/list", "prompts/list"}
+)
+PROTOCOL_METHODS = DISCOVERY_METHODS | {
+    "initialize",
+    "notifications/initialized",
+    "notifications/cancelled",
+    "ping",
+}
 
 # Filtering is defense in depth. It cannot prove that every possible encoding of
 # private data has been recognized.
@@ -97,6 +106,55 @@ def request_digest(request: Any) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _protocol_params_valid(method: str, params: dict[str, Any]) -> bool:
+    """Accept only the negotiation/discovery fields this public-doc server needs."""
+    if method in {"ping", "notifications/initialized"}:
+        return not params
+    if method in DISCOVERY_METHODS:
+        return not params or (
+            set(params) == {"cursor"}
+            and isinstance(params["cursor"], str)
+            and 0 < len(params["cursor"]) <= 128
+        )
+    if method == "notifications/cancelled":
+        request_id = params.get("requestId")
+        return (
+            set(params) <= {"requestId", "reason"}
+            and (type(request_id) is int or isinstance(request_id, str))
+            and isinstance(params.get("reason", ""), str)
+        )
+    if set(params) != {"protocolVersion", "capabilities", "clientInfo"}:
+        return False
+    version = params["protocolVersion"]
+    info, capabilities = params["clientInfo"], params["capabilities"]
+    if not isinstance(version, str) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", version) is None:
+        return False
+    if not isinstance(info, dict) or not {"name", "version"} <= set(info):
+        return False
+    if not set(info) <= {"name", "version", "title"} or not all(
+        isinstance(value, str) and 0 < len(value) <= 128 for value in info.values()
+    ):
+        return False
+    if not isinstance(capabilities, dict) or not set(capabilities) <= {
+        "roots",
+        "sampling",
+        "elicitation",
+        "experimental",
+    }:
+        return False
+    for name, value in capabilities.items():
+        if not isinstance(value, dict):
+            return False
+        if name == "roots":
+            if not set(value) <= {"listChanged"} or not isinstance(
+                value.get("listChanged", False), bool
+            ):
+                return False
+        elif value:
+            return False
+    return True
+
+
 def validate_request(request: dict[str, Any]) -> tuple[bool, str, str]:
     """Return a policy decision and a content digest without retaining content."""
     digest = request_digest(request)
@@ -104,6 +162,17 @@ def validate_request(request: dict[str, Any]) -> tuple[bool, str, str]:
     if not isinstance(method, str):
         return False, "invalid_method", digest
     if method != "tools/call":
+        if method not in PROTOCOL_METHODS:
+            return False, "method_not_allowlisted", digest
+        params = request.get("params", {})
+        if not isinstance(params, dict) or not _protocol_params_valid(method, params):
+            return False, "invalid_protocol_params", digest
+        text = "\n".join(_strings(params))
+        if len(text.encode("utf-8")) > MAX_PUBLIC_TEXT:
+            return False, "query_too_long", digest
+        for reason, pattern in PRIVATE_PATTERNS:
+            if pattern.search(text):
+                return False, reason, digest
         return True, "protocol_message", digest
     params = request.get("params")
     if not isinstance(params, dict):
