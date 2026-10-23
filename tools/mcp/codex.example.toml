@@ -10,7 +10,7 @@ enabled_tools = ["resolve-library-id", "query-docs"]
 
 [mcp_servers.cats_serena]
 command = "/usr/bin/python3"
-args = ["/ABSOLUTE/REPOSITORY/tools/mcp/launch.py", "--runtime-dir", "/ABSOLUTE/REPOSITORY/.runtime/mcp", "serena", "--tool-environment", "/ABSOLUTE/EXTERNAL/TOOLS/serena", "--project-root", "/ABSOLUTE/REPOSITORY"]
+args = ["/ABSOLUTE/REPOSITORY/tools/mcp/launch.py", "--runtime-dir", "/ABSOLUTE/EXTERNAL/CACHE/serena-runtime", "serena", "--tool-environment", "/ABSOLUTE/EXTERNAL/TOOLS/serena", "--project-root", "/ABSOLUTE/REPOSITORY", "--pyright-root", "/ABSOLUTE/EXTERNAL/CACHE/pyright/node_modules/pyright"]
 startup_timeout_sec = 60
 tool_timeout_sec = 90
 enabled_tools = ["find_declaration", "find_implementations", "find_referencing_symbols", "find_symbol", "get_symbols_overview"]

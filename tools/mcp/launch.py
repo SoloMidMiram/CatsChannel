@@ -214,14 +214,48 @@ def context7_command(package_root: Path, runtime_dir: Path) -> list[str]:
     return command
 
 
-def serena_command(tool_environment: Path, project_root: Path, runtime_dir: Path) -> list[str]:
+def serena_command(
+    tool_environment: Path, project_root: Path, runtime_dir: Path, *, pyright_root: Path
+) -> list[str]:
     tool_environment = _require_external(tool_environment, "Serena tool environment")
     project_root = _resolved(project_root)
+    pyright_root = _require_external(pyright_root, "Pyright package root")
+    if _is_within(pyright_root, project_root):
+        raise ValueError("Pyright must be outside the source project")
+    pyright = _versions()["pyright"]
+    package = json.loads((pyright_root / "package.json").read_text(encoding="utf-8"))
+    if package.get("name") != "pyright" or package.get("version") != pyright["version"]:
+        raise ValueError("installed Pyright version does not match versions.json")
+    if not (pyright_root / pyright["entrypoint"]).is_file():
+        raise ValueError("Pyright language-server entrypoint is missing")
+    if not shutil.which("node", path="/usr/bin:/bin"):
+        raise RuntimeError("system node is required inside the sandbox")
     runtime_dir.mkdir(parents=True, exist_ok=True)
     state_dir = runtime_dir.resolve() / "serena-state"
     project_state = runtime_dir.resolve() / "serena-project"
     state_dir.mkdir(parents=True, exist_ok=True)
     project_state.mkdir(parents=True, exist_ok=True)
+    # Owned global config avoids trusting project-supplied commands. ls_path
+    # bypasses Serena's uvx installation path entirely (including deferred install).
+    config_dir = state_dir / ".serena"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "serena_config.yml").write_text(
+        json.dumps(
+            {
+                "projects": [],
+                "fixed_tools": [
+                    "find_declaration",
+                    "find_implementations",
+                    "find_referencing_symbols",
+                    "find_symbol",
+                    "get_symbols_overview",
+                ],
+                "ls_specific_settings": {"python": {"ls_path": "/opt/pyright/langserver.index.js"}},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     executable = tool_environment / ("Scripts/serena.exe" if os.name == "nt" else "bin/serena")
     if not executable.is_file():
         raise ValueError("Serena executable is missing from the tool environment")
@@ -254,6 +288,7 @@ def serena_command(tool_environment: Path, project_root: Path, runtime_dir: Path
     )
     for python_root in python_roots:
         command.extend(("--ro-bind", str(python_root), str(python_root)))
+    command.extend(("--dir", "/opt/pyright", "--ro-bind", str(pyright_root), "/opt/pyright"))
     command.extend(_workspace_mounts(project_root, project_state))
     command.extend(
         (
@@ -410,6 +445,7 @@ def _parser() -> argparse.ArgumentParser:
     context7.add_argument("--package-root", required=True, type=Path)
     serena = subparsers.add_parser("serena")
     serena.add_argument("--tool-environment", required=True, type=Path)
+    serena.add_argument("--pyright-root", required=True, type=Path)
     serena.add_argument("--project-root", type=Path, default=ROOT)
     return parser
 
@@ -420,7 +456,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.server == "context7":
             command = context7_command(args.package_root, args.runtime_dir)
         else:
-            command = serena_command(args.tool_environment, args.project_root, args.runtime_dir)
+            command = serena_command(
+                args.tool_environment,
+                args.project_root,
+                args.runtime_dir,
+                pyright_root=args.pyright_root,
+            )
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError):
         print(
             "MCP launcher refused to start; verify external paths, versions, and prerequisites",

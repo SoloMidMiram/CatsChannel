@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -759,7 +761,37 @@ def test_serena_command_is_offline_read_only_and_version_checked(
     monkeypatch.setattr(launch, "ROOT", root)
     monkeypatch.setattr(launch.shutil, "which", lambda name, **kwargs: "/usr/bin/bwrap")
 
-    command = launch.serena_command(environment, root, root / ".runtime" / "mcp")
+    pyright = tmp_path / "external" / "pyright"
+    pyright.mkdir()
+    (pyright / "package.json").write_text('{"name":"pyright","version":"1.1.403"}')
+    (pyright / "langserver.index.js").write_text("#!/usr/bin/env node\n")
+    command = launch.serena_command(
+        environment, root, root / ".runtime" / "mcp", pyright_root=pyright
+    )
+
+    # Initialization alone used to pass with no Python language-server prerequisite.
+    config = root / ".runtime/mcp/serena-state/.serena/serena_config.yml"
+    assert config.is_file(), "packaged Serena must configure an offline Python language server"
+    settings = json.loads(config.read_text(encoding="utf-8"))
+    assert settings["projects"] == []
+    assert set(settings["fixed_tools"]) == {
+        "find_declaration",
+        "find_implementations",
+        "find_referencing_symbols",
+        "find_symbol",
+        "get_symbols_overview",
+    }
+    assert (
+        settings["ls_specific_settings"]["python"]["ls_path"] == "/opt/pyright/langserver.index.js"
+    )
+    assert "trusted_project_path_patterns" not in settings
+    pyright_bind = command.index(str(pyright))
+    assert command[pyright_bind - 1 : pyright_bind + 2] == [
+        "--ro-bind",
+        str(pyright),
+        "/opt/pyright",
+    ]
+    assert "uv" not in command and "uvx" not in command
 
     assert "--unshare-net" in command
     assert "--die-with-parent" not in command
@@ -774,7 +806,7 @@ def test_serena_command_is_offline_read_only_and_version_checked(
     assert command[managed_index - 1] == "--ro-bind"
     assert command[managed_index + 1] == str(managed)
     assert "no-memories" in command
-    assert "find_symbol" not in command  # Codex limits the exposed inventory.
+    assert "find_symbol" not in command  # The owned config limits the exposed inventory.
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Linux/WSL sandbox command")
@@ -791,8 +823,182 @@ def test_serena_command_rejects_wrong_version(
     (metadata / "METADATA").write_text("Name: serena-agent\nVersion: 2.0.0\n", encoding="utf-8")
     monkeypatch.setattr(launch, "ROOT", root)
 
+    pyright = tmp_path / "pyright"
+    pyright.mkdir()
+    (pyright / "package.json").write_text('{"name":"pyright","version":"1.1.403"}')
+    (pyright / "langserver.index.js").write_text("#!/usr/bin/env node\n")
     with pytest.raises(ValueError, match="does not match"):
-        launch.serena_command(environment, root, root / ".runtime" / "mcp")
+        launch.serena_command(environment, root, root / ".runtime" / "mcp", pyright_root=pyright)
+
+
+@pytest.mark.parametrize("fault", ["missing", "version", "entrypoint", "internal", "node"])
+def test_serena_rejects_missing_or_invalid_pyright_prerequisite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fault: str
+) -> None:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    environment = tmp_path / "serena"
+    environment.mkdir()
+    pyright = (root if fault == "internal" else tmp_path) / "pyright"
+    if fault != "missing":
+        pyright.mkdir()
+        (pyright / "package.json").write_text(
+            json.dumps({"name": "pyright", "version": "0.0.0" if fault == "version" else "1.1.403"})
+        )
+        if fault != "entrypoint":
+            (pyright / "langserver.index.js").write_text("#!/usr/bin/env node\n")
+    monkeypatch.setattr(launch, "ROOT", root)
+    monkeypatch.setattr(launch.shutil, "which", lambda *args, **kwargs: None)
+    with pytest.raises((OSError, ValueError, RuntimeError)):
+        launch.serena_command(environment, root, root / ".runtime/mcp", pyright_root=pyright)
+    assert not (root / ".runtime").exists()
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux"
+    or not os.environ.get("CATS_SERENA_ENV")
+    or not os.environ.get("CATS_PYRIGHT_ROOT"),
+    reason="opt-in: preinstalled external Serena/Pyright and Linux bubblewrap required",
+)
+@pytest.mark.parametrize("shutdown", ["eof", "sigterm"])
+def test_packaged_serena_real_python_semantics(tmp_path: Path, shutdown: str) -> None:
+    """No installs/network: exercise the actual launcher, coordinates and LS teardown."""
+    root = launch.ROOT
+    environment = Path(os.environ["CATS_SERENA_ENV"])
+    pyright = Path(os.environ["CATS_PYRIGHT_ROOT"])
+    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).split(b"\0")
+
+    def source_snapshot() -> dict[str, tuple[str, int]]:
+        return {
+            os.fsdecode(name): (
+                hashlib.sha256((root / os.fsdecode(name)).read_bytes()).hexdigest(),
+                (root / os.fsdecode(name)).stat().st_mtime_ns,
+            )
+            for name in tracked
+            if name
+        }
+
+    def process_tree(parent: int) -> dict[int, str]:
+        processes = {}
+        for entry in Path("/proc").iterdir():
+            if entry.name.isdigit():
+                try:
+                    fields = (entry / "stat").read_text().split(") ", 1)[1].split()
+                    processes[int(entry.name)] = (int(fields[1]), fields[19])
+                except (OSError, IndexError):
+                    pass
+        owned = {parent}
+        while children := {pid for pid, (ppid, _) in processes.items() if ppid in owned} - owned:
+            owned.update(children)
+        return {pid: processes[pid][1] for pid in owned if pid in processes}
+
+    before = source_snapshot()
+    command = [
+        sys.executable,
+        str(Path(launch.__file__)),
+        "--runtime-dir",
+        str(tmp_path / "runtime"),
+        "serena",
+        "--tool-environment",
+        str(environment),
+        "--project-root",
+        str(root),
+        "--pyright-root",
+        str(pyright),
+    ]
+    owned: dict[int, str] = {}
+    with (tmp_path / "stderr.log").open("w") as stderr:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=stderr,
+            text=True,
+            start_new_session=True,
+        )
+        client = check.RpcClient(process, timeout=90)
+        try:
+            initialized = client.call(
+                1,
+                "initialize",
+                {
+                    "protocolVersion": check.PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": "packaged-serena-acceptance", "version": "1"},
+                },
+            )
+            assert check._initialization_valid(initialized.get("result"))
+            client.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+            inventory = client.call(2, "tools/list", {})
+            assert {tool["name"] for tool in inventory["result"]["tools"]} == {
+                "find_declaration",
+                "find_implementations",
+                "find_referencing_symbols",
+                "find_symbol",
+                "get_symbols_overview",
+            }
+            symbol_response = client.call(
+                3,
+                "tools/call",
+                {
+                    "name": "find_symbol",
+                    "arguments": {
+                        "name_path_pattern": "validate_request",
+                        "relative_path": "tools/mcp/guard.py",
+                    },
+                },
+            )
+            symbols = json.loads(check._content(symbol_response))
+            assert len(symbols) == 1 and symbols[0]["name_path"] == "validate_request"
+            lines = (root / symbols[0]["relative_path"]).read_text().splitlines()
+            assert lines[symbols[0]["body_location"]["start_line"]].startswith(
+                "def validate_request("
+            )
+            references_response = client.call(
+                4,
+                "tools/call",
+                {
+                    "name": "find_referencing_symbols",
+                    "arguments": {
+                        "name_path": "validate_request",
+                        "relative_path": "tools/mcp/guard.py",
+                    },
+                },
+            )
+            references = json.loads(check._content(references_response))
+            assert set(references) == {"tools/mcp/guard.py", "tests/test_mcp_tools.py"}
+            count = 0
+            for relative_path, kinds in references.items():
+                lines = (root / relative_path).read_text().splitlines()
+                for reference in (row for rows in kinds.values() for row in rows):
+                    location = reference["body_location"]
+                    assert 0 <= location["start_line"] <= location["end_line"] < len(lines)
+                    highlights = re.findall(
+                        r"(?m)^\s*>\s*(\d+):(.*)$", reference["content_around_reference"]
+                    )
+                    assert highlights
+                    for line, content in highlights:
+                        assert lines[int(line)] == content
+                        assert "validate_request(" in content
+                        count += 1
+            assert count == 5
+            owned = process_tree(process.pid)
+            assert len(owned) >= 4  # launcher, bwrap, Serena and the real Pyright process
+        finally:
+            if shutdown == "sigterm":
+                process.terminate()
+            assert process.stdin is not None
+            process.stdin.close()
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                process.wait(timeout=15)
+        expected_exits = {0, 128 + signal.SIGTERM} if shutdown == "sigterm" else {0}
+        assert process.returncode in expected_exits
+    assert before == source_snapshot()
+    for pid, start_time in owned.items():
+        assert process_tree(pid).get(pid) != start_time, f"owned process {pid} survived shutdown"
 
 
 def test_health_check_verifies_content_policy_denial_and_recovery(tmp_path: Path) -> None:

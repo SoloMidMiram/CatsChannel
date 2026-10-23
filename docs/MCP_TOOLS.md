@@ -17,13 +17,17 @@ inside WSL instead. Missing prerequisites and version mismatches fail closed.
   is a symlink outside `/etc` (as on WSL), only that resolver target is added to the
   sandbox.
 - Serena receives project entries under `/workspace` as individual read-only
-  mounts, while `/workspace/.serena` is backed by ignored
-  `.runtime/mcp/serena-project/`. It runs with network and memories disabled;
+  mounts, while `/workspace/.serena` is backed by `serena-project/` under the
+  selected runtime directory. It runs with network and memories disabled;
   cache/index state uses the separate bounded state home. Codex exposes only the
   five tools in the example config.
 - Serena's external uv environment and every managed-Python alias root needed by
   its interpreter symlink chain are mounted read-only. They remain outside the bot
   environment and checkout.
+- Python navigation uses a separate pinned Pyright distribution mounted read-only
+  at `/opt/pyright`. An owned global Serena configuration sets Python `ls_path`
+  directly to its language-server entrypoint. No uv executable, uv cache or runtime
+  package installation is needed inside the sandbox.
 - Package trees and indexes stay outside the checkout. Small runtime metadata and
   digest-only audit records go under ignored `.runtime/mcp/`.
 - No helper copies Codex authentication, accepts an API key, prints an environment
@@ -47,18 +51,27 @@ mkdir -p "$MCP_TOOL_ROOT/context7" "$MCP_TOOL_ROOT/uv-tools" "$MCP_TOOL_ROOT/bin
 npm install --prefix "$MCP_TOOL_ROOT/context7" --ignore-scripts \
   @upstash/context7-mcp@4.4.4
 
+npm install --prefix "$MCP_TOOL_ROOT/pyright" --ignore-scripts pyright@1.1.403
+
 UV_TOOL_DIR="$MCP_TOOL_ROOT/uv-tools" \
 UV_TOOL_BIN_DIR="$MCP_TOOL_ROOT/bin" \
 uv tool install --python 3.13 'serena-agent==2.1.0'
 ```
 
-The top-level server versions are pinned in `tools/mcp/versions.json`. This is
+Installation is an explicit host preparation step requiring network access; the
+launcher never installs packages. Pyright requires system Node in `/usr/bin` or
+`/bin`. Keep its distribution and Serena runtime directory outside the source.
+
+The top-level server and Pyright versions are pinned in `tools/mcp/versions.json`. This is
 reproducibility metadata, not a transitive lock. Serena's separate Python 3.13 tool
 environment does not change CatsChannel's Python 3.11 policy or `uv.lock`.
 
 The launcher expects Context7's package root (the directory containing
 `node_modules`) and Serena's specific uv tool environment, normally
-`$MCP_TOOL_ROOT/uv-tools/serena-agent`. It verifies package metadata before launch.
+`$MCP_TOOL_ROOT/uv-tools/serena-agent`, plus Pyright's directory containing
+`package.json` and `langserver.index.js`. It verifies package metadata before launch
+and refuses missing Pyright, mismatched versions, missing entrypoints, an internal
+Pyright directory or missing system Node. There is no download fallback.
 
 ## Explicit Codex activation
 
@@ -73,9 +86,10 @@ The launch commands may also be exercised directly:
 python tools/mcp/launch.py context7 \
   --package-root "$MCP_TOOL_ROOT/context7"
 
-python tools/mcp/launch.py serena \
+python tools/mcp/launch.py --runtime-dir "$MCP_TOOL_ROOT/serena-runtime" serena \
   --tool-environment "$MCP_TOOL_ROOT/uv-tools/serena-agent" \
-  --project-root "$PWD"
+  --project-root "$PWD" \
+  --pyright-root "$MCP_TOOL_ROOT/pyright/node_modules/pyright"
 ```
 
 Stdio is the MCP transport. Closing stdin is the ordinary shutdown path. The
@@ -110,11 +124,33 @@ official aiogram or aiogram-repository source reference. Arbitrary nonempty text
 and unrelated URLs fail. Source references are validated structurally; the check
 does not independently fetch those pages or establish exact-version coverage.
 
-The latest real Serena semantic acceptance check reached the packaged server but
-failed Python language-server initialization: the sandbox PATH did not contain
-`uv`/`uvx`. Host installation alone does not satisfy that sandbox prerequisite.
-Keep semantic readiness unconfirmed until the prerequisite is supplied and a real
-symbol call succeeds; initialization or an advertised tool list is insufficient.
+## Real Serena semantic acceptance
+
+Serena 2.1.0's installed `solidlsp/dependency_provider.py` supports `ls_path` as a
+custom launch command and skips deferred dependency installation for that command.
+Its `pyright_server.py` defaults to Pyright 1.1.403, the pin used here. Supplying uv
+instead would also require its offline package cache and Python dependency chain,
+and retain a package-manager installation path. The direct preinstalled entrypoint
+requires one narrow read-only mount and no package-manager cache or executable.
+
+The original `1eeb062` launcher was independently reproduced: initialization passed,
+but real `find_symbol` failed for missing `uv`/`uvx`, despite process exit 0. With
+the pinned `ls_path`, both real `find_symbol` and `find_referencing_symbols` pass.
+The opt-in regression below verifies the exact five-tool inventory, definition and
+five caller locations against source, unchanged tracked content and mtimes, and
+complete observed process teardown after EOF and SIGTERM:
+
+```bash
+TMPDIR=/tmp \
+CATS_SERENA_ENV="$MCP_TOOL_ROOT/uv-tools/serena-agent" \
+CATS_PYRIGHT_ROOT="$MCP_TOOL_ROOT/pyright/node_modules/pyright" \
+uv run --frozen pytest --capture=no -q tests/test_mcp_tools.py \
+  -k packaged_serena_real_python_semantics
+```
+
+This is explicit transport/semantic acceptance on Linux/WSL, not evidence of
+natural agent tool selection, performance gains or exact-version documentation.
+Ordinary CI skips this opt-in case because external tools are not installed there.
 
 ## Offline validation
 
