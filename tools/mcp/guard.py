@@ -109,6 +109,37 @@ def request_digest(request: Any) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _progress_token_valid(token: Any) -> bool:
+    if isinstance(token, str):
+        return 0 < len(token.encode("utf-8")) <= MAX_PROGRESS_TOKEN_TEXT
+    return (
+        type(token) in {int, float}
+        and abs(token) <= MAX_PROGRESS_TOKEN_NUMBER
+        and math.isfinite(token)
+    )
+
+
+def _tool_metadata_valid(meta: Any) -> bool:
+    """Recognize local Codex correlation metadata, never forward its thread ID."""
+    if not isinstance(meta, dict) or not {"progressToken"} <= set(meta) <= {
+        "progressToken",
+        "threadId",
+    }:
+        return False
+    if not _progress_token_valid(meta["progressToken"]):
+        return False
+    if "threadId" in meta and (
+        not isinstance(meta["threadId"], str)
+        or re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", meta["threadId"])
+        is None
+    ):
+        return False
+    # threadId is a validated local-only identifier. Progress tokens still pass
+    # the public-text policy even though both fields are stripped before relay.
+    text = str(meta["progressToken"])
+    return not any(pattern.search(text) for _, pattern in PRIVATE_PATTERNS)
+
+
 def _protocol_params_valid(method: str, params: dict[str, Any]) -> bool:
     """Accept only the negotiation/discovery fields this public-doc server needs."""
     if method in {"ping", "notifications/initialized"}:
@@ -124,14 +155,7 @@ def _protocol_params_valid(method: str, params: dict[str, Any]) -> bool:
             meta = params["_meta"]
             if not isinstance(meta, dict) or set(meta) != {"progressToken"}:
                 return False
-            token = meta["progressToken"]
-            if isinstance(token, str):
-                return 0 < len(token.encode("utf-8")) <= MAX_PROGRESS_TOKEN_TEXT
-            return (
-                type(token) in {int, float}
-                and abs(token) <= MAX_PROGRESS_TOKEN_NUMBER
-                and math.isfinite(token)
-            )
+            return _progress_token_valid(meta["progressToken"])
         return True
     if method == "notifications/cancelled":
         request_id = params.get("requestId")
@@ -203,8 +227,10 @@ def validate_request(request: dict[str, Any]) -> tuple[bool, str, str]:
     params = request.get("params")
     if not isinstance(params, dict):
         return False, "invalid_params", digest
-    if not set(params) <= {"name", "arguments"}:
+    if not set(params) <= {"name", "arguments", "_meta"}:
         return False, "invalid_params", digest
+    if "_meta" in params and not _tool_metadata_valid(params["_meta"]):
+        return False, "invalid_metadata", digest
     name = params.get("name")
     arguments = params.get("arguments", {})
     if not isinstance(name, str):
@@ -420,6 +446,13 @@ def run_guard(
                     # Do not promise roots, sampling or elicitation that this guard
                     # cannot safely relay. Validate before dropping capabilities.
                     request = {**request, "params": {**request["params"], "capabilities": {}}}
+                elif request.get("method") == "tools/call" and "_meta" in request["params"]:
+                    request = {
+                        **request,
+                        "params": {
+                            key: value for key, value in request["params"].items() if key != "_meta"
+                        },
+                    }
                 with backend_lock:
                     if not _emit(child.stdin, json.dumps(request, separators=(",", ":"))):
                         raise BrokenPipeError

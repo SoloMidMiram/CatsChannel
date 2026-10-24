@@ -81,6 +81,34 @@ def test_capability_negative_controls(capabilities: object) -> None:
     assert not guard.validate_request(request)[0]
 
 
+@pytest.mark.parametrize(
+    "meta",
+    [
+        {},
+        None,
+        [],
+        {"threadId": "00000000-0000-0000-0000-000000000001"},
+        {"progressToken": True},
+        {"progressToken": "token=private-canary"},
+        {"progressToken": 1, "threadId": "private-session-text"},
+        {"progressToken": 1, "threadId": []},
+        {"progressToken": 1, "threadId": "0" * 1000},
+        {"progressToken": 1, "unknown": "private-canary"},
+        {"progressToken": "00000000-0000-0000-0000-000000000001"},
+    ],
+)
+def test_tool_metadata_negative_controls(meta: object) -> None:
+    request = {
+        "method": "tools/call",
+        "params": {
+            "name": "query-docs",
+            "arguments": {"libraryId": "/aiogram/aiogram", "query": "public documentation"},
+            "_meta": meta,
+        },
+    }
+    assert not guard.validate_request(request)[0]
+
+
 def test_handshake_normalizes_and_recovers_without_forwarding_private_fields(
     tmp_path: Path,
 ) -> None:
@@ -125,7 +153,27 @@ def test_handshake_normalizes_and_recovers_without_forwarding_private_fields(
         "params": {"_meta": {"progressToken": 0}},
     }
     ping = {"jsonrpc": "2.0", "id": "recovered", "method": "ping"}
-    messages = [initialize(), *denied, discovery, ping]
+    public_call = {
+        "jsonrpc": "2.0",
+        "id": "public-call",
+        "method": "tools/call",
+        "params": {
+            "name": "query-docs",
+            "arguments": {"libraryId": "/aiogram/aiogram", "query": "public documentation"},
+            "_meta": {"threadId": "00000000-0000-0000-0000-000000000001", "progressToken": 2},
+        },
+    }
+    denied.append(
+        {
+            **public_call,
+            "id": "private-query",
+            "params": {
+                **public_call["params"],
+                "arguments": {"libraryId": "/aiogram/aiogram", "query": "token=canary"},
+            },
+        }
+    )
+    messages = [initialize(), *denied, discovery, public_call, ping]
     completed = subprocess.run(
         [
             sys.executable,
@@ -148,11 +196,21 @@ def test_handshake_normalizes_and_recovers_without_forwarding_private_fields(
     responses = {msg["id"]: msg for msg in map(json.loads, completed.stdout.splitlines())}
     assert set(responses) == {msg["id"] for msg in messages}
     assert all("error" in responses[msg["id"]] for msg in denied)
-    assert all("result" in responses[msg["id"]] for msg in [messages[0], discovery, ping])
+    assert all(
+        "result" in responses[msg["id"]] for msg in [messages[0], discovery, public_call, ping]
+    )
     forwarded = list(map(json.loads, log.read_text().splitlines()))
     expected = initialize()
     expected["params"]["capabilities"] = {}
-    assert forwarded == [expected, discovery, ping]
+    scrubbed_call = {
+        **public_call,
+        "params": {k: v for k, v in public_call["params"].items() if k != "_meta"},
+    }
+    assert forwarded == [expected, discovery, scrubbed_call, ping]
+    assert (
+        "00000000-0000-0000-0000-000000000001"
+        not in log.read_text() + (tmp_path / "audit").read_text() + completed.stdout
+    )
     assert "canary" not in log.read_text() + (tmp_path / "audit").read_text() + completed.stdout
 
 

@@ -1,9 +1,11 @@
 # Codex / guarded MCP compatibility — 2026-10-24
 
-Compatibility verdict: **PASS for Codex negotiation and inventory** with
-`codex-cli 0.146.0-alpha.3`. Public documentation retrieval health remains
-**BLOCKED by upstream fetch failures** in the separate diagnostic. Adoption
-benefit remains **UNESTABLISHED**. These are independent conclusions.
+Initial checkpoint: **PASS for Codex negotiation and inventory** with
+`codex-cli 0.146.0-alpha.3`; public retrieval was blocked by upstream fetch
+failures. [Final review](mcp-final-review-2026-10-24.md) subsequently found and
+fixed tool-call metadata rejection, then verified successful actual Serena and
+Context7 calls. Earlier failures remain recorded below. Adoption benefit remains
+**UNESTABLISHED**; one later retrieval does not establish ongoing availability.
 
 The clean worktree starts at merged main
 `b12b50c36e7b72812496d53998d517817a372c87`. PR #33's guidance branch is not
@@ -89,7 +91,7 @@ The repository answer cites the intake composition root, post router, intake,
 submission and reply-chain services, flow ownership, persistence models and UoW.
 Raw local-source output and the incomplete documentation search transcript remain
 outside Git. Source hashes before/after agree. The guard hash in both session
-snapshots equals the packaged implementation hash; these runs occurred before
+snapshots equals the initial-checkpoint implementation hash in the JSON; these runs occurred before
 committing the reviewed patch, while HEAD still identified the baseline.
 
 These two observations establish that the model ran after successful startup.
@@ -131,3 +133,7 @@ this worktree or its Context7/Serena launchers. Existing processes were not kill
 The dirty original checkout and PR #33 remain independent. Raw evidence and
 runtime state are retained externally under the sibling `mcp-handshake-evidence`
 directory; no credential or user configuration was copied or changed.
+
+The subsequent final-review correction and its new implementation hash are
+recorded separately in `mcp-final-review-2026-10-24.json`; do not attribute the
+historical neutral sessions to that later implementation.
