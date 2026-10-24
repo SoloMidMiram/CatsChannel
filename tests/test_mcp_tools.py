@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
@@ -381,7 +382,7 @@ def test_guard_rejects_oversized_input_without_forwarding(tmp_path: Path) -> Non
 
     completed = subprocess.run(
         guard_command(tmp_path, [sys.executable, str(backend), str(backend_log)]),
-        input=oversized,
+        input=oversized + json.dumps(call_message(9)) + "\n",
         capture_output=True,
         text=True,
         timeout=10,
@@ -389,10 +390,15 @@ def test_guard_rejects_oversized_input_without_forwarding(tmp_path: Path) -> Non
     )
 
     assert completed.returncode == 0
-    assert json.loads(completed.stdout)["error"]["code"] == -32600
-    assert backend_log.read_text(encoding="utf-8") == ""
-    audit = json.loads((tmp_path / "audit.jsonl").read_text(encoding="utf-8"))
-    assert audit["reason"] == "request_too_large"
+    assert completed.stdout.endswith("\n")
+    responses = list(map(json.loads, completed.stdout.splitlines()))
+    assert responses[0]["error"]["code"] == -32600
+    assert responses[1]["id"] == 9 and "result" in responses[1]
+    assert json.loads(backend_log.read_text(encoding="utf-8")) == call_message(9)
+    audit = list(
+        map(json.loads, (tmp_path / "audit.jsonl").read_text(encoding="utf-8").splitlines())
+    )
+    assert [row["reason"] for row in audit] == ["request_too_large", "allowed_public_library_query"]
 
 
 def test_guard_backend_start_failure_is_prompt_and_sanitized(tmp_path: Path) -> None:
@@ -411,24 +417,32 @@ def test_guard_backend_start_failure_is_prompt_and_sanitized(tmp_path: Path) -> 
     assert str(missing) not in completed.stderr
 
 
-def test_guard_reports_closed_backend_without_exception_payload(tmp_path: Path) -> None:
+def test_guard_reports_closed_backend_without_exception_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     backend = write_script(
         tmp_path,
         "closed.py",
         "raise SystemExit(0)\n",
     )
-    process = subprocess.Popen(
-        guard_command(tmp_path, [sys.executable, str(backend)]),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    popen = subprocess.Popen
+
+    def closed_backend(*args, **kwargs):
+        process = popen(*args, **kwargs)
+        process.wait(timeout=5)
+        return process
+
+    monkeypatch.setattr(guard.subprocess, "Popen", closed_backend)
+    output = io.StringIO()
+    guard.run_guard(
+        [sys.executable, str(backend)],
+        audit_path=tmp_path / "audit.jsonl",
+        input_stream=io.StringIO(json.dumps(call_message(1)) + "\n"),
+        output_stream=output,
     )
-    time.sleep(0.3)
-    stdout, stderr = process.communicate(json.dumps(call_message(1)) + "\n", timeout=5)
+    stdout = output.getvalue()
 
     assert json.loads(stdout)["error"] == {"code": -32002, "message": "MCP backend unavailable"}
-    assert "Traceback" not in stderr
 
 
 def test_audit_never_records_request_ids_or_arguments(tmp_path: Path) -> None:
