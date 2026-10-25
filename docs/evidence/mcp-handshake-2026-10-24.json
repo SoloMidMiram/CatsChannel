@@ -1,0 +1,248 @@
+{
+  "baseline": "b12b50c36e7b72812496d53998d517817a372c87",
+  "captured_shapes": [
+    {
+      "baseline_decision": {
+        "allowed": false,
+        "reason": "invalid_protocol_params",
+        "sha256": "20893a64b4f81efd22087730f307e20a4ae84d2b06e0c1d4cce665b1b457944c"
+      },
+      "direction": "request",
+      "id": 0,
+      "method": "initialize",
+      "shape": {
+        "capabilities": {
+          "elicitation": {
+            "form": {},
+            "url": {}
+          }
+        },
+        "clientInfo": {
+          "name": [
+            "string",
+            16
+          ],
+          "title": [
+            "string",
+            5
+          ],
+          "version": [
+            "string",
+            15
+          ]
+        },
+        "protocolVersion": [
+          "string",
+          10
+        ]
+      },
+      "tool": null
+    },
+    {
+      "baseline_decision": {
+        "allowed": false,
+        "reason": "invalid_protocol_params",
+        "sha256": "9997f116d47a1bc52968819da3f47e966c887ab482b854eb286653ac6badca26"
+      },
+      "direction": "request",
+      "id": 1,
+      "method": "tools/list",
+      "shape": {
+        "_meta": {
+          "progressToken": "int"
+        }
+      },
+      "tool": null
+    }
+  ],
+  "codex_version": "0.146.0-alpha.3",
+  "date": "2026-10-24",
+  "external_artifact_hashes": {
+    "baseline_guard.py": "9e04c1303a8aaaba317a8c808b2ec8dc66879e897673ef51ae4be5f48bd00f35",
+    "documentation-cats_context7-transport.jsonl": "cbdf57a7d3799d8adaab02b628d55c0a774353aa027db1b871c3cee565df8578",
+    "documentation-cats_serena-transport.jsonl": "2e0d47cd10ade42a877deba12abbed21d5b9bcd3c83721453a2c604ac2f03a21",
+    "documentation-events.jsonl": "d2915505e6dd3d84fc73f12d5dd92009cabe8e6dd63896e21fde42ef98f7bc3d",
+    "documentation-prompt.txt": "2fb0a3dc25bcd93262a184ca7d2582bfd6193badcf03696e838d7e87fbd75fd9",
+    "documentation-stderr.log": "5f7533de058631daddfe324f3de99a1eefd4186c107106e69989b3c283b410da",
+    "documentation-summary.json": "7b4a61c88cc8f3c624f55b7b2c661d6304c9768820d3efff14cb1e7d843ae302",
+    "inventory-cats_context7-transport.jsonl": "988d22faa633c7219e95bffce9d7621493162a169f341bc7c7f4c3f719045eef",
+    "inventory-cats_serena-transport.jsonl": "0e3273c0bd0b6b176f86e0d289524cfbc4ced20b4ad7303f464c79b6cf7bbf3b",
+    "inventory-inherited-apps.json": "d66708330fb7ddadaf160aedb92e1d6a3bf6496bb1fc61ce6affdef53b945725",
+    "inventory-stderr.log": "734de7e83e1727f0b3b25bcb1b419182877073b72ecc9178de1ac4513f39c517",
+    "inventory.json": "83e9bacc87757433ecb47240168c7272dc0f1feb168e1de145be668b9b9b1006",
+    "package.py": "e4dd4de59a76a789e9332f5837fa7ff811b3bc04fd7c88dabe9de10f5e8c2b5b",
+    "probe.py": "33027ec7af2fb6d0bb683643c3ea7bb3222f3532e3abdf853b595b755f7f337e",
+    "public-query-health-retry.json": "85618b8400550bbef117529d06ddab3d95f7c313d99a8cb5f9de5530b2ea3baf",
+    "public-query-health-transport.jsonl": "7229c30f249f9914748a61403256461e0a7d050f9dddcb60f4f61ecfe1868130",
+    "public-query-health.json": "691384114a0afc10b4f0aad0ccd0a5c77e1755812f796a47c547ccc891cd69f8",
+    "repository-cats_context7-transport.jsonl": "cbdf57a7d3799d8adaab02b628d55c0a774353aa027db1b871c3cee565df8578",
+    "repository-cats_serena-transport.jsonl": "2e0d47cd10ade42a877deba12abbed21d5b9bcd3c83721453a2c604ac2f03a21",
+    "repository-events.jsonl": "580d69dcc80e36131f5dc31fd5fbc1e20279ce3a695d959959a779d2133ac3bf",
+    "repository-final.md": "443f0e93a7f848f3ed763816e5f75e5b97d6ac078739de0ef310c3ad85720517",
+    "repository-prompt.txt": "bb2f9ef2528525298027b4ae59b64ec81d0ab98e9cf74e61d3b32177fe30f818",
+    "repository-stderr.log": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
+    "repository-summary.json": "443b06b08e6f05c03092f5bfdf0de36d57e2c14b87cd5b01b02133f60542a4f6"
+  },
+  "inventory": {
+    "cleanup_needed": false,
+    "handshake_success": true,
+    "model_turns_reached": false,
+    "remaining_owned": [],
+    "servers": [
+      {
+        "name": "cats_context7",
+        "tools": [
+          "query-docs",
+          "resolve-library-id"
+        ]
+      },
+      {
+        "name": "cats_serena",
+        "tools": [
+          "find_declaration",
+          "find_implementations",
+          "find_referencing_symbols",
+          "find_symbol",
+          "get_symbols_overview"
+        ]
+      }
+    ]
+  },
+  "neutral_sessions": [
+    {
+      "advertised_tools": {
+        "cats_context7": [
+          "query-docs",
+          "resolve-library-id"
+        ],
+        "cats_serena": [
+          "find_declaration",
+          "find_implementations",
+          "find_referencing_symbols",
+          "find_symbol",
+          "get_symbols_overview"
+        ]
+      },
+      "calls": [],
+      "cleanup_needed": false,
+      "completed_item_types": {
+        "agent_message": 4,
+        "command_execution": 9
+      },
+      "exit_code": 0,
+      "head": "b12b50c36e7b72812496d53998d517817a372c87",
+      "prompt_sha256": "bb2f9ef2528525298027b4ae59b64ec81d0ab98e9cf74e61d3b32177fe30f818",
+      "protocol_errors": [],
+      "remaining_owned": [],
+      "source_tree_after_sha256": "524b9bac14df4bcd712179bd881d5ee4624123bc97df1894526de20e9ab59ed3",
+      "source_tree_before_sha256": "524b9bac14df4bcd712179bd881d5ee4624123bc97df1894526de20e9ab59ed3",
+      "source_unchanged": true,
+      "task": "repository",
+      "tested_guard_sha256": "e0cf5acac5442e260fc008843c8c9b0ac9abc5a4e4f6f5db06eff112688fb77e",
+      "timed_out": false,
+      "turn_events": [
+        "turn.started",
+        "turn.completed"
+      ]
+    },
+    {
+      "advertised_tools": {
+        "cats_context7": [
+          "query-docs",
+          "resolve-library-id"
+        ],
+        "cats_serena": [
+          "find_declaration",
+          "find_implementations",
+          "find_referencing_symbols",
+          "find_symbol",
+          "get_symbols_overview"
+        ]
+      },
+      "calls": [],
+      "cleanup_needed": false,
+      "completed_item_types": {
+        "agent_message": 2,
+        "command_execution": 1,
+        "web_search": 5
+      },
+      "exit_code": -15,
+      "head": "b12b50c36e7b72812496d53998d517817a372c87",
+      "prompt_sha256": "2fb0a3dc25bcd93262a184ca7d2582bfd6193badcf03696e838d7e87fbd75fd9",
+      "protocol_errors": [],
+      "remaining_owned": [],
+      "source_tree_after_sha256": "524b9bac14df4bcd712179bd881d5ee4624123bc97df1894526de20e9ab59ed3",
+      "source_tree_before_sha256": "524b9bac14df4bcd712179bd881d5ee4624123bc97df1894526de20e9ab59ed3",
+      "source_unchanged": true,
+      "task": "documentation",
+      "tested_guard_sha256": "e0cf5acac5442e260fc008843c8c9b0ac9abc5a4e4f6f5db06eff112688fb77e",
+      "timed_out": true,
+      "turn_events": [
+        "turn.started"
+      ]
+    }
+  ],
+  "public-query-health-retry.json": {
+    "calls": [
+      {
+        "elapsed_seconds": 15.718,
+        "name": "initialize",
+        "ok": true
+      },
+      {
+        "advertised_tools": [
+          "query-docs",
+          "resolve-library-id"
+        ],
+        "elapsed_seconds": 0.047,
+        "name": "tools/list",
+        "ok": true
+      },
+      {
+        "content_sha256": null,
+        "elapsed_seconds": 3.366,
+        "name": "tools/call:resolve-library-id",
+        "ok": false,
+        "source_urls": []
+      },
+      {
+        "content_sha256": null,
+        "elapsed_seconds": 3.203,
+        "name": "tools/call:query-docs",
+        "ok": false,
+        "source_urls": []
+      },
+      {
+        "elapsed_seconds": 0.08,
+        "error": "json_rpc_error",
+        "error_code": -32001,
+        "name": "tools/call:expected-policy-denial",
+        "ok": false
+      },
+      {
+        "content_sha256": null,
+        "elapsed_seconds": 3.114,
+        "name": "tools/call:query-docs-after-denial",
+        "ok": false,
+        "source_urls": []
+      }
+    ],
+    "elapsed_seconds": 25.594,
+    "error": null,
+    "ok": false,
+    "process_exit": 0,
+    "schema": 1,
+    "termination": "stdin_eof"
+  },
+  "public-query-health.json": {
+    "calls": [],
+    "elapsed_seconds": 65.501,
+    "error": "transport_or_protocol_failure",
+    "ok": false,
+    "process_exit": 241,
+    "schema": 1,
+    "termination": "stdin_eof"
+  },
+  "schema": 1,
+  "tested_guard_sha256": "e0cf5acac5442e260fc008843c8c9b0ac9abc5a4e4f6f5db06eff112688fb77e"
+}

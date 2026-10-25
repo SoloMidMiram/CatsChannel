@@ -133,3 +133,4 @@
 {"id":"source-133","kind":"document","title":"PR #32 merge and PR #31 reconciliation","locator":"project-context/evidence/pr32-merge-pr31-reconciliation-2026-10-24.md","captured_at":"2026-10-23","freshness":"current","last_verified_at":"2026-10-23"}
 {"id":"source-134","kind":"document","title":"Repository coding tool-selection guidance","locator":"AGENTS.md","captured_at":"2026-10-23","freshness":"stable","last_verified_at":"2026-10-23"}
 {"id":"source-135","kind":"code_revision","title":"PR #31 project-context and agent-instruction foundation merge","locator":"https://github.com/SoloMidMiram/CatsChannel/commit/b12b50c36e7b72812496d53998d517817a372c87","captured_at":"2026-10-23","freshness":"current","last_verified_at":"2026-10-23"}
+{"id":"source-136","kind":"document","title":"Codex MCP handshake compatibility verification","locator":"docs/evidence/mcp-handshake-2026-10-24.md","captured_at":"2026-10-24","freshness":"current","last_verified_at":"2026-10-24"}
