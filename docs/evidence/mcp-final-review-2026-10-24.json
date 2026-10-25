@@ -1,0 +1,724 @@
+{
+  "schema": 1,
+  "checkpoint_head": "9742c4b3eb92ff79f4674022c4bd4738edd041b7",
+  "tested_guard_sha256": "6c3e44a2c16927726c6c020dc9340bb9708e5ef2df220e46ef077837d75d0b77",
+  "initial_actual_calls": {
+    "inventory": [
+      {
+        "name": "cats_context7",
+        "tools": [
+          "query-docs",
+          "resolve-library-id"
+        ]
+      },
+      {
+        "name": "cats_serena",
+        "tools": [
+          "find_declaration",
+          "find_implementations",
+          "find_referencing_symbols",
+          "find_symbol",
+          "get_symbols_overview"
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "server": "cats_serena",
+        "tool": "find_symbol",
+        "error": null,
+        "isError": false,
+        "keys": [
+          "content",
+          "isError",
+          "structuredContent"
+        ]
+      },
+      {
+        "server": "cats_serena",
+        "tool": "find_referencing_symbols",
+        "error": null,
+        "isError": false,
+        "keys": [
+          "content",
+          "isError",
+          "structuredContent"
+        ]
+      },
+      {
+        "server": "cats_context7",
+        "tool": "resolve-library-id",
+        "error": {
+          "code": -32603,
+          "message": "tool call failed for `cats_context7/resolve-library-id`: Mcp error: -32602: invalid params"
+        },
+        "isError": null,
+        "keys": []
+      },
+      {
+        "server": "cats_context7",
+        "tool": "query-docs",
+        "error": {
+          "code": -32603,
+          "message": "tool call failed for `cats_context7/query-docs`: Mcp error: -32602: invalid params"
+        },
+        "isError": null,
+        "keys": []
+      }
+    ],
+    "model_turns_reached": false,
+    "calls": [
+      {
+        "id": 1,
+        "method": "initialize",
+        "elapsed": 0.286,
+        "result_sha256": "e834f80ede76df3cff6f61366b40a25e5311734f245c5642c86a8929162f9e1b",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "userAgent": [
+              "string",
+              97
+            ],
+            "codexHome": [
+              "string",
+              25
+            ],
+            "platformFamily": [
+              "string",
+              4
+            ],
+            "platformOs": [
+              "string",
+              5
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "method": "thread/start",
+        "elapsed": 17.124,
+        "result_sha256": "93462e8f959499e53bf567cabb147685e8ab710ea542e040817ed137be343270",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "thread": {
+              "id": [
+                "string",
+                36
+              ],
+              "extra": "NoneType",
+              "sessionId": [
+                "string",
+                36
+              ],
+              "forkedFromId": "NoneType",
+              "parentThreadId": "NoneType",
+              "preview": [
+                "string",
+                0
+              ],
+              "ephemeral": "bool",
+              "historyMode": [
+                "string",
+                6
+              ],
+              "modelProvider": [
+                "string",
+                6
+              ],
+              "createdAt": "int",
+              "updatedAt": "int",
+              "recencyAt": "int",
+              "status": {
+                "type": [
+                  "string",
+                  4
+                ]
+              },
+              "path": "NoneType",
+              "cwd": [
+                "string",
+                43
+              ],
+              "cliVersion": [
+                "string",
+                15
+              ],
+              "source": [
+                "string",
+                6
+              ],
+              "canAcceptDirectInput": "bool",
+              "threadSource": "NoneType",
+              "agentNickname": "NoneType",
+              "agentRole": "NoneType",
+              "gitInfo": "NoneType",
+              "name": "NoneType",
+              "turns": [
+                "array",
+                0
+              ]
+            },
+            "model": [
+              "string",
+              11
+            ],
+            "modelProvider": [
+              "string",
+              6
+            ],
+            "serviceTier": "NoneType",
+            "cwd": [
+              "string",
+              43
+            ],
+            "runtimeWorkspaceRoots": [
+              "array",
+              1
+            ],
+            "instructionSources": [
+              "array",
+              1
+            ],
+            "approvalPolicy": [
+              "string",
+              5
+            ],
+            "approvalsReviewer": [
+              "string",
+              4
+            ],
+            "sandbox": {
+              "type": [
+                "string",
+                8
+              ],
+              "networkAccess": "bool"
+            },
+            "activePermissionProfile": "NoneType",
+            "reasoningEffort": [
+              "string",
+              4
+            ],
+            "multiAgentMode": [
+              "string",
+              19
+            ]
+          }
+        }
+      },
+      {
+        "id": 3,
+        "method": "mcpServerStatus/list",
+        "elapsed": 10.366,
+        "result_sha256": "ff9bc45d4c145fb64e9bc17371d2367f2dc938944e2cd280c0036903345bd146",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "data": [
+              "array",
+              2
+            ],
+            "nextCursor": "NoneType"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "method": "mcpServer/tool/call",
+        "elapsed": 0.374,
+        "result_sha256": "a34862e557c1cd20f4280f00cc4b155ceb19070f4e87322582346eb278c39355",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "content": [
+              "array",
+              1
+            ],
+            "structuredContent": {
+              "result": [
+                "string",
+                164
+              ]
+            },
+            "isError": "bool"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "method": "mcpServer/tool/call",
+        "elapsed": 3.933,
+        "result_sha256": "0923fe20f524b7a1db2cddc4fc33069d7ebccb9792142a028c8a6d00f7f86641",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "content": [
+              "array",
+              1
+            ],
+            "structuredContent": {
+              "result": [
+                "string",
+                6513
+              ]
+            },
+            "isError": "bool"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "method": "mcpServer/tool/call",
+        "elapsed": 0.035,
+        "result_sha256": "840310b5b213cac326f1832f6ae6d6cd101e06d89b1699814c0b979ec03c80dd",
+        "response_shape": {
+          "error": {
+            "code": "int",
+            "message": [
+              "string",
+              90
+            ]
+          },
+          "id": "int"
+        }
+      },
+      {
+        "id": 7,
+        "method": "mcpServer/tool/call",
+        "elapsed": 0.048,
+        "result_sha256": "978dcc80180c9cee7ab93944b46583b3d6e206e581432fdb81e12b4264645e3c",
+        "response_shape": {
+          "error": {
+            "code": "int",
+            "message": [
+              "string",
+              82
+            ]
+          },
+          "id": "int"
+        }
+      }
+    ],
+    "cleanup_needed": false,
+    "remaining_owned": []
+  },
+  "corrected_actual_calls": {
+    "inventory": [
+      {
+        "name": "cats_context7",
+        "tools": [
+          "query-docs",
+          "resolve-library-id"
+        ]
+      },
+      {
+        "name": "cats_serena",
+        "tools": [
+          "find_declaration",
+          "find_implementations",
+          "find_referencing_symbols",
+          "find_symbol",
+          "get_symbols_overview"
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "server": "cats_serena",
+        "tool": "find_symbol",
+        "error": null,
+        "isError": false,
+        "keys": [
+          "content",
+          "isError",
+          "structuredContent"
+        ]
+      },
+      {
+        "server": "cats_serena",
+        "tool": "find_referencing_symbols",
+        "error": null,
+        "isError": false,
+        "keys": [
+          "content",
+          "isError",
+          "structuredContent"
+        ]
+      },
+      {
+        "server": "cats_context7",
+        "tool": "resolve-library-id",
+        "error": null,
+        "isError": null,
+        "keys": [
+          "content"
+        ]
+      },
+      {
+        "server": "cats_context7",
+        "tool": "query-docs",
+        "error": null,
+        "isError": null,
+        "keys": [
+          "content"
+        ]
+      }
+    ],
+    "model_turns_reached": false,
+    "calls": [
+      {
+        "id": 1,
+        "method": "initialize",
+        "elapsed": 0.257,
+        "result_sha256": "e834f80ede76df3cff6f61366b40a25e5311734f245c5642c86a8929162f9e1b",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "userAgent": [
+              "string",
+              97
+            ],
+            "codexHome": [
+              "string",
+              25
+            ],
+            "platformFamily": [
+              "string",
+              4
+            ],
+            "platformOs": [
+              "string",
+              5
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "method": "thread/start",
+        "elapsed": 16.303,
+        "result_sha256": "7644f09c0ae55b8804a0a301fbb75bbbae54a2cea85cfa3add7806b1f07a72e4",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "thread": {
+              "id": [
+                "string",
+                36
+              ],
+              "extra": "NoneType",
+              "sessionId": [
+                "string",
+                36
+              ],
+              "forkedFromId": "NoneType",
+              "parentThreadId": "NoneType",
+              "preview": [
+                "string",
+                0
+              ],
+              "ephemeral": "bool",
+              "historyMode": [
+                "string",
+                6
+              ],
+              "modelProvider": [
+                "string",
+                6
+              ],
+              "createdAt": "int",
+              "updatedAt": "int",
+              "recencyAt": "int",
+              "status": {
+                "type": [
+                  "string",
+                  4
+                ]
+              },
+              "path": "NoneType",
+              "cwd": [
+                "string",
+                43
+              ],
+              "cliVersion": [
+                "string",
+                15
+              ],
+              "source": [
+                "string",
+                6
+              ],
+              "canAcceptDirectInput": "bool",
+              "threadSource": "NoneType",
+              "agentNickname": "NoneType",
+              "agentRole": "NoneType",
+              "gitInfo": "NoneType",
+              "name": "NoneType",
+              "turns": [
+                "array",
+                0
+              ]
+            },
+            "model": [
+              "string",
+              11
+            ],
+            "modelProvider": [
+              "string",
+              6
+            ],
+            "serviceTier": "NoneType",
+            "cwd": [
+              "string",
+              43
+            ],
+            "runtimeWorkspaceRoots": [
+              "array",
+              1
+            ],
+            "instructionSources": [
+              "array",
+              1
+            ],
+            "approvalPolicy": [
+              "string",
+              5
+            ],
+            "approvalsReviewer": [
+              "string",
+              4
+            ],
+            "sandbox": {
+              "type": [
+                "string",
+                8
+              ],
+              "networkAccess": "bool"
+            },
+            "activePermissionProfile": "NoneType",
+            "reasoningEffort": [
+              "string",
+              4
+            ],
+            "multiAgentMode": [
+              "string",
+              19
+            ]
+          }
+        }
+      },
+      {
+        "id": 3,
+        "method": "mcpServerStatus/list",
+        "elapsed": 10.357,
+        "result_sha256": "ff9bc45d4c145fb64e9bc17371d2367f2dc938944e2cd280c0036903345bd146",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "data": [
+              "array",
+              2
+            ],
+            "nextCursor": "NoneType"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "method": "mcpServer/tool/call",
+        "elapsed": 0.294,
+        "result_sha256": "a34862e557c1cd20f4280f00cc4b155ceb19070f4e87322582346eb278c39355",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "content": [
+              "array",
+              1
+            ],
+            "structuredContent": {
+              "result": [
+                "string",
+                164
+              ]
+            },
+            "isError": "bool"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "method": "mcpServer/tool/call",
+        "elapsed": 4.414,
+        "result_sha256": "0923fe20f524b7a1db2cddc4fc33069d7ebccb9792142a028c8a6d00f7f86641",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "content": [
+              "array",
+              1
+            ],
+            "structuredContent": {
+              "result": [
+                "string",
+                6513
+              ]
+            },
+            "isError": "bool"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "method": "mcpServer/tool/call",
+        "elapsed": 2.53,
+        "result_sha256": "7c11385847c9be259782e1470107059c411496f674a4f7a63bee6ae834fdbbee",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "content": [
+              "array",
+              1
+            ]
+          }
+        }
+      },
+      {
+        "id": 7,
+        "method": "mcpServer/tool/call",
+        "elapsed": 1.759,
+        "result_sha256": "9d974a7642048531ccea0a5c0892f57db0029a7c6e21f4530abc16c8212a5759",
+        "response_shape": {
+          "id": "int",
+          "result": {
+            "content": [
+              "array",
+              1
+            ]
+          }
+        }
+      }
+    ],
+    "cleanup_needed": false,
+    "remaining_owned": []
+  },
+  "verified_symbol": {
+    "path": "cats_channel/intake/service.py",
+    "line": 42
+  },
+  "verified_reference_locations": [
+    {
+      "path": "cats_channel/bot/application.py",
+      "line": 20
+    },
+    {
+      "path": "cats_channel/bot/application.py",
+      "line": 51
+    },
+    {
+      "path": "cats_channel/bot/application.py",
+      "line": 215
+    },
+    {
+      "path": "cats_channel/bot/application.py",
+      "line": 247
+    },
+    {
+      "path": "cats_channel/bot/routers/post.py",
+      "line": 18
+    },
+    {
+      "path": "cats_channel/bot/routers/post.py",
+      "line": 102
+    },
+    {
+      "path": "cats_channel/bot/routers/post.py",
+      "line": 117
+    },
+    {
+      "path": "cats_channel/bot/routers/post.py",
+      "line": 145
+    },
+    {
+      "path": "cats_channel/bot/routers/post.py",
+      "line": 182
+    },
+    {
+      "path": "cats_channel/intake/__init__.py",
+      "line": 5
+    },
+    {
+      "path": "cats_channel/intake/__init__.py",
+      "line": 12
+    },
+    {
+      "path": "tests/test_bot_submission_intake_persistence.py",
+      "line": 23
+    },
+    {
+      "path": "tests/test_bot_submission_intake_persistence.py",
+      "line": 36
+    },
+    {
+      "path": "tests/test_bot_submission_intake_persistence.py",
+      "line": 94
+    },
+    {
+      "path": "tests/test_bot_submission_intake_persistence.py",
+      "line": 175
+    },
+    {
+      "path": "tests/test_submission_intake.py",
+      "line": 19
+    },
+    {
+      "path": "tests/test_submission_intake.py",
+      "line": 59
+    },
+    {
+      "path": "tests/test_telegram_media_adapter.py",
+      "line": 88
+    },
+    {
+      "path": "tests/test_telegram_media_adapter.py",
+      "line": 99
+    }
+  ],
+  "documentation_source_urls": [
+    "https://github.com/aiogram/aiogram/blob/dev-3.x/dispatcher/router.py",
+    "https://github.com/aiogram/aiogram/blob/dev-3.x/docs/dispatcher/dispatcher.rst",
+    "https://github.com/aiogram/aiogram/blob/dev-3.x/docs/dispatcher/router.rst",
+    "https://github.com/aiogram/aiogram/blob/dev-3.x/openspec/specs/event-dispatching/spec.md"
+  ],
+  "exact_version_verified": false,
+  "adoption_benefit_established": false,
+  "artifact_sha256": {
+    "actual-calls-cats_context7-transport.jsonl": "c976b975ae07e67ccf5346bbb82a71b0987c18ae849c03791f8413cb65b42d30",
+    "actual-calls-cats_serena-transport.jsonl": "166af35054fd8759cdc29e6ad0d406c8f4cf73e7d7be6604974cbbbc11cc6882",
+    "actual-calls-stderr.log": "622718d49e8b687a6c87b990914fe498dde5060ae466e61e1b35e44fa633f67b",
+    "actual-calls-summary.json": "900fe420d15559520a5e50bb7fb3f0187d90baaf4b5d484d199a6b6bb03e2e23",
+    "experiment-protocol.md": "afe9fd5b6e52e466bcef666de5092e263194efd587e45e59135c77c54b93644d",
+    "package_review.py": "455946d53fc852da2c6f8b9930f06dfe3b3f1295077bdcc623306724342c831f",
+    "response-1.json": "44c07469f74e57a1a80423814954d1d3926afd8817d59b380546aaf072e425db",
+    "response-2.json": "e521baebbf78ac87f0e57e03f98fb4e94c58411d2d3282d761747bbc9ceaaa6f",
+    "response-3.json": "ec65a8e6f053dfef1bb29ef8452d3b641aa28fc657410177bb5dd0480ca704a4",
+    "response-4.json": "bc4faeea79b392c322e53ccb4b5846e0a7bce27f3f80166024bba698b1eb0bfe",
+    "response-5.json": "5032df655e858084dba2a5a65da2da9dd6d4bffb29330f0e8545ef0045bc5952",
+    "response-6.json": "532036de3baff5f3f3aff9ffc20ce5a7f7a220e7564dd1aed92c61401de401a6",
+    "response-7.json": "7715c41e2527121bc56a551855cdb9a867d7823fd61bf819038484c2088e5fb4",
+    "review_calls.py": "a3965232f2ac62b2f896dcb686863ee32dc482bd3016e57f7433b7a831b22548",
+    "patched\\actual-calls-cats_context7-transport.jsonl": "d2bafef4fa432d445659b7821b4941e94ddf40b7ca7fbdf59057e099445bd1a9",
+    "patched\\actual-calls-cats_serena-transport.jsonl": "166af35054fd8759cdc29e6ad0d406c8f4cf73e7d7be6604974cbbbc11cc6882",
+    "patched\\actual-calls-stderr.log": "f5a123f901b76bdc68dbe6838e40d9599a71da3491f3fb0f2332086ae8e77473",
+    "patched\\actual-calls-summary.json": "865158046be3128d66716368ed0cfcb9c5e767106a840f85445746d0cc67bcd7",
+    "patched\\response-1.json": "44c07469f74e57a1a80423814954d1d3926afd8817d59b380546aaf072e425db",
+    "patched\\response-2.json": "4afa83d4ce0e7d5de874c81b1722ab3ff9ab534f9d6de76ba0c85dc0f1c014e5",
+    "patched\\response-3.json": "878653f253d5ca7c76805803a0d816e601616f6ecc10c99addd919f15459f852",
+    "patched\\response-4.json": "bc4faeea79b392c322e53ccb4b5846e0a7bce27f3f80166024bba698b1eb0bfe",
+    "patched\\response-5.json": "5032df655e858084dba2a5a65da2da9dd6d4bffb29330f0e8545ef0045bc5952",
+    "patched\\response-6.json": "5a0a1938e1944d8ace574c3c99b139225f69a4eecb5e277583c19de3a1066696",
+    "patched\\response-7.json": "db19c76c66929f0911b88e5e8adf835d70229d91e820322dad77e8f4b51142cd"
+  }
+}

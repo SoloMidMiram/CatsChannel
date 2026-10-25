@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import subprocess
 import sys
@@ -16,6 +17,8 @@ from typing import Any, TextIO
 
 MAX_LINE_BYTES = 64 * 1024
 MAX_PUBLIC_TEXT = 800
+MAX_PROGRESS_TOKEN_TEXT = 128
+MAX_PROGRESS_TOKEN_NUMBER = 2**53 - 1
 ALLOWED_LIBRARY_IDS = frozenset({"/aiogram/aiogram", "/sqlalchemy/sqlalchemy"})
 ALLOWED_LIBRARY_NAMES = frozenset({"aiogram", "sqlalchemy"})
 ALLOWED_LANGUAGES = frozenset({"", "Python"})
@@ -106,16 +109,54 @@ def request_digest(request: Any) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _progress_token_valid(token: Any) -> bool:
+    if isinstance(token, str):
+        return 0 < len(token.encode("utf-8")) <= MAX_PROGRESS_TOKEN_TEXT
+    return (
+        type(token) in {int, float}
+        and abs(token) <= MAX_PROGRESS_TOKEN_NUMBER
+        and math.isfinite(token)
+    )
+
+
+def _tool_metadata_valid(meta: Any) -> bool:
+    """Recognize local Codex correlation metadata, never forward its thread ID."""
+    if not isinstance(meta, dict) or not {"progressToken"} <= set(meta) <= {
+        "progressToken",
+        "threadId",
+    }:
+        return False
+    if not _progress_token_valid(meta["progressToken"]):
+        return False
+    if "threadId" in meta and (
+        not isinstance(meta["threadId"], str)
+        or re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", meta["threadId"])
+        is None
+    ):
+        return False
+    # threadId is a validated local-only identifier. Progress tokens still pass
+    # the public-text policy even though both fields are stripped before relay.
+    text = str(meta["progressToken"])
+    return not any(pattern.search(text) for _, pattern in PRIVATE_PATTERNS)
+
+
 def _protocol_params_valid(method: str, params: dict[str, Any]) -> bool:
     """Accept only the negotiation/discovery fields this public-doc server needs."""
     if method in {"ping", "notifications/initialized"}:
         return not params
     if method in DISCOVERY_METHODS:
-        return not params or (
-            set(params) == {"cursor"}
-            and isinstance(params["cursor"], str)
-            and 0 < len(params["cursor"]) <= 128
-        )
+        if not set(params) <= {"cursor", "_meta"}:
+            return False
+        if "cursor" in params and not (
+            isinstance(params["cursor"], str) and 0 < len(params["cursor"]) <= 128
+        ):
+            return False
+        if "_meta" in params:
+            meta = params["_meta"]
+            if not isinstance(meta, dict) or set(meta) != {"progressToken"}:
+                return False
+            return _progress_token_valid(meta["progressToken"])
+        return True
     if method == "notifications/cancelled":
         request_id = params.get("requestId")
         return (
@@ -150,6 +191,9 @@ def _protocol_params_valid(method: str, params: dict[str, Any]) -> bool:
                 value.get("listChanged", False), bool
             ):
                 return False
+        elif name == "elicitation":
+            if not set(value) <= {"form", "url"} or any(item != {} for item in value.values()):
+                return False
         elif value:
             return False
     return True
@@ -158,6 +202,12 @@ def _protocol_params_valid(method: str, params: dict[str, Any]) -> bool:
 def validate_request(request: dict[str, Any]) -> tuple[bool, str, str]:
     """Return a policy decision and a content digest without retaining content."""
     digest = request_digest(request)
+    if not set(request) <= {"jsonrpc", "id", "method", "params"}:
+        return False, "invalid_envelope", digest
+    if "jsonrpc" in request and request["jsonrpc"] != "2.0":
+        return False, "invalid_envelope", digest
+    if "id" in request and not (type(request["id"]) is int or isinstance(request["id"], str)):
+        return False, "invalid_envelope", digest
     method = request.get("method")
     if not isinstance(method, str):
         return False, "invalid_method", digest
@@ -177,6 +227,10 @@ def validate_request(request: dict[str, Any]) -> tuple[bool, str, str]:
     params = request.get("params")
     if not isinstance(params, dict):
         return False, "invalid_params", digest
+    if not set(params) <= {"name", "arguments", "_meta"}:
+        return False, "invalid_params", digest
+    if "_meta" in params and not _tool_metadata_valid(params["_meta"]):
+        return False, "invalid_metadata", digest
     name = params.get("name")
     arguments = params.get("arguments", {})
     if not isinstance(name, str):
@@ -184,6 +238,9 @@ def validate_request(request: dict[str, Any]) -> tuple[bool, str, str]:
     if name not in ALLOWED_TOOLS:
         return False, "tool_not_allowlisted", digest
     if not isinstance(arguments, dict):
+        return False, "invalid_arguments", digest
+    fields = {"libraryId", "query", "language"} if name in QUERY_TOOLS else {"libraryName", "query"}
+    if not set(arguments) <= fields:
         return False, "invalid_arguments", digest
     query = arguments.get("query")
     if not isinstance(query, str):
@@ -307,13 +364,31 @@ def run_guard(
 
     audit = AuditLog(audit_path)
     output_failed = threading.Event()
+    output_lock = threading.Lock()
+    backend_lock = threading.Lock()
+
+    def emit(payload: str) -> bool:
+        with output_lock:
+            return _emit(output_stream, payload)
 
     def relay() -> None:
         assert child.stdout is not None
         for line in child.stdout:
+            # This public-doc transport supports no server-initiated requests.
+            # Reject locally even if a backend ignores the normalized negotiation.
             try:
-                output_stream.write(line)
-                output_stream.flush()
+                message = json.loads(line)
+                if isinstance(message, dict) and "method" in message:
+                    if "id" in message:
+                        with backend_lock:
+                            assert child.stdin is not None
+                            _emit(child.stdin, _error(message["id"], -32601, "unsupported method"))
+                    continue
+                if not emit(line.rstrip("\n")):
+                    output_failed.set()
+                    return
+            except (ValueError, TypeError):
+                continue
             except (BrokenPipeError, OSError):
                 output_failed.set()
                 return
@@ -334,14 +409,14 @@ def run_guard(
                     reason="request_too_large",
                     digest=raw_digest,
                 )
-                if not _emit(output_stream, _error(None, -32600, "invalid request")):
+                if not emit(_error(None, -32600, "invalid request")):
                     break
                 continue
             try:
                 request = json.loads(line)
                 if not isinstance(request, dict):
                     raise TypeError
-            except (json.JSONDecodeError, TypeError):
+            except (ValueError, TypeError, RecursionError):
                 invalid = {"method": "invalid"}
                 audit.write(
                     request=invalid,
@@ -349,7 +424,7 @@ def run_guard(
                     reason="malformed_json",
                     digest=raw_digest,
                 )
-                if not _emit(output_stream, _error(None, -32700, "parse error")):
+                if not emit(_error(None, -32700, "parse error")):
                     break
                 continue
             allowed, reason, digest = validate_request(request)
@@ -360,20 +435,29 @@ def run_guard(
                 if not reason.startswith("invalid_"):
                     code = -32001
                     message = "Context7 query rejected by policy"
-                if not _emit(
-                    output_stream,
-                    _error(request.get("id"), code, message),
-                ):
+                if not emit(_error(request.get("id"), code, message)):
                     break
                 continue
             if child.poll() is not None:
-                _emit(output_stream, _error(request.get("id"), -32002, "MCP backend unavailable"))
+                emit(_error(request.get("id"), -32002, "MCP backend unavailable"))
                 break
             try:
-                child.stdin.write(line if line.endswith("\n") else line + "\n")
-                child.stdin.flush()
+                if request.get("method") == "initialize":
+                    # Do not promise roots, sampling or elicitation that this guard
+                    # cannot safely relay. Validate before dropping capabilities.
+                    request = {**request, "params": {**request["params"], "capabilities": {}}}
+                elif request.get("method") == "tools/call" and "_meta" in request["params"]:
+                    request = {
+                        **request,
+                        "params": {
+                            key: value for key, value in request["params"].items() if key != "_meta"
+                        },
+                    }
+                with backend_lock:
+                    if not _emit(child.stdin, json.dumps(request, separators=(",", ":"))):
+                        raise BrokenPipeError
             except (BrokenPipeError, OSError):
-                _emit(output_stream, _error(request.get("id"), -32002, "MCP backend unavailable"))
+                emit(_error(request.get("id"), -32002, "MCP backend unavailable"))
                 break
     finally:
         try:
