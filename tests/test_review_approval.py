@@ -9,23 +9,24 @@ import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.types import CallbackQuery, Chat, Message, Update, User
 from test_bot_submission_intake import RecordingSession
+from test_reply_chains import chain_database as _chain_database
 
 from cats_channel.bot.context import BotOperationRegistry, OperationLoggingMiddleware
 from cats_channel.bot.routers.review import create_review_router
 from cats_channel.diagnostics import configure_logging
-from cats_channel.persistence import Database, SourceIdentity, TelegramMessageRef
+from cats_channel.persistence import SourceIdentity, TelegramMessageRef
 from cats_channel.reply_chains.service import ReplyChainService
 from cats_channel.review.entities import ReviewError
 from cats_channel.review.service import ReviewService
 
 CHAT = -100456
 DESTINATION = -100789
+chain_database = _chain_database
 
 
 @pytest.fixture
-async def review_setup(tmp_path):
-    database = Database(f"sqlite+aiosqlite:///{(tmp_path / 'reviews.sqlite3').as_posix()}")
-    await database.create_schema_for_tests()
+async def review_setup(chain_database):
+    database = chain_database
     async with database.unit_of_work() as uow:
         thread = await uow.threads.get_or_create(SourceIdentity("telegram", "source"))
         submission = await uow.submissions.create(
@@ -62,10 +63,7 @@ async def review_setup(tmp_path):
         destination_chat_id=DESTINATION,
         admin_user_id=42,
     )
-    try:
-        yield database, submission, transport, publisher, service
-    finally:
-        await database.dispose()
+    yield database, submission, transport, publisher, service
 
 
 async def test_review_is_sent_once_and_does_not_publish(review_setup):
@@ -136,6 +134,52 @@ async def test_concurrent_click_does_not_take_existing_approval(review_setup):
     finally:
         release.set()
         await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize("phase", ["delivery", "approval"])
+async def test_postgres_review_competing_claims_have_one_owner(review_setup, phase):
+    database, submission, transport, publisher, service = review_setup
+    if database.engine.dialect.name != "postgresql":
+        pytest.skip("PostgreSQL simultaneous writer contract")
+    if phase == "approval":
+        item = await service.enqueue(submission.id)
+    else:
+        async with database.unit_of_work() as uow:
+            item = await uow.reviews.create(submission.id, CHAT, DESTINATION)
+    ready = asyncio.Event()
+    waiting = 0
+
+    async def claim(actor):
+        nonlocal waiting
+        async with database.unit_of_work() as uow:
+            snapshot = await uow.reviews.get(item.id)
+            waiting += 1
+            if waiting == 2:
+                ready.set()
+            await asyncio.wait_for(ready.wait(), 5)
+            if phase == "delivery":
+                return await uow.reviews.claim_delivery(snapshot)
+            return await uow.reviews.claim_approval(snapshot, actor, datetime.now(UTC))
+
+    results = await asyncio.wait_for(asyncio.gather(claim(42), claim(43)), 10)
+    assert sorted(results) == [False, True]
+    stored = await service.get(item.id)
+    if phase == "approval":
+        assert stored.decision_state == "approving"
+        assert stored.reviewer_id == (42 if results[0] else 43)
+        assert stored.reviewed_at is not None
+    else:
+        assert stored.delivery_state == "sending"
+    await service.recover_abandoned()
+    recovered = await service.enqueue(submission.id)
+    if phase == "approval":
+        assert recovered.decision_state == "needs_reconciliation"
+        assert recovered.reviewer_id == stored.reviewer_id
+        transport.send_review.assert_awaited_once()
+    else:
+        assert recovered.delivery_state == "unknown"
+        transport.send_review.assert_not_awaited()
+    publisher.approve_pilot.assert_not_awaited()
 
 
 async def test_ambiguous_review_send_is_not_resent_on_restart(review_setup):

@@ -6,6 +6,13 @@ publication destination. The pilot owner selected the existing private pilot
 channel for both roles, so a review copy appears there first and approval creates
 the actual published reply as a separate message.
 
+This same-channel arrangement is limited to the restricted private pilot. A
+review copy is visible before approval, so public deployment requires a distinct,
+private inspection destination and verified channel permissions. The current
+configuration does not enforce this deployment boundary; do not enable review
+delivery into a public publication channel. Issue #8 remains open for complete
+moderation acceptance, including rejection and deployment safeguards.
+
 Validated new submissions automatically receive a review copy with an **Approve**
 button. Intake is durable before review delivery; a review transport failure does
 not discard the submission. Previously accepted pending submissions can be queued
