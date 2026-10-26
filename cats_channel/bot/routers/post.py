@@ -14,6 +14,7 @@ from aiogram.types import (
     Message,
 )
 
+from ...diagnostics import log_failure
 from ...errors import MediaError
 from ...intake import IntakeError, IntakePlacement, SubmissionIntakeService
 from ...media import youtube_url
@@ -22,7 +23,7 @@ from ...services.media_service import MediaService
 from ...submissions import local_media_from_library_item
 from ..context import BotOperation
 from ..entry import EntryContractError, ReplyTarget, ReplyTargetResolver, parse_reply_payload
-from ..errors import answer_error_safely
+from ..errors import answer_error_safely, diagnostic_error
 from ..flow import (
     FlowLease,
     PrivateEntryContext,
@@ -36,6 +37,27 @@ POST_PROMPT = (
     "Send one Telegram video or YouTube URL. Select a known source for Telegram files. "
     "Use /cancel to clear it."
 )
+
+
+async def pending_acknowledgement(message, submission_id, review_service):
+    text = f"Accepted as pending submission {submission_id}."
+    if review_service is not None:
+        try:
+            review = await review_service.enqueue(submission_id)
+            text += (
+                " Sent for review."
+                if review.delivery_state == "confirmed"
+                else " Review delivery needs attention; your submission is saved."
+            )
+        except Exception as error:  # noqa: BLE001 - committed intake survives review failure
+            log_failure(
+                logging.getLogger("cats_channel"),
+                "review_queue_failure",
+                diagnostic_error(error, code="review_unavailable", phase="review_enqueue"),
+                operation="review_enqueue",
+            )
+            text += " Review delivery needs attention; your submission is saved."
+    await message.answer(text)
 
 
 def _source_keyboard(options) -> InlineKeyboardMarkup | None:
@@ -145,6 +167,7 @@ def create_post_router() -> Router:
         intake_service: SubmissionIntakeService | None,
         telegram_media_adapter: TelegramMediaAdapter,
         bot_operation: BotOperation,
+        review_service=None,
     ) -> None:
         bot_operation.operation = "post_intake"
         if intake_service is None or message.video is None or message.from_user is None:
@@ -172,7 +195,7 @@ def create_post_router() -> Router:
         bot_operation.outcome = f"pending_{result.disposition}"
         bot_operation.disposition = result.disposition
         bot_operation.placement_mode = result.mode
-        await message.answer(f"Accepted as pending submission {result.submission_id}.")
+        await pending_acknowledgement(message, result.submission_id, review_service)
 
     @router.message(PrivateEntryStates.reply_entry, F.text, ~F.text.startswith("/"))
     async def intake_youtube_url(
@@ -182,6 +205,7 @@ def create_post_router() -> Router:
         intake_service: SubmissionIntakeService | None,
         media_service: MediaService,
         bot_operation: BotOperation,
+        review_service=None,
     ) -> None:
         bot_operation.operation = "post_intake"
         if intake_service is None or message.from_user is None:
@@ -214,6 +238,6 @@ def create_post_router() -> Router:
         bot_operation.outcome = f"pending_{result.disposition}"
         bot_operation.disposition = result.disposition
         bot_operation.placement_mode = result.mode
-        await message.answer(f"Accepted as pending submission {result.submission_id}.")
+        await pending_acknowledgement(message, result.submission_id, review_service)
 
     return router

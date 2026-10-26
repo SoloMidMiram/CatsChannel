@@ -13,6 +13,13 @@ their own sessions. There is no automatic direct fallback or media-send retry.
 
 - `BOT_API_PROXY`: aiogram Bot API route; optional HTTP or SOCKS origin with an
   explicit port. Credentials, query/fragment and non-root paths are rejected.
+- `BOT_API_PROXY_ENABLED`: default `true`, preserving existing profiles. Set `false`
+  to connect directly while keeping the proxy address saved. Restart the bot after
+  changing this setting. It controls all Bot API operations, including diagnosis,
+  polling, file downloads and publication; it does not control Telethon or yt-dlp.
+  Direct mode ignores shell HTTP/HTTPS/ALL_PROXY variables. There is no automatic
+  fallback if either selected route fails. Diagnosis reports `proxy_configured`,
+  `proxy_enabled` and `proxy_in_use` separately.
 - `BOT_API_TIMEOUT_SECONDS`: bounded request timeout, default 60, range 5–180.
   aiogram manages its normal additional long-poll budget separately.
 - `BOT_API_FILE_TIMEOUT_SECONDS`: Bot API file-download timeout, default 180,
@@ -80,6 +87,7 @@ Do not substitute the public channel. Example non-secret settings:
 
 ```dotenv
 BOT_API_PROXY=socks5h://127.0.0.1:10808
+BOT_API_PROXY_ENABLED=true
 BOT_API_TIMEOUT_SECONDS=60
 BOT_API_FILE_TIMEOUT_SECONDS=180
 BOT_API_STARTUP_ATTEMPTS=3

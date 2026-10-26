@@ -76,6 +76,12 @@ class AiogramPublisher:
         return BufferedInputFile(data, filename="cat" + path.suffix), path.suffix == ".mp4"
 
     async def send(self, submission, *, parent):
+        return await self._send(submission, parent=parent)
+
+    async def send_review(self, submission, *, caption, reply_markup):
+        return await self._send(submission, parent=None, caption=caption, reply_markup=reply_markup)
+
+    async def _send(self, submission, *, parent, caption=None, reply_markup=None):
         try:
             if (
                 submission.status != "validated"
@@ -118,13 +124,14 @@ class AiogramPublisher:
             else None
         )
         try:
+            extra = {"reply_markup": reply_markup} if reply_markup is not None else {}
             if video:
                 message = await self.bot.send_video(
-                    self.destination, payload, caption=None, reply_parameters=reply
+                    self.destination, payload, caption=caption, reply_parameters=reply, **extra
                 )
             else:
                 message = await self.bot.send_document(
-                    self.destination, payload, caption=None, reply_parameters=reply
+                    self.destination, payload, caption=caption, reply_parameters=reply, **extra
                 )
         except (TelegramBadRequest, TelegramForbiddenError):
             # Bot API rejects the operation, including a deleted exact parent.

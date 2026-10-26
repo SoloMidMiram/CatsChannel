@@ -24,6 +24,7 @@ from .repositories import (
     SqlAlchemySubmissionRepository,
     SqlAlchemyThreadRepository,
 )
+from .review_repositories import SqlAlchemyReviewRepository
 from .sqlite import configure_sqlite_engine
 
 
@@ -41,6 +42,13 @@ class SqlAlchemyUnitOfWork:
         self._intents: SqlAlchemyIntentRepository | None = None
         self._reply_tokens: SqlAlchemyReplyTokenRepository | None = None
         self._publications: SqlAlchemyPublicationRepository | None = None
+        self._reviews: SqlAlchemyReviewRepository | None = None
+
+    @property
+    def reviews(self) -> SqlAlchemyReviewRepository:
+        if self._reviews is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._reviews
 
     @property
     def publications(self) -> SqlAlchemyPublicationRepository:
@@ -94,6 +102,7 @@ class SqlAlchemyUnitOfWork:
         self._intents = None
         self._reply_tokens = None
         self._publications = None
+        self._reviews = None
 
     async def __aenter__(self) -> Self:
         if self._session is not None:
@@ -110,6 +119,7 @@ class SqlAlchemyUnitOfWork:
             self._intents = SqlAlchemyIntentRepository(session)
             self._reply_tokens = SqlAlchemyReplyTokenRepository(session)
             self._publications = SqlAlchemyPublicationRepository(session)
+            self._reviews = SqlAlchemyReviewRepository(session)
         except BaseException:
             try:
                 await session.close()

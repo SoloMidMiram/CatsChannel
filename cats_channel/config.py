@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     bot_token: SecretStr = SecretStr("")
     admin_user_id: int | None = None
     channel_id: str | None = None
+    review_channel_id: int | None = None
     reply_entries_enabled: bool = False
     bot_api_proxy: AnyUrl | None = None
+    bot_api_proxy_enabled: bool = True
     bot_api_timeout_seconds: int = Field(default=60, ge=5, le=180)
     bot_api_file_timeout_seconds: int = Field(default=180, ge=30, le=600)
     bot_api_startup_attempts: int = Field(default=3, ge=1, le=10)
@@ -38,6 +40,17 @@ class Settings(BaseSettings):
     telegram_response_timeout: int = Field(default=180, ge=10, le=600)
     database_url: SecretStr = SecretStr("sqlite+aiosqlite:///cats_channel.sqlite3")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING"
+
+    @property
+    def effective_bot_api_proxy(self) -> AnyUrl | None:
+        return self.bot_api_proxy if self.bot_api_proxy_enabled else None
+
+    @field_validator("review_channel_id")
+    @classmethod
+    def validate_review_channel(cls, value: int | None) -> int | None:
+        if value == 0:
+            raise ValueError("REVIEW_CHANNEL_ID must be a nonzero numeric chat ID")
+        return value
 
     @property
     def telegram_session_file(self) -> Path:
