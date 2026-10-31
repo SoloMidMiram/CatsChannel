@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from aiogram import Bot, F, Router
@@ -37,6 +38,7 @@ POST_PROMPT = (
     "Send one Telegram video or YouTube URL. Select a known source for Telegram files. "
     "Use /cancel to clear it."
 )
+ENTRY_RESOLUTION_SECONDS = 30
 
 
 async def pending_acknowledgement(message, submission_id, review_service):
@@ -96,7 +98,9 @@ def create_post_router() -> Router:
     ) -> None:
         try:
             token = parse_reply_payload(command.args or "")
-            target = await reply_target_resolver.resolve(token, actor_id=message.from_user.id)
+            await flow_lease.begin_entry()
+            async with asyncio.timeout(ENTRY_RESOLUTION_SECONDS):
+                target = await reply_target_resolver.resolve(token, actor_id=message.from_user.id)
             if target is None:
                 raise EntryContractError()
             if not isinstance(target, ReplyTarget):
@@ -107,7 +111,7 @@ def create_post_router() -> Router:
             )
             if not selected:
                 bot_operation.outcome = "superseded"
-        except EntryContractError:
+        except (EntryContractError, TimeoutError):
             bot_operation.fail("reply_entry_invalid")
             await answer_error_safely(
                 message,
@@ -116,6 +120,8 @@ def create_post_router() -> Router:
                 operation=bot_operation,
                 event="bot_error_notification_failure",
             )
+        finally:
+            await flow_lease.finish_entry()
 
     @router.message(Command("post", "submit"))
     async def post_message(
@@ -158,7 +164,7 @@ def create_post_router() -> Router:
             if not selected:
                 raise IntakeError("intake_superseded")
 
-    @router.message(PrivateEntryStates.reply_entry, F.video)
+    @router.message(F.video)
     async def intake_telegram_video(
         message: Message,
         bot: Bot,
@@ -168,14 +174,20 @@ def create_post_router() -> Router:
         telegram_media_adapter: TelegramMediaAdapter,
         bot_operation: BotOperation,
         review_service=None,
+        video_lease: FlowLease | None = None,
     ) -> None:
         bot_operation.operation = "post_intake"
         if intake_service is None or message.video is None or message.from_user is None:
             raise IntakeError("intake_unavailable")
-        async with flow_coordinator.continue_current(state) as lease:
-            context = await read_private_entry(state)
+        async with flow_coordinator.continue_current(state, captured=video_lease) as lease:
+            bot_operation.outcome = "deferred"
+            context = await lease.admit_video()
             if context is None:
-                raise IntakeError("intake_superseded")
+                bot_operation.outcome = "rejected"
+                await message.answer(
+                    "Video not accepted: reply entry is unavailable, expired or replaced. Use the reply link again."
+                )
+                return
             placement = _placement(context)
             await intake_service.require_compatible_provider(placement, "telegram")
             if not await lease.is_current():

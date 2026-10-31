@@ -24,7 +24,7 @@ from .context import BotOperationRegistry, OperationLoggingMiddleware
 from .dispatcher import ApplicationDispatcher
 from .entry import ReplyTargetResolver, UnavailableReplyTargetResolver
 from .errors import bot_api_diagnostic_error
-from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware
+from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware, VideoArrivalMiddleware
 from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
 from .telegram_media import TelegramMediaAdapter
@@ -308,6 +308,7 @@ def create_bot_application(
         )
         dispatcher.include_router(review_router)
     router = create_admin_router(settings, operation_registry)
+    router.message.outer_middleware(VideoArrivalMiddleware(flow_coordinator))
     router.message.middleware(PrivateFlowMiddleware(flow_coordinator))
     router.message.outer_middleware(
         OperationLoggingMiddleware(

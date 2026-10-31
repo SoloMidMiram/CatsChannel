@@ -95,6 +95,12 @@ investigation, not an automatic global resolver rewrite.
 
 ## Ordered, reviewable changes
 
+Branch-local reply-entry correction and parent-failure evidence are recorded in
+[the concurrency receipt](evidence/reply-entry-concurrency-2026-10-31.md).
+Provisional admission, stale-generation rejection and bounded resolution are
+implemented there; restart durability and public deployment are not implied.
+The remaining diagnostic, retry and operational items below remain separate.
+
 0. **Entry ordering and explicit unhandled outcomes.** Reserve an authorized
    private reply-entry transition before awaited target lookup, and give a video
    arriving behind that transition a bounded admission/defer policy before FSM
