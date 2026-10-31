@@ -268,6 +268,41 @@ class PublicationModel(TimestampMixin, Base):
     )
 
 
+class ReviewItemModel(TimestampMixin, Base):
+    __tablename__ = "review_items"
+    __table_args__ = (
+        UniqueConstraint("submission_id", "review_chat_id", name="uq_review_submission_chat"),
+        UniqueConstraint("review_chat_id", "message_id", name="uq_review_message"),
+        CheckConstraint(
+            "delivery_state IN ('pending','sending','confirmed','failed','unknown')",
+            name="ck_review_delivery",
+        ),
+        CheckConstraint(
+            "decision_state IN ('pending','approving','approved','blocked','needs_reconciliation')",
+            name="ck_review_decision",
+        ),
+        CheckConstraint("version > 0", name="ck_review_version"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    submission_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cat_video_submissions.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    destination_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    message_id: Mapped[int | None] = mapped_column(BigInteger)
+    delivery_state: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="pending"
+    )
+    decision_state: Mapped[str] = mapped_column(
+        String(24), nullable=False, server_default="pending"
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    reviewer_id: Mapped[int | None] = mapped_column(BigInteger)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    publication_id: Mapped[str | None] = mapped_column(String(36))
+    error_category: Mapped[str | None] = mapped_column(String(64))
+
+
 class PublicationAttemptModel(Base):
     __tablename__ = "publication_attempts"
     __table_args__ = (

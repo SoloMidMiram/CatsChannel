@@ -135,6 +135,9 @@ class HandoffRepository(Protocol):
 
 class PersistenceUnitOfWork(Protocol):
     @property
+    def reviews(self): ...
+
+    @property
     def publications(self) -> PublicationRepository: ...
 
     @property

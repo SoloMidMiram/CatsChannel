@@ -30,7 +30,7 @@ def test_upgrade_downgrade_and_schema_parity(tmp_path, monkeypatch):
     command.check(config)
     with sqlite3.connect(path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0005_durable_publication",
+            "0006_review_approval",
         )
         assert "uq_destination_post_chat" in {
             r[1] for r in connection.execute("PRAGMA index_list(telegram_message_refs)")

@@ -65,7 +65,8 @@ def create_configured_bot(settings: Settings, *, logger: logging.Logger | None =
     from aiogram.utils.token import validate_token
 
     validate_token(token)
-    proxy = str(settings.bot_api_proxy) if settings.bot_api_proxy else None
+    route = settings.effective_bot_api_proxy
+    proxy = str(route) if route else None
     if proxy:
         # aiohttp-socks accepts base SOCKS schemes. aiogram explicitly uses rdns=True,
         # preserving remote DNS for the h/a aliases without a direct DNS fallback.

@@ -54,6 +54,61 @@ async def test_direct_is_explicit_and_does_not_reuse_other_backend_proxy(monkeyp
     await bot.session.close()
 
 
+async def test_disabled_proxy_makes_real_request_directly(monkeypatch):
+    observed = []
+    tasks = set()
+
+    async def api(reader, writer):
+        tasks.add(asyncio.current_task())
+        try:
+            request = await reader.readuntil(b"\r\n\r\n")
+            observed.append(request.split(b"\r\n", 1)[0])
+            data = json.dumps(
+                {"ok": True, "result": {"id": 123456, "is_bot": True, "first_name": "Test"}}
+            ).encode()
+            writer.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
+                + str(len(data)).encode()
+                + b"\r\n\r\n"
+                + data
+            )
+            await writer.drain()
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy"):
+        monkeypatch.setenv(name, "http://127.0.0.1:1")
+    monkeypatch.setenv("BOT_API_PROXY_ENABLED", "false")
+    configuration = settings(bot_api_proxy="socks5h://127.0.0.1:1")
+    assert configuration.bot_api_proxy is not None
+    assert configuration.effective_bot_api_proxy is None
+    bot = create_configured_bot(configuration)
+    server = await asyncio.start_server(api, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    bot.session.api = TelegramAPIServer.from_base(f"http://127.0.0.1:{port}")
+    try:
+        async with server:
+            assert (await asyncio.wait_for(bot.get_me(), 5)).id == 123456
+        assert len(observed) == 1
+        assert observed[0].startswith(b"POST /bot123456:TEST_TOKEN/getMe ")
+    finally:
+        await bot.session.close()
+        if tasks:
+            await asyncio.gather(*tasks)
+
+
+async def test_preflight_reports_disabled_saved_proxy():
+    report = await diagnose_bot_api(
+        settings(bot_api_proxy="http://127.0.0.1:10808", bot_api_proxy_enabled=False),
+        bot=fake_bot(),
+    )
+    assert report["proxy_configured"] is True
+    assert report["proxy_enabled"] is False
+    assert report["proxy_in_use"] is False
+    assert report["proxy_scheme"] is None
+
+
 @pytest.mark.parametrize(
     "value",
     [

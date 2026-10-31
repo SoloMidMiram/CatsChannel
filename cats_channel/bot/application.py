@@ -250,6 +250,7 @@ def create_bot_application(
                 reply_chains=reply_chains,
             )
     publication_service = None
+    review_service = None
     owned_bot = bot if bot is not None else create_configured_bot(settings, logger=app_logger)
     if persistence_unit_of_work is not None:
         from ..adapters.aiogram_publisher import AiogramPublisher
@@ -262,6 +263,20 @@ def create_bot_application(
             destination_chat_id=destination,
             logger=app_logger,
         )
+        if settings.review_channel_id is not None:
+            from ..review.service import ReviewService
+
+            review_service = ReviewService(
+                persistence_unit_of_work,
+                transport=AiogramPublisher(
+                    owned_bot, settings, destination_chat_id=settings.review_channel_id
+                ),
+                publication_service=publication_service,
+                review_chat_id=settings.review_channel_id,
+                destination_chat_id=destination,
+                admin_user_id=settings.admin_user_id,
+                logger=app_logger,
+            )
     adapter = telegram_media_adapter or TelegramMediaAdapter(settings)
     dispatcher = ApplicationDispatcher(
         storage=storage,
@@ -272,11 +287,26 @@ def create_bot_application(
         reply_target_resolver=reply_target_resolver or UnavailableReplyTargetResolver(),
         intake_service=intake_service,
         publication_service=publication_service,
+        review_service=review_service,
         telegram_media_adapter=adapter,
         flow_coordinator=flow_coordinator,
     )
     if publication_service is not None:
         dispatcher.startup.register(publication_service.recover_abandoned)
+    if review_service is not None:
+        from .routers.review import create_review_router
+
+        dispatcher.startup.register(review_service.recover_abandoned)
+        review_router = create_review_router(review_service)
+        review_router.callback_query.outer_middleware(
+            OperationLoggingMiddleware(
+                app_logger,
+                registry=operation_registry,
+                clock=clock,
+                correlation_id_factory=correlation_id_factory,
+            )
+        )
+        dispatcher.include_router(review_router)
     router = create_admin_router(settings, operation_registry)
     router.message.middleware(PrivateFlowMiddleware(flow_coordinator))
     router.message.outer_middleware(

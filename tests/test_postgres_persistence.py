@@ -23,14 +23,12 @@ POSTGRES_URL = os.environ.get("CATS_TEST_POSTGRES_URL")
 pytestmark = pytest.mark.skipif(not POSTGRES_URL, reason="disposable PostgreSQL not configured")
 
 
-async def _schema_state(url):
+async def _schema_state(url, table="cat_video_submissions"):
     engine = create_async_engine(url)
     try:
         async with engine.connect() as connection:
             columns = await connection.run_sync(
-                lambda sync: {
-                    column["name"] for column in inspect(sync).get_columns("cat_video_submissions")
-                }
+                lambda sync: {column["name"] for column in inspect(sync).get_columns(table)}
             )
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             return columns, revision
@@ -197,11 +195,37 @@ def test_disposable_postgres_migrations_transactions_and_handoffs(monkeypatch):
         with pytest.raises(RuntimeError, match="publication migration rollback"):
             command.upgrade(config, "head")
     assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0004_bot_submission_intake"
+    command.upgrade(config, "0005_durable_publication")
+
+    def fail_review_migration(operations, table_name, *args, **kwargs):
+        result = create_table(operations, table_name, *args, **kwargs)
+        if table_name == "review_items":
+            raise RuntimeError("review migration rollback")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Operations, "create_table", fail_review_migration)
+        with pytest.raises(RuntimeError, match="review migration rollback"):
+            command.upgrade(config, "head")
+    assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0005_durable_publication"
     command.upgrade(config, "head")
     command.check(config)
     columns, revision = asyncio.run(_schema_state(POSTGRES_URL))
     assert {"placement_mode", "selected_parent_post_id"} <= columns
-    assert revision == "0005_durable_publication"
+    assert revision == "0006_review_approval"
+    review_columns, review_revision = asyncio.run(_schema_state(POSTGRES_URL, "review_items"))
+    assert review_revision == revision
+    assert {
+        "submission_id",
+        "review_chat_id",
+        "destination_chat_id",
+        "message_id",
+        "delivery_state",
+        "decision_state",
+        "version",
+        "reviewer_id",
+        "reviewed_at",
+    } <= review_columns
     asyncio.run(_transaction_contracts(POSTGRES_URL))
     command.downgrade(config, "0002_source_aware_submissions")
     assert asyncio.run(_schema_state(POSTGRES_URL))[1] == "0002_source_aware_submissions"
