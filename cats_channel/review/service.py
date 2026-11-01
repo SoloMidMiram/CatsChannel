@@ -79,6 +79,8 @@ class ReviewService:
         caption += "\nSource identity: " + (
             "verified" if submission.source_identity_status == "verified" else "unverified"
         )
+        if submission.validation_evidence.get("validator") == "telegram_metadata":
+            caption += "\nValidation: Telegram metadata only; media bytes were not decoded."
         try:
             reference = await self.transport.send_review(
                 submission, caption=caption, reply_markup=markup

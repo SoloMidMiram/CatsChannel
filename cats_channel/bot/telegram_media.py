@@ -178,3 +178,41 @@ class TelegramMediaAdapter:
                 source_metadata=SourceMetadata(),
                 provenance={"adapter": "telegram_native"},
             )
+
+
+class TelegramHostedMediaAdapter(TelegramMediaAdapter):
+    """Admit bot-received hosted media without getFile, download or decoding."""
+
+    async def acquire(
+        self, bot: Bot, video: Video, reference: TelegramMessageRef
+    ) -> ValidatedTelegramMedia:
+        from ..submissions import TelegramMetadataEvidence
+
+        size = video.file_size
+        if (
+            type(size) is not int
+            or size <= 0
+            or size > self._settings.max_download_mb * 1024 * 1024
+            or video.duration <= 0
+            or video.duration > self._settings.max_duration_seconds
+            or video.width <= 0
+            or video.height <= 0
+        ):
+            raise MediaError(code="policy_limit")
+        return ValidatedTelegramMedia(
+            source_provider="telegram",
+            source_media_id=video.file_unique_id,
+            reference=reference,
+            file_id=video.file_id,
+            file_unique_id=video.file_unique_id,
+            metadata=SubmissionVideoMetadata(
+                title=None, duration_seconds=video.duration, width=video.width, height=video.height
+            ),
+            validation=TelegramMetadataEvidence(
+                validated_at=datetime.now(UTC),
+                size_bytes=size,
+                duration_seconds=video.duration,
+                bot_id=bot.id,
+            ),
+            provenance={"adapter": "telegram_native"},
+        )

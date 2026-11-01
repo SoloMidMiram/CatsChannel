@@ -18,6 +18,10 @@ button. Intake is durable before review delivery; a review transport failure doe
 not discard the submission. Previously accepted pending submissions can be queued
 through `ReviewService.enqueue(submission_id)` without re-uploading their media.
 
+Telegram-hosted intake now means metadata-policy acceptance, not full byte
+decoding. The review caption identifies this limitation. See
+[Telegram-hosted reuse](TELEGRAM_HOSTED_REUSE.md) for evidence and policy details.
+
 Only the configured `ADMIN_USER_ID` can approve. Buttons contain an internal review
 ID and version and are bound to the stored review channel, exact review message,
 submission and publication destination. A copied/forwarded button or stale pending

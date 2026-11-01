@@ -120,7 +120,7 @@ async def test_media_preflight_rejects_without_send(db, tmp_path, damage):
     assert not bot.session.methods
 
 
-async def test_native_file_requires_bot_usability_and_no_reply_fallback(db, tmp_path):
+async def test_native_file_reuses_hosted_id_without_getfile_or_reply_fallback(db, tmp_path):
     local = await local_submission(db, tmp_path)
     native = replace(
         local,
@@ -136,8 +136,8 @@ async def test_native_file_requires_bot_usability_and_no_reply_fallback(db, tmp_
     bot = Bot("123456:TEST_TOKEN", session=session)
     adapter = AiogramPublisher(bot, settings(), destination_chat_id=DEST)
     await adapter.send(native, parent=None)
-    assert isinstance(session.methods[0], GetFile)
-    assert session.methods[1].video == "bot-file" and session.methods[1].reply_parameters is None
+    assert not any(isinstance(method, GetFile) for method in session.methods)
+    assert session.methods[0].video == "bot-file" and session.methods[0].reply_parameters is None
     session.rejected = True
     with pytest.raises(DeliveryRejected):
         await adapter.send(native, parent=TelegramMessageRef(DEST, 999))

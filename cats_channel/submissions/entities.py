@@ -148,6 +148,50 @@ class ValidatedLocalMedia:
 
 
 @dataclass(frozen=True)
+class TelegramMetadataEvidence:
+    """Telegram-reported metadata, never evidence of inspected media bytes."""
+
+    validated_at: datetime
+    size_bytes: int
+    duration_seconds: float
+    bot_id: int
+    validator: str = "telegram_metadata"
+    full_decode: bool = False
+    sha256: None = None
+
+    def __post_init__(self) -> None:
+        if (
+            self.validator != "telegram_metadata"
+            or self.full_decode is not False
+            or self.sha256 is not None
+        ):
+            raise ValueError("Invalid Telegram metadata evidence")
+        if type(self.size_bytes) is not int or self.size_bytes <= 0:
+            raise ValueError("size_bytes must be positive")
+        if type(self.bot_id) is not int or self.bot_id <= 0:
+            raise ValueError("bot_id must be positive")
+        if (
+            isinstance(self.duration_seconds, bool)
+            or not math.isfinite(self.duration_seconds)
+            or self.duration_seconds <= 0
+        ):
+            raise ValueError("duration_seconds must be finite and positive")
+        if self.validated_at.tzinfo is None or self.validated_at.utcoffset() is None:
+            raise ValueError("validated_at must be timezone-aware")
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "validator": self.validator,
+            "validated_at": self.validated_at.astimezone(UTC).isoformat(),
+            "size_bytes": self.size_bytes,
+            "duration_seconds": self.duration_seconds,
+            "bot_id": self.bot_id,
+            "full_decode": False,
+            "sha256": None,
+        }
+
+
+@dataclass(frozen=True)
 class ValidatedTelegramMedia:
     source_provider: str
     source_media_id: str
@@ -155,7 +199,7 @@ class ValidatedTelegramMedia:
     file_id: str
     file_unique_id: str
     metadata: SubmissionVideoMetadata
-    validation: MediaValidationEvidence
+    validation: MediaValidationEvidence | TelegramMetadataEvidence
     source_metadata: SourceMetadata = field(default_factory=SourceMetadata)
     provenance: dict[str, object] = field(default_factory=dict)
     origin: MediaOrigin = field(default="telegram_native", init=False)
@@ -163,7 +207,7 @@ class ValidatedTelegramMedia:
     def __post_init__(self) -> None:
         if (
             not isinstance(self.metadata, SubmissionVideoMetadata)
-            or not isinstance(self.validation, MediaValidationEvidence)
+            or not isinstance(self.validation, (MediaValidationEvidence, TelegramMetadataEvidence))
             or not isinstance(self.reference, TelegramMessageRef)
         ):
             raise SubmissionError("submission_media_invalid")
