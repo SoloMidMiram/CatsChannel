@@ -272,3 +272,64 @@ async def test_new_reply_replaces_pending_entry_without_parent_substitution():
                 task.cancel()
         await asyncio.gather(entry, video, return_exceptions=True)
         await bot.session.close()
+
+
+async def test_source_selection_accepts_new_video_before_old_acquisition_finishes():
+    from test_bot_submission_intake import callback_update
+
+    from cats_channel.intake import IntakeError, SourceOption
+
+    app, bot, _session, intake, *_ = application()
+    first_source, second_source = str(uuid4()), str(uuid4())
+    intake.list_source_options.return_value = (
+        SourceOption(first_source, "telegram", "First"),
+        SourceOption(second_source, "telegram", "Second"),
+    )
+    entered, release = asyncio.Event(), asyncio.Event()
+    accepted = intake.process.return_value
+    calls = []
+
+    async def process(**kwargs):
+        calls.append(kwargs["placement"].thread_id)
+        if len(calls) == 1:
+            entered.set()
+            await release.wait()
+            if not await kwargs["continue_if"]():
+                raise IntakeError("intake_superseded")
+        return accepted
+
+    intake.process.side_effect = process
+    await app.dispatcher.feed_update(bot, message_update(text="/post"))
+    await app.dispatcher.feed_update(bot, callback_update(first_source))
+    first = asyncio.create_task(
+        app.dispatcher.feed_update(
+            bot,
+            message_update(
+                update_id=3,
+                video=Video(
+                    file_id="first", file_unique_id="first", width=10, height=10, duration=1
+                ),
+            ),
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        await app.dispatcher.feed_update(bot, callback_update(second_source, update_id=4))
+        await asyncio.wait_for(
+            app.dispatcher.feed_update(
+                bot,
+                message_update(
+                    update_id=5,
+                    video=Video(
+                        file_id="second", file_unique_id="second", width=10, height=10, duration=1
+                    ),
+                ),
+            ),
+            2,
+        )
+        assert calls == [first_source, second_source]
+        assert not first.done()
+    finally:
+        release.set()
+        await asyncio.wait_for(first, 2)
+        await bot.session.close()

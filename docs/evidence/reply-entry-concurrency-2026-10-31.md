@@ -58,3 +58,14 @@ Existing intake tests retain cancellation during provider lookup, handoff and
 commit, plus durable replay. Multi-user admission remains subject to the unchanged
 admin-only policy. No public-deployment, retry, supervision or moderation-policy
 expansion is included.
+
+## Source-selection review correction — 2026-11-01
+
+Review discussion `4435819187` was reproduced on `c2cbc4088cbfac519c59581597dec0045199a2b2`:
+`test_source_selection_accepts_new_video_before_old_acquisition_finishes` failed
+because only the first source reached intake. The real dispatcher test holds
+that acquisition behind a barrier, changes source via callback, and submits the
+new source's video before releasing the old acquisition. Advancing the selection
+generation now resets its media claim. The old lease remains superseded and cannot
+commit; the new generation can admit media immediately. Existing cancellation,
+commit-ordering and duplicate tests remain required gates.

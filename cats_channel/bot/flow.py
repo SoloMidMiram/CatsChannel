@@ -121,6 +121,8 @@ class FlowLease:
             if invalidate_previous:
                 self.transition.version += 1
                 self.version = self.transition.version
+                # A previous generation's acquisition cannot claim this selection.
+                self.transition.media_claimed = False
             try:
                 await self.state.set_data(context.to_data())
                 await self.state.set_state(PrivateEntryStates.reply_entry)
