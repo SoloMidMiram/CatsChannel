@@ -69,6 +69,8 @@ class _Transition:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     version: int = 0
     users: int = 0
+    entry: asyncio.Future | None = None
+    media_claimed: bool = False
 
 
 @dataclass
@@ -76,6 +78,35 @@ class FlowLease:
     state: FSMContext
     transition: _Transition
     version: int
+
+    async def begin_entry(self) -> None:
+        async with self.transition.lock:
+            if self.version == self.transition.version:
+                self.transition.entry = asyncio.get_running_loop().create_future()
+
+    async def finish_entry(self) -> None:
+        async with self.transition.lock:
+            pending = self.transition.entry
+            if (
+                self.version == self.transition.version
+                and pending is not None
+                and not pending.done()
+            ):
+                pending.set_result(None)
+
+    async def admit_video(self) -> PrivateEntryContext | None:
+        async with self.transition.lock:
+            if self.version != self.transition.version or self.transition.media_claimed:
+                return None
+            self.transition.media_claimed = True
+            pending = self.transition.entry
+            if pending is None:
+                return await read_private_entry(self.state)
+        try:
+            context = await asyncio.wait_for(asyncio.shield(pending), 30)
+        except TimeoutError:
+            return None
+        return context if await self.is_current() else None
 
     async def select(
         self,
@@ -90,10 +121,15 @@ class FlowLease:
             if invalidate_previous:
                 self.transition.version += 1
                 self.version = self.transition.version
+                # A previous generation's acquisition cannot claim this selection.
+                self.transition.media_claimed = False
             try:
                 await self.state.set_data(context.to_data())
                 await self.state.set_state(PrivateEntryStates.reply_entry)
                 await notify()
+                pending = self.transition.entry
+                if pending is not None and not pending.done():
+                    pending.set_result(context)
             except BaseException as error:  # noqa: BLE001 - cancellation also clears partial state
                 await _clear_preserving_primary(self.state, error)
             return True
@@ -126,6 +162,10 @@ class PrivateFlowCoordinator:
         transition.users += 1
         try:
             async with transition.lock:
+                if transition.entry is not None and not transition.entry.done():
+                    transition.entry.set_result(None)
+                transition.entry = None
+                transition.media_claimed = False
                 transition.version += 1
                 await complete_cleanup(state.clear())
                 lease = FlowLease(state, transition, transition.version)
@@ -136,12 +176,14 @@ class PrivateFlowCoordinator:
                 self._transitions.pop(state.key, None)
 
     @asynccontextmanager
-    async def continue_current(self, state: FSMContext) -> AsyncIterator[FlowLease]:
+    async def continue_current(
+        self, state: FSMContext, *, captured: FlowLease | None = None
+    ) -> AsyncIterator[FlowLease]:
         transition = self._transitions.setdefault(state.key, _Transition())
         transition.users += 1
         try:
             async with transition.lock:
-                lease = FlowLease(state, transition, transition.version)
+                lease = captured or FlowLease(state, transition, transition.version)
             yield lease
         finally:
             transition.users -= 1
@@ -171,4 +213,18 @@ class PrivateFlowMiddleware(BaseMiddleware):
                 return await handler(event, data)
         async with self._coordinator.replace(data["state"]) as lease:
             data["flow_lease"] = lease
+            return await handler(event, data)
+
+
+class VideoArrivalMiddleware(BaseMiddleware):
+    """Capture the arrival generation before asynchronous router filters run."""
+
+    def __init__(self, coordinator: PrivateFlowCoordinator) -> None:
+        self.coordinator = coordinator
+
+    async def __call__(self, handler, event, data):
+        if getattr(event, "video", None) is None:
+            return await handler(event, data)
+        async with self.coordinator.continue_current(data["state"]) as lease:
+            data["video_lease"] = lease
             return await handler(event, data)
