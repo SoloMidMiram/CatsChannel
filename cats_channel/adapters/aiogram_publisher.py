@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import re
+from datetime import datetime
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
@@ -18,6 +19,7 @@ from ..library import _enforce_current_policy, _read_manifest
 from ..persistence.entities import TelegramMessageRef
 from ..publication.errors import DeliveryRejected
 from ..reply_tokens import validate_reply_token
+from ..submissions.entities import TelegramMetadataEvidence
 
 
 def destination_link(reference: TelegramMessageRef) -> str | None:
@@ -83,10 +85,21 @@ class AiogramPublisher:
 
     async def _send(self, submission, *, parent, caption=None, reply_markup=None):
         try:
-            if (
-                submission.status != "validated"
-                or submission.validation_evidence.get("full_decode") is not True
-            ):
+            if submission.status != "validated":
+                raise DeliveryRejected()
+            evidence = submission.validation_evidence
+            if evidence.get("validator") == "telegram_metadata":
+                parsed = TelegramMetadataEvidence(
+                    **{**evidence, "validated_at": datetime.fromisoformat(evidence["validated_at"])}
+                )
+                if (
+                    submission.media_origin != "telegram_native"
+                    or parsed.bot_id != self.bot.id
+                    or parsed.size_bytes > self.settings.max_download_mb * 1024 * 1024
+                    or parsed.duration_seconds > self.settings.max_duration_seconds
+                ):
+                    raise DeliveryRejected()
+            elif evidence.get("full_decode") is not True:
                 raise DeliveryRejected()
             if parent is not None and parent.chat_id != self.destination:
                 raise DeliveryRejected()
@@ -101,11 +114,9 @@ class AiogramPublisher:
                     or submission.source_provider != "telegram"
                 ):
                     raise DeliveryRejected()
-                # getFile on this Bot is a pre-dispatch usability check, never a send.
-                file = await self.bot.get_file(file_id)
                 if (
-                    file.file_unique_id != native.get("file_unique_id")
-                    or file.file_unique_id != submission.source_media_id
+                    not native.get("file_unique_id")
+                    or native.get("file_unique_id") != submission.source_media_id
                 ):
                     raise DeliveryRejected()
                 payload, video = file_id, True

@@ -10,6 +10,7 @@ from .entities import (
     SubmissionRequest,
     SubmissionResult,
     SubmissionVideoMetadata,
+    TelegramMetadataEvidence,
     ValidatedLocalMedia,
     ValidatedTelegramMedia,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "SubmissionResult",
     "SubmissionService",
     "SubmissionVideoMetadata",
+    "TelegramMetadataEvidence",
     "ValidatedLocalMedia",
     "ValidatedTelegramMedia",
     "local_media_from_library_item",

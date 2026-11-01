@@ -27,7 +27,7 @@ from .errors import bot_api_diagnostic_error
 from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware, VideoArrivalMiddleware
 from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
-from .telegram_media import TelegramMediaAdapter
+from .telegram_media import TelegramHostedMediaAdapter, TelegramMediaAdapter
 from .transport import create_configured_bot
 
 ResourceFactory = Callable[[], AbstractAsyncContextManager[Any]]
@@ -277,7 +277,7 @@ def create_bot_application(
                 admin_user_id=settings.admin_user_id,
                 logger=app_logger,
             )
-    adapter = telegram_media_adapter or TelegramMediaAdapter(settings)
+    adapter = telegram_media_adapter or TelegramHostedMediaAdapter(settings)
     dispatcher = ApplicationDispatcher(
         storage=storage,
         settings=settings,
