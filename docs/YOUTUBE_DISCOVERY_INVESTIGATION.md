@@ -3,6 +3,10 @@
 Requested source: [HoneyTheGingerGirlCat Shorts](https://www.youtube.com/@HoneyTheGingerGirlCat/shorts).
 Baseline: `2b347bc2c64c43e621723646411f483726c99f20`.
 
+The heading uses the owner's Tehran date. Observations occurred on November 2
+UTC (November 3 in Tehran); machine-validated context capture/verification dates
+use that UTC observation date to remain valid on UTC CI runners.
+
 ## Verified result and live-access limitation
 
 Current code can process an individual YouTube video URL through the existing
