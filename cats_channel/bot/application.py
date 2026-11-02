@@ -68,9 +68,9 @@ class BotApplication:
             await stack.aclose()
 
     async def _run_owned(self, stack: AsyncExitStack, bot: Bot) -> None:
-        review_destinations(self.settings)
         for factory in self.resources:
             await stack.enter_async_context(factory())
+        review_destinations(self.settings)
         await self._recover_startup_identity(bot)
         await verify_review_isolation(self.settings, bot)
         await self.dispatcher.start_polling(bot, close_bot_session=False)

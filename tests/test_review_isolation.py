@@ -1,5 +1,6 @@
 """Read-only destination policy and fail-closed real application startup."""
 
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -152,3 +153,25 @@ def test_unrecognized_pilot_mode_is_not_accepted():
 
 def test_legacy_nonpersistent_utility_has_no_implicit_review_destination():
     assert review_destinations(settings()) is None
+
+
+async def test_invalid_configuration_still_closes_owned_database_resource():
+    events = []
+
+    @asynccontextmanager
+    async def owned_database():
+        try:
+            yield
+        finally:
+            events.append("database:disposed")
+
+    session = RecordingSession()
+    app = create_bot_application(
+        configured(review_channel_id=None),
+        bot=Bot(BOT_TOKEN, session=session),
+        resources=(owned_database,),
+    )
+    with pytest.raises(MediaError):
+        await app.start_polling()
+    assert events == ["database:disposed"]
+    assert session.closed and session.methods == []
