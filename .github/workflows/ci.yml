@@ -41,8 +41,6 @@ jobs:
     env:
       CATS_TEST_POSTGRES_URL: postgresql+asyncpg://cats_test:disposable@127.0.0.1:5432/cats_test
       CATS_TEST_POSTGRES_DISPOSABLE: "1"
-      # Backup clients come from the existing PostgreSQL 16 service, not the runner's newer default.
-      CATS_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
@@ -50,3 +48,6 @@ jobs:
           python-version: "3.11"
       - run: uv sync --locked --all-extras
       - run: uv run --frozen pytest tests/test_postgres_persistence.py tests/test_reply_chains.py tests/test_publication.py tests/test_publication_migrations.py tests/test_review_approval.py tests/test_telegram_hosted_reuse.py tests/test_backup_restore.py -q
+        env:
+          # Service IDs exist in step context, after the job service has started.
+          CATS_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
