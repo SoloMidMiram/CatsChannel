@@ -554,3 +554,71 @@ async def test_dispatcher_rejection_controls_and_failed_notifications(review_set
         publisher.approve_pilot.assert_not_awaited()
     finally:
         await bot.session.close()
+
+
+async def test_competing_dispatcher_approve_reject_has_one_terminal_owner(review_setup):
+    from test_publication import Transport
+
+    from cats_channel.publication.service import PublicationService
+
+    database, submission, _, _, service = review_setup
+    delivery = Transport()
+    service.publisher = PublicationService(
+        database.unit_of_work,
+        reply_chains=ReplyChainService(database.unit_of_work, destination_chat_id=DESTINATION),
+        transport=delivery,
+        destination_chat_id=DESTINATION,
+    )
+
+    # Transport's fixed destination is irrelevant to rejection; use a destination-
+    # matching returned reference if approval wins the transaction race.
+    async def send(media, *, parent):
+        delivery.sends.append((media.id, parent))
+        return TelegramMessageRef(DESTINATION, 1)
+
+    delivery.send = send
+    item = await service.enqueue(submission.id)
+    bot = Bot("123456:TEST_TOKEN", session=RecordingSession())
+    logger = configure_logging("WARNING")
+    dispatcher = Dispatcher(logger=logger)
+    router = create_review_router(service)
+    router.callback_query.outer_middleware(
+        OperationLoggingMiddleware(logger, registry=BotOperationRegistry())
+    )
+    dispatcher.include_router(router)
+
+    def update(action, number):
+        return Update(
+            update_id=number,
+            callback_query=CallbackQuery(
+                id=str(number),
+                from_user=User(id=42, is_bot=False, first_name="Fixture"),
+                chat_instance="fixture",
+                data=f"review{action}:{item.id}:1",
+                message=Message(
+                    message_id=99, date=datetime.now(UTC), chat=Chat(id=CHAT, type="channel")
+                ),
+            ),
+        )
+
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(
+                dispatcher.feed_update(bot, update("approve", 1)),
+                dispatcher.feed_update(bot, update("reject", 2)),
+            ),
+            10,
+        )
+        stored = await service.get(item.id)
+        assert stored.decision_state in {"approved", "rejected"}
+        assert stored.decision_action == (
+            "approve" if stored.decision_state == "approved" else "reject"
+        )
+        assert len(delivery.sends) == (1 if stored.decision_state == "approved" else 0)
+        async with database.unit_of_work() as uow:
+            post = await uow.threads.get_post_for_submission(submission.id)
+            assert (post is not None) == (stored.decision_state == "approved")
+        if stored.decision_state == "rejected":
+            await assert_rejected_without_effects(database, submission, service, item.id)
+    finally:
+        await bot.session.close()
