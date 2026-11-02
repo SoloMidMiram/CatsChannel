@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from ..review.entities import ReviewItem
-from .models import ReviewItemModel
+from .models import CatVideoSubmissionModel, ReviewItemModel
 
 
 def snapshot(model):
@@ -92,9 +92,42 @@ class SqlAlchemyReviewRepository:
                 ReviewItemModel.decision_state == "pending",
                 ReviewItemModel.version == item.version,
             )
-            .values(decision_state="approving", reviewer_id=actor_id, reviewed_at=now)
+            .values(
+                decision_state="approving",
+                reviewer_id=actor_id,
+                reviewed_at=now,
+                decision_action="approve",
+            )
         )
         return result.rowcount == 1
+
+    async def reject(self, item, actor_id, now, reason):
+        result = await self.session.execute(
+            update(ReviewItemModel)
+            .where(
+                ReviewItemModel.id == item.id,
+                ReviewItemModel.delivery_state == "confirmed",
+                ReviewItemModel.decision_state == "pending",
+                ReviewItemModel.version == item.version,
+            )
+            .values(
+                decision_state="rejected",
+                decision_action="reject",
+                rejection_reason=reason,
+                reviewer_id=actor_id,
+                reviewed_at=now,
+                version=item.version + 1,
+            )
+        )
+        if result.rowcount != 1:
+            return False
+        # The terminal decision and publication ineligibility commit together.
+        await self.session.execute(
+            update(CatVideoSubmissionModel)
+            .where(CatVideoSubmissionModel.id == item.submission_id)
+            .values(status="rejected")
+        )
+        return True
 
     async def finish_approval(self, item, state, *, publication_id=None, error=None):
         await self.session.execute(

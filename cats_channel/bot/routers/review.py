@@ -15,18 +15,29 @@ class ReviewApproval(CallbackData, prefix="reviewapprove"):
     version: int
 
 
+class ReviewRejection(CallbackData, prefix="reviewreject"):
+    review_id: str
+    version: int
+
+
 def create_review_router(service):
     router = Router(name="review_approval")
 
     @router.callback_query(ReviewApproval.filter())
+    @router.callback_query(ReviewRejection.filter())
     async def approve(
-        query: CallbackQuery, callback_data: ReviewApproval, bot_operation: BotOperation, logger
+        query: CallbackQuery,
+        callback_data: ReviewApproval | ReviewRejection,
+        bot_operation: BotOperation,
+        logger,
     ):
-        bot_operation.operation = "review_approve"
+        rejecting = isinstance(callback_data, ReviewRejection)
+        bot_operation.operation = "review_reject" if rejecting else "review_approve"
         if query.message is None:
             return
         try:
-            result = await service.approve(
+            decide = service.reject if rejecting else service.approve
+            result = await decide(
                 callback_data.review_id,
                 callback_data.version,
                 actor_id=query.from_user.id,
@@ -39,14 +50,19 @@ def create_review_router(service):
                 "approving": "Approval is already in progress.",
                 "blocked": "Approval recorded; publication is blocked.",
                 "needs_reconciliation": "Delivery needs reconciliation. Nothing was resent.",
+                "rejected": "Rejected. Nothing was published.",
             }
             text = messages.get(result.decision_state, "Review is pending.")
-            if result.decision_state == "approved":
+            if result.decision_state in {"approved", "rejected"}:
                 try:
                     await query.bot.edit_message_caption(
                         chat_id=result.review_chat_id,
                         message_id=result.message_id,
-                        caption="Approved. Published to the channel.",
+                        caption=(
+                            "Rejected: " + result.rejection_reason + ". Nothing was published."
+                            if result.decision_state == "rejected"
+                            else "Approved. Published to the channel."
+                        ),
                         reply_markup=None,
                     )
                 except Exception as error:  # noqa: BLE001 - markup never changes confirmed media
@@ -54,12 +70,12 @@ def create_review_router(service):
                         logger,
                         "review_markup_failure",
                         diagnostic_error(error, code="review_markup_failed", phase="review_markup"),
-                        operation="review_approve",
+                        operation=bot_operation.operation,
                     )
         except (ReviewError, ValueError) as error:
             bot_operation.fail(getattr(error, "code", "review_unavailable"))
             text = (
-                "Only the configured admin can approve."
+                "Only the configured admin can decide."
                 if getattr(error, "code", "") == "review_forbidden"
                 else "This review button is unavailable or stale."
             )
@@ -69,7 +85,7 @@ def create_review_router(service):
                 logger,
                 "review_approval_failure",
                 diagnostic_error(error, code="review_unavailable", phase="review_approve"),
-                operation="review_approve",
+                operation=bot_operation.operation,
             )
             text = "Review unavailable. The submission is saved; do not resend it."
         try:
@@ -79,7 +95,7 @@ def create_review_router(service):
                 logger,
                 "review_callback_notification_failure",
                 diagnostic_error(error, code="review_notification_failed", phase="review_callback"),
-                operation="review_approve",
+                operation=bot_operation.operation,
             )
 
     return router

@@ -1,7 +1,7 @@
 """Real dispatcher callbacks and durable review ownership without live Telegram."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -329,3 +329,228 @@ async def test_approval_uses_real_publication_exact_parent_and_keeps_normal_tail
         thread = await uow.threads.get(source.thread_id)
         assert thread.tail_post_id == root.post_id
     transport.send_review.assert_awaited_once()
+
+
+async def assert_rejected_without_effects(database, submission, service, item_id):
+    from sqlalchemy import func, select
+
+    from cats_channel.persistence.models import CatPostModel, PublicationModel
+
+    item = await service.get(item_id)
+    assert item.decision_state == "rejected" and item.decision_action == "reject"
+    assert item.reviewer_id == 42 and item.reviewed_at is not None
+    assert item.rejection_reason == "unsuitable" and item.publication_id is None
+    async with database.unit_of_work() as uow:
+        assert (await uow.submissions.get(submission.id)).status == "rejected"
+        assert await uow.threads.get_post_for_submission(submission.id) is None
+    async with database.engine.connect() as connection:
+        assert await connection.scalar(select(func.count()).select_from(CatPostModel)) == 0
+        assert await connection.scalar(select(func.count()).select_from(PublicationModel)) == 0
+    return item
+
+
+async def test_reject_is_terminal_audited_and_restart_never_publishes(review_setup):
+    database, submission, transport, publisher, service = review_setup
+    item = await service.enqueue(submission.id)
+    result = await service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+    assert result.version == 2
+    for decide in (service.reject, service.approve):
+        assert (
+            await decide(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+        ).decision_state == "rejected"
+    await database.engine.dispose()
+    restarted = ReviewService(
+        database.unit_of_work,
+        transport=transport,
+        publication_service=publisher,
+        review_chat_id=CHAT,
+        destination_chat_id=DESTINATION,
+        admin_user_id=42,
+    )
+    await restarted.recover_abandoned()
+    stored = await assert_rejected_without_effects(database, submission, restarted, item.id)
+    assert stored.reviewed_at == result.reviewed_at
+    publisher.approve_pilot.assert_not_awaited()
+    transport.send_review.assert_awaited_once()
+
+
+async def test_rejected_submission_cannot_use_direct_pilot_publisher(review_setup):
+    from cats_channel.publication.errors import PublicationError
+    from cats_channel.publication.service import PublicationService
+
+    database, submission, _, _, service = review_setup
+    item = await service.enqueue(submission.id)
+    await service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+    transport = AsyncMock()
+    publisher = PublicationService(
+        database.unit_of_work,
+        reply_chains=ReplyChainService(database.unit_of_work, destination_chat_id=DESTINATION),
+        transport=transport,
+        destination_chat_id=DESTINATION,
+    )
+    with pytest.raises(PublicationError):
+        await publisher.approve_pilot(submission.id)
+    transport.send.assert_not_awaited()
+    await assert_rejected_without_effects(database, submission, service, item.id)
+
+
+@pytest.mark.parametrize(
+    "override,code",
+    [
+        ({"actor_id": 43}, "review_forbidden"),
+        ({"chat_id": -100999}, "review_message_mismatch"),
+        ({"message_id": 100}, "review_message_mismatch"),
+        ({"version": 2}, "review_stale"),
+        ({"reason": "private caption or arbitrary text"}, "review_reason_invalid"),
+    ],
+)
+async def test_reject_denies_forged_stale_unauthorized_and_unsafe_reason(
+    review_setup, override, code
+):
+    _, submission, _, publisher, service = review_setup
+    item = await service.enqueue(submission.id)
+    args = {"version": 1, "actor_id": 42, "chat_id": CHAT, "message_id": 99}
+    args.update(override)
+    with pytest.raises(ReviewError) as error:
+        await service.reject(item.id, **args)
+    assert error.value.code == code
+    assert (await service.get(item.id)).decision_state == "pending"
+    publisher.approve_pilot.assert_not_awaited()
+
+
+async def test_rejection_transaction_rolls_back_decision_and_submission_together(review_setup):
+    database, submission, _, publisher, service = review_setup
+    item = await service.enqueue(submission.id)
+    with pytest.raises(RuntimeError, match="rollback"):
+        async with database.unit_of_work() as uow:
+            assert await uow.reviews.reject(item, 42, datetime.now(UTC), "unsuitable")
+            raise RuntimeError("rollback")
+    assert (await service.get(item.id)).decision_state == "pending"
+    async with database.unit_of_work() as uow:
+        assert (await uow.submissions.get(submission.id)).status == "validated"
+    await service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+    await assert_rejected_without_effects(database, submission, service, item.id)
+    publisher.approve_pilot.assert_not_awaited()
+
+
+async def test_approval_claim_excludes_rejection_before_publication_finishes(review_setup):
+    _, submission, _, publisher, service = review_setup
+    item = await service.enqueue(submission.id)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def publish(*args):
+        entered.set()
+        await release.wait()
+        return SimpleNamespace(state="confirmed", id="publication", error_category=None)
+
+    publisher.approve_pilot.side_effect = publish
+    task = asyncio.create_task(
+        service.approve(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 3)
+        result = await service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+        assert result.decision_state == "approving" and result.rejection_reason is None
+    finally:
+        release.set()
+        await task
+    publisher.approve_pilot.assert_awaited_once()
+
+
+async def test_postgres_approve_and_reject_transactions_share_one_owner(review_setup):
+    database, submission, _, _, service = review_setup
+    if database.engine.dialect.name != "postgresql":
+        pytest.skip("PostgreSQL simultaneous writer contract")
+    item = await service.enqueue(submission.id)
+    barrier = asyncio.Event()
+    waiting = 0
+
+    async def claim(rejecting):
+        nonlocal waiting
+        async with database.unit_of_work() as uow:
+            snapshot = await uow.reviews.get(item.id)
+            waiting += 1
+            if waiting == 2:
+                barrier.set()
+            await asyncio.wait_for(barrier.wait(), 5)
+            if rejecting:
+                return await uow.reviews.reject(snapshot, 42, datetime.now(UTC), "unsuitable")
+            return await uow.reviews.claim_approval(snapshot, 42, datetime.now(UTC))
+
+    results = await asyncio.wait_for(asyncio.gather(claim(False), claim(True)), 10)
+    assert sorted(results) == [False, True]
+    stored = await service.get(item.id)
+    assert stored.decision_action == ("approve" if results[0] else "reject")
+    async with database.unit_of_work() as uow:
+        status = (await uow.submissions.get(submission.id)).status
+        assert status == ("validated" if results[0] else "rejected")
+
+
+async def test_failed_submitter_notification_cannot_undo_or_replay_rejection(review_setup):
+    database, submission, _, publisher, service = review_setup
+    async with database.unit_of_work() as uow:
+        handoff = await uow.handoffs.create(
+            token_digest="a" * 64,
+            actor_id=42,
+            conversation_chat_id=42,
+            operation="post",
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+        assert await uow.handoffs.consume(
+            handoff_id=handoff.id, submission_id=submission.id, consumed_at=datetime.now(UTC)
+        )
+    notifier = AsyncMock(side_effect=RuntimeError("private token"))
+    service.rejection_notifier = notifier
+    item = await service.enqueue(submission.id)
+    await service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+    await service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+    notifier.assert_awaited_once_with(42, "Your submission was rejected.")
+    await assert_rejected_without_effects(database, submission, service, item.id)
+    publisher.approve_pilot.assert_not_awaited()
+
+
+@pytest.mark.parametrize("fail", [False, True])
+async def test_dispatcher_rejection_controls_and_failed_notifications(review_setup, fail):
+    from aiogram.methods import AnswerCallbackQuery, EditMessageCaption, SendVideo
+
+    database, submission, _, publisher, service = review_setup
+    item = await service.enqueue(submission.id)
+
+    class Session(RecordingSession):
+        async def make_request(self, bot, method, timeout=None):
+            if fail and isinstance(method, (EditMessageCaption, AnswerCallbackQuery)):
+                self.methods.append(method)
+                raise RuntimeError("private api token")
+            return await super().make_request(bot, method, timeout)
+
+    session = Session()
+    bot = Bot("123456:TEST_TOKEN", session=session)
+    logger = configure_logging("WARNING")
+    dispatcher = Dispatcher(logger=logger)
+    router = create_review_router(service)
+    router.callback_query.outer_middleware(
+        OperationLoggingMiddleware(logger, registry=BotOperationRegistry())
+    )
+    dispatcher.include_router(router)
+    try:
+        for number in (1, 2):
+            update = Update(
+                update_id=number,
+                callback_query=CallbackQuery(
+                    id=str(number),
+                    from_user=User(id=42, is_bot=False, first_name="Fixture"),
+                    chat_instance="fixture",
+                    data=f"reviewreject:{item.id}:1",
+                    message=Message(
+                        message_id=99, date=datetime.now(UTC), chat=Chat(id=CHAT, type="channel")
+                    ),
+                ),
+            )
+            await dispatcher.feed_update(bot, update)
+        await assert_rejected_without_effects(database, submission, service, item.id)
+        edits = [m for m in session.methods if isinstance(m, EditMessageCaption)]
+        assert edits and all(m.reply_markup is None and "Rejected" in m.caption for m in edits)
+        assert not any(isinstance(m, SendVideo) for m in session.methods)
+        publisher.approve_pilot.assert_not_awaited()
+    finally:
+        await bot.session.close()

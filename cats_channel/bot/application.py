@@ -275,6 +275,7 @@ def create_bot_application(
                 review_chat_id=settings.review_channel_id,
                 destination_chat_id=destination,
                 admin_user_id=settings.admin_user_id,
+                rejection_notifier=owned_bot.send_message,
                 logger=app_logger,
             )
     adapter = telegram_media_adapter or TelegramHostedMediaAdapter(settings)

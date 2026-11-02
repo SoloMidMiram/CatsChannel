@@ -278,7 +278,7 @@ class ReviewItemModel(TimestampMixin, Base):
             name="ck_review_delivery",
         ),
         CheckConstraint(
-            "decision_state IN ('pending','approving','approved','blocked','needs_reconciliation')",
+            "decision_state IN ('pending','approving','approved','blocked','needs_reconciliation','rejected')",
             name="ck_review_decision",
         ),
         CheckConstraint("version > 0", name="ck_review_version"),
@@ -301,6 +301,8 @@ class ReviewItemModel(TimestampMixin, Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     publication_id: Mapped[str | None] = mapped_column(String(36))
     error_category: Mapped[str | None] = mapped_column(String(64))
+    decision_action: Mapped[str | None] = mapped_column(String(16))
+    rejection_reason: Mapped[str | None] = mapped_column(String(32))
 
 
 class PublicationAttemptModel(Base):

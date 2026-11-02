@@ -16,6 +16,8 @@ class ReviewItem:
     reviewed_at: datetime | None
     publication_id: str | None
     error_category: str | None
+    decision_action: str | None = None
+    rejection_reason: str | None = None
 
 
 class ReviewError(Exception):
