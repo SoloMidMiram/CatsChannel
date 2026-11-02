@@ -13,6 +13,11 @@ transactions commit and fixture connections close before backup.
   accepted. Dump one fixture-owned `reply_<uuid>` schema with pg_dump, drop only
   that schema, and restore it with pg_restore. The schema is validated before
   deletion. Credentials are supplied via process environment, never argv/logs.
+  CI runs the matching pg_dump/pg_restore binaries inside its existing PostgreSQL
+  16 service and streams the archive over stdin/stdout. Local host-client runs
+  must use a compatible client/server pair. The first CI attempt exposed a newer
+  runner pg_restore emitting transaction_timeout against server 16; that failed
+  attempt remains recorded rather than being ignored or retried unchanged.
 - Fresh service instances recover abandoned work and verify audit/version/reason,
   rejected submission ineligibility, absent rejected placement, unknown attempt
   identity and confirmed Telegram projection. Replayed publication/approval must

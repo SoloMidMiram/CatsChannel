@@ -23,7 +23,7 @@ from cats_channel.review.service import ReviewService
 chain_database = _chain_database
 
 
-def postgres_tool(arguments, url):
+def postgres_archive(url, schema, archive, *, restore=False):
     environment = os.environ.copy()
     environment.update(
         PGHOST=url.host,
@@ -32,11 +32,28 @@ def postgres_tool(arguments, url):
         PGPASSWORD=url.password or "",
         PGDATABASE=url.database,
     )
-    # Password never appears in argv, diagnostics or fixture output.
+    tool = "pg_restore" if restore else "pg_dump"
+    arguments = [tool, "--no-owner", "--no-privileges", "--dbname", url.database]
+    arguments += ["--exit-on-error"] if restore else ["--format=custom", "--schema", schema]
+    container = os.environ.get("CATS_TEST_POSTGRES_CONTAINER")
+    if container:
+        assert re.fullmatch(r"[0-9a-f]{64}", container)
+        # Use the existing service's matching client/server version, via its local socket.
+        arguments += ["--username", url.username]
+        arguments = ["docker", "exec", "-i", container, *arguments]
+    # Password never appears in argv, diagnostics or fixture output. Archive bytes
+    # cross stdin/stdout; no container path mapping or host-file copy is required.
     result = subprocess.run(
-        arguments, env=environment, capture_output=True, timeout=45, check=False
+        arguments,
+        env=environment,
+        input=archive.read_bytes() if restore else None,
+        capture_output=True,
+        timeout=45,
+        check=False,
     )
     assert result.returncode == 0, "Disposable PostgreSQL backup/restore tool failed"
+    if not restore:
+        archive.write_bytes(result.stdout)
 
 
 async def test_disposable_restore_preserves_rejected_and_unknown_without_resend(
@@ -45,7 +62,12 @@ async def test_disposable_restore_preserves_rejected_and_unknown_without_resend(
     database = chain_database
     backend = database.engine.dialect.name
     if backend == "postgresql":
-        assert all(shutil.which(tool) for tool in ("pg_dump", "pg_restore")), (
+        tools = (
+            ("docker",)
+            if os.environ.get("CATS_TEST_POSTGRES_CONTAINER")
+            else ("pg_dump", "pg_restore")
+        )
+        assert all(shutil.which(tool) for tool in tools), (
             "Configured PostgreSQL qualification requires pg_dump and pg_restore"
         )
     delivery = Transport()
@@ -97,35 +119,12 @@ async def test_disposable_restore_preserves_rejected_and_unknown_without_resend(
             url.host in {"127.0.0.1", "localhost"} and url.database == url.username == "cats_test"
         )
         assert re.fullmatch(r"reply_[0-9a-f]{32}", schema)
-        postgres_tool(
-            [
-                "pg_dump",
-                "--format=custom",
-                "--no-owner",
-                "--no-privileges",
-                "--schema",
-                schema,
-                "--file",
-                str(archive),
-            ],
-            url,
-        )
+        postgres_archive(url, schema, archive)
         async with database.engine.begin() as connection:
             await connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
         await database.dispose()
         try:
-            postgres_tool(
-                [
-                    "pg_restore",
-                    "--exit-on-error",
-                    "--no-owner",
-                    "--no-privileges",
-                    "--dbname",
-                    url.database,
-                    str(archive),
-                ],
-                url,
-            )
+            postgres_archive(url, schema, archive, restore=True)
         finally:
             # Ensure the disposable fixture can clean up even if restore fails.
             async with database.engine.begin() as connection:

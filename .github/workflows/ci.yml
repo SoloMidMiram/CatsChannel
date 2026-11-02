@@ -41,6 +41,8 @@ jobs:
     env:
       CATS_TEST_POSTGRES_URL: postgresql+asyncpg://cats_test:disposable@127.0.0.1:5432/cats_test
       CATS_TEST_POSTGRES_DISPOSABLE: "1"
+      # Backup clients come from the existing PostgreSQL 16 service, not the runner's newer default.
+      CATS_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
