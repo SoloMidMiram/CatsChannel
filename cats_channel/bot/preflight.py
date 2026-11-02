@@ -12,6 +12,8 @@ from aiogram.exceptions import (
 
 from ..async_cleanup import complete_cleanup
 from ..config import Settings
+from ..errors import MediaError
+from .review_isolation import require_review_channel, review_destinations
 from .transport import create_configured_bot
 
 
@@ -92,12 +94,25 @@ async def diagnose_bot_api(settings: Settings, *, bot: Bot | None = None) -> dic
                 )
                 report["review_channel_ready"] = review_ready
                 ready = ready and review_ready
+            report["phase"] = "review_isolation"
+            targets = review_destinations(settings)
+            if targets is not None:
+                review, _ = targets
+                require_review_channel(
+                    chat,
+                    member,
+                    destination,
+                    private=settings.review_isolation_mode == "private_pilot",
+                )
+                require_review_channel(review_chat, review_member, review, private=True)
             report["status"] = "ready" if ready else "blocked"
             report["private_pilot_ready"] = ready and report["private_channel"]
             report["phase"] = "complete"
             return report
     except asyncio.CancelledError:
         raise
+    except MediaError as error:
+        report["error_category"] = error.code
     except (TelegramUnauthorizedError, TelegramForbiddenError) as error:
         report["error_category"] = (
             "bot_api_unauthorized"

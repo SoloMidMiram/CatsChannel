@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     admin_user_id: int | None = None
     channel_id: str | None = None
     review_channel_id: int | None = None
+    review_isolation_mode: Literal["separate", "private_pilot"] = "separate"
     reply_entries_enabled: bool = False
     bot_api_proxy: AnyUrl | None = None
     bot_api_proxy_enabled: bool = True

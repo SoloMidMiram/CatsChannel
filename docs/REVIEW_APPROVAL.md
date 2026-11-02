@@ -4,6 +4,11 @@ The follow-up [audited rejection](REVIEW_REJECTION.md) extends this workflow wit
 a terminal rejected decision, safe reason and rejection controls. Apply migration
 0007 before running that revision. The live receipt below remains historical
 approve-only pilot evidence and does not claim live rejection qualification.
+Current startup policy is documented in [review isolation](REVIEW_ISOLATION.md).
+The product flow now requires explicit numeric destinations and read-only startup
+verification before polling. Same-channel experiments require explicit
+`REVIEW_ISOLATION_MODE=private_pilot` and private-channel verification; the older
+pilot receipt below does not bypass this gate.
 
 Set `REVIEW_CHANNEL_ID` to a numeric channel ID and restart the bot. The bot must
 have posting and editing permissions in that channel. `CHANNEL_ID` remains the
@@ -14,7 +19,7 @@ the actual published reply as a separate message.
 This same-channel arrangement is limited to the restricted private pilot. A
 review copy is visible before approval, so public deployment requires a distinct,
 private inspection destination and verified channel permissions. The current
-configuration does not enforce this deployment boundary; do not enable review
+startup configuration now enforces this deployment boundary; do not enable review
 delivery into a public publication channel. Issue #8 remains open for complete
 moderation acceptance, including rejection and deployment safeguards.
 

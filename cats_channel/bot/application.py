@@ -27,6 +27,7 @@ from .errors import bot_api_diagnostic_error
 from .flow import PrivateFlowCoordinator, PrivateFlowMiddleware, VideoArrivalMiddleware
 from .handlers import create_admin_router
 from .lifecycle import complete_cleanup
+from .review_isolation import review_destinations, verify_review_isolation
 from .telegram_media import TelegramHostedMediaAdapter, TelegramMediaAdapter
 from .transport import create_configured_bot
 
@@ -67,9 +68,11 @@ class BotApplication:
             await stack.aclose()
 
     async def _run_owned(self, stack: AsyncExitStack, bot: Bot) -> None:
+        review_destinations(self.settings)
         for factory in self.resources:
             await stack.enter_async_context(factory())
         await self._recover_startup_identity(bot)
+        await verify_review_isolation(self.settings, bot)
         await self.dispatcher.start_polling(bot, close_bot_session=False)
 
     async def _recover_startup_identity(self, bot: Bot) -> None:

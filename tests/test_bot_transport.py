@@ -200,7 +200,7 @@ def fake_bot(*, webhook=False, public=False, can_post=True):
         url="https://private/token" if webhook else "", pending_update_count=0
     )
     bot.get_chat.return_value = SimpleNamespace(
-        type="channel", username="public" if public else None
+        id=-100123456789, type="channel", username="public" if public else None
     )
     bot.get_chat_member.return_value = SimpleNamespace(
         status="administrator", can_post_messages=can_post, can_edit_messages=True
@@ -210,7 +210,14 @@ def fake_bot(*, webhook=False, public=False, can_post=True):
 
 async def test_preflight_checks_permissions_and_webhook_without_mutation():
     bot = fake_bot()
-    report = await diagnose_bot_api(settings(reply_entries_enabled=True), bot=bot)
+    report = await diagnose_bot_api(
+        settings(
+            reply_entries_enabled=True,
+            review_channel_id=-100123456789,
+            review_isolation_mode="private_pilot",
+        ),
+        bot=bot,
+    )
     assert report["status"] == "ready" and report["private_channel"] is True
     assert report["private_pilot_ready"] is True
     assert report["webhook"] == "absent" and report["can_post_messages"] is True
