@@ -1,0 +1,32 @@
+# Disposable backup and restore qualification
+
+This test-only reliability slice depends on audited-rejection PR #42. It does not
+deploy a database, back up live data or implement a production recovery tool.
+
+`tests/test_backup_restore.py` creates only synthetic submissions, a confirmed
+publication/projection, an ambiguous send and a terminal rejected review. All
+transactions commit and fixture connections close before backup.
+
+- SQLite: use sqlite3 backup into a separate temporary file, check database/FK
+  integrity, then open a fresh Database against the restored file.
+- PostgreSQL: only the explicitly disposable loopback cats_test database/user is
+  accepted. Dump one fixture-owned `reply_<uuid>` schema with pg_dump, drop only
+  that schema, and restore it with pg_restore. The schema is validated before
+  deletion. Credentials are supplied via process environment, never argv/logs.
+- Fresh service instances recover abandoned work and verify audit/version/reason,
+  rejected submission ineligibility, absent rejected placement, unknown attempt
+  identity and confirmed Telegram projection. Replayed publication/approval must
+  not send media or change rejection.
+
+The fixture uses the current ORM schema. Actual Alembic migration and rollback
+compatibility remain independently tested in the existing SQLite/PostgreSQL
+migration suites; this test does not claim a production schema migration rehearsal.
+Stopped writers are a precondition, not a discovered distributed lock. The test
+does not prove host supervision, online backups, point-in-time recovery or live
+Telegram outcomes. Those remain explicit operational acceptance work in #9.
+
+The existing PostgreSQL CI job includes this file; no new service/job is added.
+The PostgreSQL case skips when no disposable URL is configured. A configured
+PostgreSQL qualification must provide pg_dump/pg_restore and the explicit safe
+fixture flags; it fails rather than silently skipping a missing backup tool.
+No durable notification outbox or ambiguous-send automatic retry is introduced.
