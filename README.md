@@ -11,7 +11,7 @@ merged PRs [#36](https://github.com/SoloMidMiram/CatsChannel/pull/36),
 [#38](https://github.com/SoloMidMiram/CatsChannel/pull/38).
 The November 1, 2026 bounded private pilot records successful review, actual admin
 approval and one confirmed exact-parent publication. Its
-[receipt in open PR #39](https://github.com/SoloMidMiram/CatsChannel/blob/3b3101070cc59180c2ebc78a8802188ea63c33dc/docs/evidence/telegram-hosted-private-acceptance-2026-11-01.md)
+[merged acceptance receipt](https://github.com/SoloMidMiram/CatsChannel/blob/645229aa3b150fed3231358c44c1d8209c5c5a74/docs/evidence/telegram-hosted-private-acceptance-2026-11-01.md)
 is recorded evidence, not an independently repeated run or sustained production acceptance.
 
 **Public deployment remains blocked** by incomplete moderation and enforced

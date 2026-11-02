@@ -7,7 +7,7 @@ intake and reply domain #2-#6 are complete (#5 closed via PR #28).
 Durable publishing (#29), approve-only review (#36), reply-entry concurrency
 (#37) and hosted metadata reuse (#38) are implemented.
 
-The November 1 receipt in [open PR #39](https://github.com/SoloMidMiram/CatsChannel/pull/39)
+The November 1 receipt in [merged PR #39](https://github.com/SoloMidMiram/CatsChannel/pull/39)
 records private review, actual admin approval, one exact-parent publication and
 its reply button. This is bounded private acceptance, not public readiness.
 #7 remains open for navigation interaction, submitter acknowledgement and recovery
