@@ -7,6 +7,7 @@
 - Recorded: `2026-10-16`
 - Last verified: `2026-10-16`
 - Tags: `acquisition`, `ffmpeg`, `media-service`, `validation`
+- Scope: Local library retains byte validation; PR 38 adds explicit hosted metadata acceptance (source-143).
 
 ## Rationale and consequences
 

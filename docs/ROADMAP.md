@@ -1,5 +1,24 @@
 # CatsChannel Roadmap
 
+## Verified status - 2026-11-02
+
+Merged main: 54e88b0ec80ee0538c5b9cf673c2c96d73cd0dff. Foundations,
+intake and reply domain #2-#6 are complete (#5 closed via PR #28).
+Durable publishing (#29), approve-only review (#36), reply-entry concurrency
+(#37) and hosted metadata reuse (#38) are implemented.
+
+The November 1 receipt in [open PR #39](https://github.com/SoloMidMiram/CatsChannel/pull/39)
+records private review, actual admin approval, one exact-parent publication and
+its reply button. This is bounded private acceptance, not public readiness.
+#7 remains open for navigation interaction, submitter acknowledgement and recovery
+acceptance. #8 next: audited rejection, then enforced isolation, startup safeguards
+and complete moderation recovery. #9 retains sustained operational qualification.
+PostgreSQL backend and CI already exist; public deployment remains unqualified.
+Redis is deferred until measured need. Discovery #17-#22 and optional tools #35
+remain independent. Phase lists below describe scope, not entirely absent work.
+
+See [reconciliation](evidence/post-pilot-reconciliation-2026-11-02.md).
+
 ## Mission
 
 Create a maintainable Telegram cat-video reply-chain platform.
