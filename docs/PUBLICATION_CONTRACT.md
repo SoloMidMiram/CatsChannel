@@ -2,7 +2,7 @@
 
 Durable publication and the explicit admin pilot are implemented by migration
 `0005_durable_publication`, `publication/`, and the aiogram transport adapter.
-The merged #6 graph keeps its existing semantics. Durable moderation remains #8.
+The merged #6 graph keeps its existing semantics. Approve-only review is implemented in PR #36; complete moderation remains #8.
 
 The owner confirmed one automatic chain per stable source, not one global channel
 feed. Authorized reply-button media may have a different truthful provenance while
@@ -79,7 +79,7 @@ the media or turn a known media delivery into an unknown media outcome.
 The current `/download` and manual `/publish` commands remain pilot utilities.
 They do not implement the product submission, moderation or publication workflow.
 
-1. **#5 intake:** authenticated Telegram media -> shared byte validation ->
+1. **#5 intake:** authenticated media -> hosted metadata policy or local byte validation ->
    `SubmissionService` -> durable normal/exact-parent intent. Preserve existing
    admin/private restrictions until an explicit access-policy change.
 2. **#7 publisher:** consume approved intents/placed posts through an application
@@ -124,8 +124,9 @@ the service preserves unknown and requests operator review without sending. A
 verified matching reference can be adopted through reconciliation; a conflicting
 reference is rejected. Existing projection evidence never authorizes another send.
 
-The adapter uses `getFile` on this bot to preflight Telegram-native IDs and checks
-their stable unique ID. Local uploads use only bounded library paths, reject
+The adapter reuses stored bot-specific Telegram file IDs without `getFile`.
+Hosted evidence checks bot identity and metadata policy, not bytes. See
+[hosted reuse](TELEGRAM_HOSTED_REUSE.md). Local uploads use only bounded library paths, reject
 paths escaping the library item (including symlinks), recheck manifest policy,
 size and SHA-256 against persisted validation, and send the checked byte snapshot.
 Root messages omit reply parameters; children require the exact parent with
