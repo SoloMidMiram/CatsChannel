@@ -112,9 +112,9 @@ See [workflow map](WORKFLOW_MAP.md), [operations](OPERATIONS_WORKFLOW.md) and
 Security blockers: missing rejection and enforced public isolation (#8).
 Correctness/concurrency blockers: complete approve/reject race and restart
 qualification, explicit submitter acknowledgement, navigation acceptance (#7/#8).
-Reliability blockers: external exclusive poller ownership, disposable restore and
-operator recovery acceptance (#9). Live-source investigation blocker: requested
-YouTube connection closed; channel identity and sample metadata remain unverified.
+Reliability blockers include external exclusive poller ownership and operator
+recovery acceptance (#9). Honey's public identity and loaded Shorts links were
+verified in the browser. The extractor route and scheduled catch-up remain unqualified.
 These are acceptance gaps, not evidence that every existing invariant is broken.
 
 Smallest next implementation milestone: audited rejection through the current

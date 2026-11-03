@@ -7,7 +7,7 @@ The heading uses the owner's Tehran date. Observations occurred on November 2
 UTC (November 3 in Tehran); machine-validated context capture/verification dates
 use that UTC observation date to remain valid on UTC CI runners.
 
-## Verified result and live-access limitation
+## Repository baseline and initial access failure
 
 Current code can process an individual YouTube video URL through the existing
 media path. It does not implement automatic channel scraping, a watchlist,
@@ -22,14 +22,34 @@ approval timeout. One retry dispatched the click but timed out waiting for
 navigation. The next snapshot showed chrome-error://chromewebdata/ with
 ERR_CONNECTION_CLOSED: YouTube unexpectedly closed the connection.
 
-Consequently no stable channel ID, video IDs/counts, dates, classification,
-pagination behavior or download availability were verified. The handle is a
-user-supplied discovery target, not a verified immutable identity. No extractor,
-shell HTTP or alternate browser was substituted. No media was downloaded or
-sent. Local Playwright snapshots remain untracked, outside evidence committed here.
+That attempt ended before any channel metadata was verified. Local Playwright
+snapshots remain outside Git history.
+
+## Subsequent verification
+
+On a fresh navigation the signed-out browser displayed Honey The Ginger Girl Cat
+with the Shorts and Latest tabs selected. The canonical URL, `og:url` and page
+identifier agreed on `UC0o-_FwPhZS5Xr0XTmwqwkw`. Navigating to the canonical
+channel's Shorts URL returned the same page title.
+
+The page exposed 48 distinct loaded Shorts links at the observation point.
+Examples include [jFITGy24prE](https://www.youtube.com/shorts/jFITGy24prE),
+[y8G5x12Os-U](https://www.youtube.com/shorts/y8G5x12Os-U) and
+[V62QLDWWJxY](https://www.youtube.com/shorts/V62QLDWWJxY). Tab membership is
+the observed classification evidence. The count describes loaded links only.
+Publish dates, duration, complete pagination and redistribution rights remain
+unverified. Automatic review could not execute the pagination scroll because
+its usage limit was exhausted.
+
+The owner then authorized a separate metadata-only yt-dlp probe. It ignored local
+configuration, used a ten-entry cap, no cookies, flat extraction, no media download
+and zero retries. The webpage and API requests failed with TLS EOF before any
+entry was returned. Browser visibility and this extractor route have distinct
+evidence. Unattended extraction remains unqualified.
 
 Exact browser tools invoked: mcp__playwright_global__browser_navigate,
-mcp__playwright_global__browser_snapshot, mcp__playwright_global__browser_click.
+mcp__playwright_global__browser_snapshot, mcp__playwright_global__browser_click,
+mcp__playwright_global__browser_evaluate and mcp__playwright_global__browser_press_key.
 
 ## Proposed automatic collection boundaries
 
@@ -52,9 +72,9 @@ Channel listing must never call MediaService.acquire_async just to enumerate IDs
 
 ## Honey channel investigation checklist
 
-- [ ] Restore public page access through the normal approved browser route.
-- [ ] Verify the immutable channel ID and bind the supplied handle as mutable metadata.
-- [ ] Inspect a bounded metadata sample and pagination; do not assume latest 30 covers outages.
+- [x] Verify public page access and the immutable channel ID in the browser.
+- [x] Inspect a bounded sample of visible Shorts links.
+- [ ] Qualify provider pagination and catch-up after downtime.
 - [ ] Record actual available Shorts evidence and missing fields without guessing.
 - [ ] Confirm owner-approved acquisition/redistribution policy before any #22 handoff.
 - [ ] Exercise the provider contract using synthetic fixtures before an opt-in live smoke.
