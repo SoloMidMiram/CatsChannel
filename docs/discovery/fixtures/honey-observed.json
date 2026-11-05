@@ -1,0 +1,20 @@
+{
+  "evidence_kind": "historical_observation",
+  "source": "docs/YOUTUBE_DISCOVERY_INVESTIGATION.md",
+  "snapshot": "page-2026-11-02T22-49-58-898Z.yml",
+  "scope": "one_loaded_shorts_link; pagination_unqualified",
+  "candidate": {
+    "channel_id": "UC0o-_FwPhZS5Xr0XTmwqwkw",
+    "video_id": "jFITGy24prE",
+    "canonical_url": "https://www.youtube.com/watch?v=jFITGy24prE",
+    "title": "Honey, wanting to go back out and calendar update \ufffc",
+    "published_at": null,
+    "duration_seconds": null,
+    "width": null,
+    "height": null,
+    "classification": "shorts_tab",
+    "discovery_method": "rendered_shorts_tab",
+    "evidence": ["shorts_tab_membership", "snapshot_capture_time", "recorded_canonical_channel_id"],
+    "observed_at": "2026-11-02T22:49:58.898Z"
+  }
+}

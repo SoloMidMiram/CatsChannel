@@ -150,3 +150,4 @@
 {"id": "source-149", "kind": "document", "title": "Fail-closed review/publication startup isolation", "locator": "docs/REVIEW_ISOLATION.md", "captured_at": "2026-11-02", "freshness": "current", "last_verified_at": "2026-11-02"}
 {"id": "source-150", "kind": "document", "title": "Disposable backup/restore qualification boundaries", "locator": "docs/BACKUP_RESTORE_QUALIFICATION.md", "captured_at": "2026-11-02", "freshness": "current", "last_verified_at": "2026-11-02"}
 {"id": "source-152", "kind": "document", "title": "D1 approved channel watchlist contract", "locator": "docs/DISCOVERY_WATCHLIST.md", "captured_at": "2026-11-05", "freshness": "current", "last_verified_at": "2026-11-05"}
+{"id": "source-153", "kind": "document", "title": "YouTube metadata discovery research and automation design", "locator": "docs/discovery/IMPLEMENTATION_PLAN.md", "captured_at": "2026-11-05", "freshness": "current", "last_verified_at": "2026-11-05"}

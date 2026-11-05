@@ -113,3 +113,6 @@ prove submitter-facing publication acknowledgement.
 The independent metadata-only [approved YouTube watchlist](docs/DISCOVERY_WATCHLIST.md)
 provides an authorized local Python API. Live resolution, scanning and scheduling
 remain deferred.
+
+[Discovery research and implementation sequence](docs/discovery/IMPLEMENTATION_PLAN.md)
+compares metadata providers and defines the proposed scan/checkpoint boundaries.
