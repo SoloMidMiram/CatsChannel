@@ -43,3 +43,17 @@ Existing transport/lifecycle tests retain their separate ownership contracts.
 This slice does not finish review recovery, acknowledgement, host supervision,
 backup/restore or sustained public-operation acceptance. Public release remains
 blocked by the other #8/#9 gates even after this PR is reviewed.
+
+## Combined moderation qualification
+
+The branch is rebased onto main `ebf5b08f48fbd99deff70e7ec685e1af3349834d`,
+which includes PR #42 audited rejection, migration 0007 and the direct-pilot
+placement race correction. The composition retains the rejection notifier and
+both moderation controls. Startup isolation remains before recovery and polling.
+
+The composed-application test in `test_review_approval.py` uses the real service,
+dispatcher and disposable persistence with fake Bot API transport. A private review
+destination passes the startup gate and duplicate rejection callbacks leave one
+terminal rejection with no placement, publication or public video send. A public
+inspection destination blocks polling and recovery, leaving the review pending.
+The shared suite runs on SQLite and disposable PostgreSQL in existing CI.
