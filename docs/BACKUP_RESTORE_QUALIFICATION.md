@@ -1,7 +1,10 @@
 # Disposable backup and restore qualification
 
-This test-only reliability slice depends on audited-rejection PR #42. It does not
-deploy a database, back up live data or implement a production recovery tool.
+This test-only reliability slice is based on main
+`98bd841c3e2271056ee183c7b6b5f2b85f18f683`, including merged PR #42 audited
+rejection and PR #43 startup isolation. Its diff contains backup/recovery tests,
+the existing CI gate extension and documentation/context records. It qualifies
+disposable fixtures; production recovery remains an operator acceptance task.
 
 `tests/test_backup_restore.py` creates only synthetic submissions, a confirmed
 publication/projection, an ambiguous send and a terminal rejected review. All
