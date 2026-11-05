@@ -6,6 +6,7 @@ from datetime import datetime
 from types import TracebackType
 from typing import Protocol, Self
 
+from ..discovery.contracts import WatchlistRepository
 from ..publication.contracts import PublicationRepository
 from ..reply_chains.contracts import IntentRepository, ReplyTokenRepository
 from .entities import (
@@ -138,6 +139,9 @@ class HandoffRepository(Protocol):
 
 
 class PersistenceUnitOfWork(Protocol):
+    @property
+    def watchlist(self) -> WatchlistRepository: ...
+
     @property
     def reviews(self): ...
 

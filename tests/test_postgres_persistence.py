@@ -212,7 +212,7 @@ def test_disposable_postgres_migrations_transactions_and_handoffs(monkeypatch):
     command.check(config)
     columns, revision = asyncio.run(_schema_state(POSTGRES_URL))
     assert {"placement_mode", "selected_parent_post_id"} <= columns
-    assert revision == "0007_review_rejection"
+    assert revision == "0008_discovery_watchlist"
     review_columns, review_revision = asyncio.run(_schema_state(POSTGRES_URL, "review_items"))
     assert review_revision == revision
     assert {

@@ -120,3 +120,13 @@ These are acceptance gaps, not evidence that every existing invariant is broken.
 Smallest next implementation milestone: audited rejection through the current
 review service, followed by enforced startup isolation. Maps do not grant release,
 formal acceptance, automatic merge or live-operation authority.
+
+## D1 discovery addition
+
+The independent [approved watchlist](DISCOVERY_WATCHLIST.md) adds the authorized
+`cats_channel.discovery.service.WatchlistService` application API and the existing
+UoW `watchlist` repository. Migration `0008_discovery_watchlist` owns the canonical
+registry, pending requests, serialization row and bounded history. Scanner input
+filters resolved/enabled/unretired channels; listing, ledger, scheduling and
+acquisition remain future work. This addition supersedes only the map's earlier
+claim that the watchlist is absent; historical observations remain intact.
