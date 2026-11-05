@@ -55,3 +55,10 @@ all synthetic cases in the experiment matrix before an opt-in live qualification
 
 The acceptance decision for this research is a documented design and replayable
 offline evidence. It grants no scheduler activation, acquisition or release approval.
+
+The [shared envelope and budget contract](AUTOMATION_ARCHITECTURE.md#shared-scan-envelope-acceptance-contract)
+is frozen for D2/D3 implementation. The first integration acceptance is two synthetic
+channels, two pages each, failed-page recovery, independent channel progress and
+zero duplicates. Four-hour scheduler delivery follows this acceptance. The ordinary
+pytest suite runs the historical fixture replay; this gate proves DTO compatibility
+only. Live extraction and the recommended Data API adapter remain unqualified.

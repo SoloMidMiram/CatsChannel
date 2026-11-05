@@ -48,12 +48,29 @@ Do not infer source identity from handles or titles. Map rendered membership to
 shorts_tab, duration-based hints to short_candidate, and insufficient evidence to
 unknown. Never infer not_short solely from missing membership in an incomplete tab.
 
-Define ScanPolicy.page_budget as the maximum candidate items considered per run,
-matching D1's documented 30-item default. Count rejected/duplicate provider entries
-against an additional raw-item cap so malformed output cannot create unbounded
-work. ProviderConfiguration.request_budget independently limits outbound calls;
-also enforce page-count, elapsed-time and output-byte ceilings. Document this
-interpretation before implementing adapters because the field name is ambiguous.
+Freeze three separate per-channel, per-run budgets for #19 and #20.
+
+| Envelope field | Initial default | Accounting |
+| --- | --- | --- |
+| item_budget | 30 | every enumerated provider entry, including invalid and duplicate entries, before deduplication |
+| page_budget | 2 | every logical listing-page attempt, including retries and failed pages |
+| api_request_budget | 30 | every outbound API request attempt, including resolution, metadata batches and retries |
+
+D1's persisted ScanPolicy.page_budget retains its documented legacy item meaning.
+At the adapter boundary, map it to envelope.item_budget. Do not reinterpret that
+stored column as a page count or silently migrate existing operator policy. The
+new envelope page_budget is explicitly distinct from the legacy field. A future
+rename must be a separate compatibility change. ProviderConfiguration.request_budget
+supplies api_request_budget. Snapshot these limits in the configuration fingerprint.
+Page/item limits and byte/runtime ceilings are separate execution configuration.
+Counters span the entire invocation and never reset after retry or cursor expiry.
+Budget exhaustion yields budget_exhausted, not completed; resumed invocations get
+new bounded counters while retaining durable coverage/backlog state.
+
+For flat extraction, entry limits do not prove a bound on internal HTTP requests.
+Before approving a strict-request-budget live experiment or unattended adapter,
+instrument/enforce those requests or record that the experiment cannot satisfy its
+budget and leave it unexecuted. Do not claim an extractor entry cap is an API-call cap.
 
 ## Page completion and scan completion
 
@@ -130,3 +147,32 @@ bounded catch-up, not one scan per missed tick. No schedule is created here.
 Use structured run/source counts, failure categories, backlog and last-full-scan
 age without credentials or unnecessary response bodies. dry-run may emit a report
 but writes no candidate, checkpoint, queue or watchlist mutation.
+
+## Shared scan envelope acceptance contract
+
+The following is the agreed design boundary for subsequent feature PRs. It is not
+an implemented production DTO or successful live-provider qualification.
+
+| Field | Meaning |
+| --- | --- |
+| watchlist_id, channel_id | canonical watched_channels UUID and immutable provider channel ID; no duplicate registry |
+| provider, adapter, adapter_version | youtube plus selected implementation/version; provider switching requires a new run |
+| configuration_fingerprint | deterministic hash of nonsecret adapter settings, policy, coverage target and all budgets; exclude credentials |
+| input_cursor, next_cursor | opaque provider-scoped page progress; no cursor means initial/terminal only in conjunction with page outcome |
+| page_outcome | complete, partial or failed, using existing PageResult; absent before an attempt |
+| run_outcome | running, completed, budget_exhausted, partial, failed, cancelled or interrupted |
+| owner_id, ownership_version | exclusive attempt owner and monotonically fenced generation checked on every commit |
+| item_budget, page_budget, api_request_budget | separately snapshotted limits with matching consumed counters |
+
+Store run_id, page index, timestamps, bounded reason and retry-after alongside the
+envelope. Cursor progress and completed coverage are separate records/fields.
+last_successful_full_scan_at and its covered boundary change only on proven run
+completion. Never derive them from PageResult.checkpoint_may_advance. Complete
+pages with a next cursor may commit observations and page progress while the full
+scan watermark remains unchanged. Partial/failed pages retain their input boundary.
+
+The next acceptance target is two synthetic channels with two pages each. Fail
+channel A's second page, complete B independently, then restart A and replay its
+failed page. Assert one candidate per provider/video, prior-page durability,
+unchanged A completion watermark until recovery, stale-owner CAS rejection and
+zero media/Telegram calls. Exercise item, page and request budgets independently.

@@ -26,6 +26,10 @@ Replay the fixtures without network access from the repository root.
 The replay constructs current Candidate/PageResult DTOs, verifies nulls, canonical
 URL and checkpoint eligibility, and constructs a synthetic partial-page case.
 It validates the research evidence representation, not provider pagination.
+`tests/test_discovery_research.py` executes this same script in the ordinary pytest
+suite, including the existing Ubuntu and Windows CI jobs. DTO incompatibility or
+fixture assertion failure therefore fails automated verification. These historical
+observations do not qualify current live extraction or a production API adapter.
 
 ## Proposed opt-in live protocol
 
