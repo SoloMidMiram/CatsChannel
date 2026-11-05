@@ -24,6 +24,30 @@ class Base(DeclarativeBase):
     pass
 
 
+class WatchlistControlModel(Base):
+    __tablename__ = "watchlist_control"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class WatchlistFields:
+    """Columns shared by canonical identities and unresolved requests."""
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    reference: Mapped[str] = mapped_column(String(64), nullable=False)
+    handle: Mapped[str | None] = mapped_column(String(64))
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    retired: Mapped[bool] = mapped_column(nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    evidence: Mapped[str] = mapped_column(String(32), nullable=False)
+    retry_after_seconds: Mapped[int | None] = mapped_column(Integer)
+    last_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    page_budget: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    lookback_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -31,6 +55,48 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class WatchedChannelModel(WatchlistFields, TimestampMixin, Base):
+    __tablename__ = "watched_channels"
+    __table_args__ = (
+        UniqueConstraint("provider", "channel_id", name="uq_watched_channel_identity"),
+        CheckConstraint("provider = 'youtube'", name="ck_watchlist_provider"),
+        CheckConstraint("page_budget > 0 AND lookback_days > 0", name="ck_watchlist_policy"),
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False, default="youtube")
+    channel_id: Mapped[str] = mapped_column(String(24), nullable=False)
+
+
+class WatchlistRequestModel(WatchlistFields, TimestampMixin, Base):
+    __tablename__ = "watchlist_requests"
+    __table_args__ = (
+        Index(
+            "uq_watchlist_pending_request",
+            "reference",
+            unique=True,
+            sqlite_where=text("channel_entry_id IS NULL"),
+            postgresql_where=text("channel_entry_id IS NULL"),
+        ),
+    )
+    channel_entry_id: Mapped[str | None] = mapped_column(ForeignKey("watched_channels.id"))
+
+
+class WatchlistEventModel(Base):
+    __tablename__ = "watchlist_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    entry_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    operator: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    handle: Mapped[str | None] = mapped_column(String(64))
+    evidence: Mapped[str] = mapped_column(String(32), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    enabled: Mapped[bool] = mapped_column(nullable=False)
+    retired: Mapped[bool] = mapped_column(nullable=False)
+    page_budget: Mapped[int] = mapped_column(Integer, nullable=False)
+    lookback_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class CatThreadModel(TimestampMixin, Base):

@@ -109,3 +109,7 @@ prove submitter-facing publication acknowledgement.
 - [Transport](docs/BOT_API_TRANSPORT.md), [security](docs/SECURITY.md), [media library](docs/MEDIA_LIBRARY.md), [optional Telethon downloader](docs/TELEGRAM_DOWNLOADER.md)
 - [Generated context overview](project-context/overview.md), [context usage](project-context/README.md)
 - [Post-pilot reconciliation](docs/evidence/post-pilot-reconciliation-2026-11-02.md)
+
+The independent metadata-only [approved YouTube watchlist](docs/DISCOVERY_WATCHLIST.md)
+provides an authorized local Python API. Live resolution, scanning and scheduling
+remain deferred.

@@ -149,3 +149,13 @@ uploads. Candidate discovery does not create a post or authorize media acquisiti
 | Startup | BotApplication hooks | abandoned review/publication updates | identity lookup and polling | read-only identity retry; polling owns its backoff |
 | Four-hour discovery | proposed #21 worker | proposed scan/candidate/checkpoint ledger | metadata-only YouTube reads | no overlap; bounded catch-up/retry categories |
 | Recovery | explicit operator | evidence-based reconciliation | optional explicit repair or known-safe retry | exclusive stopped-bot ownership, never infer non-delivery from absence |
+
+## D1 discovery addition
+
+The independent [approved watchlist](DISCOVERY_WATCHLIST.md) adds the authorized
+`cats_channel.discovery.service.WatchlistService` application API and the existing
+UoW `watchlist` repository. Migration `0008_discovery_watchlist` owns the canonical
+registry, pending requests, serialization row and bounded history. Scanner input
+filters resolved/enabled/unretired channels; listing, ledger, scheduling and
+acquisition remain future work. This addition supersedes only the map's earlier
+claim that the watchlist is absent; historical observations remain intact.

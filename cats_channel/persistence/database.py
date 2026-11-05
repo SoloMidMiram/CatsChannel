@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 
 from ..async_cleanup import complete_cleanup
 from ..config import Settings
+from .discovery_repositories import SqlAlchemyWatchlistRepository
 from .models import Base
 from .publication_repositories import SqlAlchemyPublicationRepository
 from .reply_repositories import SqlAlchemyIntentRepository, SqlAlchemyReplyTokenRepository
@@ -43,6 +44,13 @@ class SqlAlchemyUnitOfWork:
         self._reply_tokens: SqlAlchemyReplyTokenRepository | None = None
         self._publications: SqlAlchemyPublicationRepository | None = None
         self._reviews: SqlAlchemyReviewRepository | None = None
+        self._watchlist: SqlAlchemyWatchlistRepository | None = None
+
+    @property
+    def watchlist(self) -> SqlAlchemyWatchlistRepository:
+        if self._watchlist is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._watchlist
 
     @property
     def reviews(self) -> SqlAlchemyReviewRepository:
@@ -103,6 +111,7 @@ class SqlAlchemyUnitOfWork:
         self._reply_tokens = None
         self._publications = None
         self._reviews = None
+        self._watchlist = None
 
     async def __aenter__(self) -> Self:
         if self._session is not None:
@@ -120,6 +129,7 @@ class SqlAlchemyUnitOfWork:
             self._reply_tokens = SqlAlchemyReplyTokenRepository(session)
             self._publications = SqlAlchemyPublicationRepository(session)
             self._reviews = SqlAlchemyReviewRepository(session)
+            self._watchlist = SqlAlchemyWatchlistRepository(session)
         except BaseException:
             try:
                 await session.close()

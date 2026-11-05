@@ -121,3 +121,13 @@ Online SQLite migrations use the same explicit `BEGIN` hooks as application
 transactions, and Alembic treats SQLite DDL as transactional. A failed or
 interrupted upgrade rolls back its schema changes and unapplied revision so the
 upgrade can be retried. PostgreSQL keeps Alembic's native transaction behavior.
+
+## D1 discovery addition
+
+The independent [approved watchlist](DISCOVERY_WATCHLIST.md) adds the authorized
+`cats_channel.discovery.service.WatchlistService` application API and the existing
+UoW `watchlist` repository. Migration `0008_discovery_watchlist` owns the canonical
+registry, pending requests, serialization row and bounded history. Scanner input
+filters resolved/enabled/unretired channels; listing, ledger, scheduling and
+acquisition remain future work. This addition supersedes only the map's earlier
+claim that the watchlist is absent; historical observations remain intact.
