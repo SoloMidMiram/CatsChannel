@@ -1,5 +1,10 @@
 # Review channel and Approve button
 
+The follow-up [audited rejection](REVIEW_REJECTION.md) extends this workflow with
+a terminal rejected decision, safe reason and rejection controls. Apply migration
+0007 before running that revision. The live receipt below remains historical
+approve-only pilot evidence and does not claim live rejection qualification.
+
 Set `REVIEW_CHANNEL_ID` to a numeric channel ID and restart the bot. The bot must
 have posting and editing permissions in that channel. `CHANNEL_ID` remains the
 publication destination. The pilot owner selected the existing private pilot
@@ -42,9 +47,9 @@ interrupted approvals `needs_reconciliation`. Neither outcome is automatically
 resent. A review button delivered before a failed confirmation transaction stays
 unavailable until its exact message binding is reconciled by an operator.
 
-This is the requested approve-only pilot workflow. It does not add rejection
-buttons/reasons, multi-reviewer policy, an operator reconciliation UI, or the
-remaining full Issue #8 moderation requirements. The existing admin-only
+The original pilot was approve-only; audited rejection is documented separately.
+Multi-reviewer policy, an operator reconciliation UI and the remaining full
+Issue #8 moderation requirements remain outstanding. The existing admin-only
 `/pilot_publish` command remains available as the explicit pilot override.
 
 Migration: `0006_review_approval` adds `review_items` and does not change existing

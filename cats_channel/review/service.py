@@ -24,6 +24,7 @@ class ReviewService:
         review_chat_id,
         destination_chat_id,
         admin_user_id,
+        rejection_notifier=None,
         logger=None,
     ):
         self.unit_of_work = unit_of_work
@@ -32,6 +33,7 @@ class ReviewService:
         self.review_chat = review_chat_id
         self.destination = destination_chat_id
         self.admin = admin_user_id
+        self.rejection_notifier = rejection_notifier
         self.logger = logger or logging.getLogger("cats_channel")
 
     async def get(self, item_id):
@@ -66,7 +68,11 @@ class ReviewService:
                 [
                     InlineKeyboardButton(
                         text="Approve", callback_data=f"reviewapprove:{item.id}:{item.version}"
-                    )
+                    ),
+                    InlineKeyboardButton(
+                        text="Reject: unsuitable",
+                        callback_data=f"reviewreject:{item.id}:{item.version}",
+                    ),
                 ]
             ]
         )
@@ -152,3 +158,48 @@ class ReviewService:
     async def _finish_approval(self, item, state, **fields):
         async with self.unit_of_work() as uow:
             return await uow.reviews.finish_approval(item, state, **fields)
+
+    async def reject(self, item_id, version, *, actor_id, chat_id, message_id, reason="unsuitable"):
+        if actor_id != self.admin:
+            raise ReviewError("review_forbidden")
+        internal_id(item_id)
+        if reason not in {"unsuitable", "rights", "duplicate", "other"}:
+            raise ReviewError("review_reason_invalid")
+        async with self.unit_of_work() as uow:
+            item = await uow.reviews.get(item_id)
+            if (
+                not item
+                or item.review_chat_id != self.review_chat
+                or item.review_chat_id != chat_id
+                or item.message_id != message_id
+                or item.destination_chat_id != self.destination
+                or item.delivery_state != "confirmed"
+            ):
+                raise ReviewError("review_message_mismatch")
+            if item.decision_state != "pending":
+                return item
+            if item.version != version:
+                raise ReviewError("review_stale")
+            await uow.submissions.lock(item.submission_id)
+            if await uow.threads.get_post_for_submission(item.submission_id) is not None:
+                raise ReviewError("review_already_placed")
+            claimed = await uow.reviews.reject(item, actor_id, datetime.now(UTC), reason)
+            result = await uow.reviews.get(item_id)
+            handoff = await uow.handoffs.get_for_submission(item.submission_id) if claimed else None
+        # Notification is after the durable terminal decision; never retry the decision.
+        if (
+            claimed
+            and handoff
+            and self.rejection_notifier is not None
+            and handoff.conversation_chat_id == handoff.actor_id
+            and handoff.actor_id > 0
+        ):
+            try:
+                await self.rejection_notifier(handoff.actor_id, "Your submission was rejected.")
+            except Exception:  # noqa: BLE001 - notification cannot reverse the decision
+                self.failure(
+                    "review_notification_failure",
+                    "review_notification",
+                    "review_notification_failed",
+                )
+        return result
