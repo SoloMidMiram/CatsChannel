@@ -20,6 +20,16 @@ _DEFAULT = ErrorPolicy(
 
 ERROR_POLICIES = MappingProxyType(
     {
+        "review_configuration": ErrorPolicy(
+            "Review/publication startup configuration is unsafe or incomplete.",
+            "Configure numeric destinations and a private inspection channel; use the explicit private pilot mode only for a restricted experiment.",
+            "after_local_fix",
+        ),
+        "review_permissions_unverified": ErrorPolicy(
+            "Review/publication channel isolation or bot permissions could not be verified.",
+            "Check private inspection, destination configuration and posting/editing permissions before restarting.",
+            "after_investigation",
+        ),
         "reply_entry_invalid": ErrorPolicy(
             "This reply link is invalid or unavailable.",
             "Open a current reply link or use /help.",

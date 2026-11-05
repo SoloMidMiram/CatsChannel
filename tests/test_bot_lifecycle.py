@@ -225,8 +225,13 @@ async def test_persistent_run_bot_owns_database_and_preserves_startup_failure(
         return app
 
     monkeypatch.setattr(application_module, "create_bot_application", create)
+    # This test isolates startup-hook/cleanup ownership; isolation has its own
+    # real lifecycle tests. Supply valid config and stub only the read-only probe.
+    monkeypatch.setattr(application_module, "verify_review_isolation", AsyncMock())
     with pytest.raises(RuntimeError) as caught:
-        await application_module.run_bot(settings(reply_entries_enabled=True))
+        await application_module.run_bot(
+            settings(reply_entries_enabled=True, review_channel_id=-100456)
+        )
     assert caught.value is startup_error
     if cleanup_fails:
         assert str(caught.value.__cause__) == "database close failed"

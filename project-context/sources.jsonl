@@ -147,3 +147,4 @@
 {"id": "source-147", "kind": "document", "title": "Repository, workflow and discovery investigation map", "locator": "docs/REPOSITORY_MAP.md", "captured_at": "2026-11-02", "freshness": "current", "last_verified_at": "2026-11-02"}
 {"id": "source-151", "kind": "document", "title": "Verified Honey Shorts identity and extractor probe", "locator": "docs/YOUTUBE_DISCOVERY_INVESTIGATION.md", "captured_at": "2026-11-02", "freshness": "current", "last_verified_at": "2026-11-02"}
 {"id": "source-148", "kind": "document", "title": "Audited rejection implementation and acceptance contract", "locator": "docs/REVIEW_REJECTION.md", "captured_at": "2026-11-02", "freshness": "current", "last_verified_at": "2026-11-02"}
+{"id": "source-149", "kind": "document", "title": "Fail-closed review/publication startup isolation", "locator": "docs/REVIEW_ISOLATION.md", "captured_at": "2026-11-02", "freshness": "current", "last_verified_at": "2026-11-02"}

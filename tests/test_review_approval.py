@@ -716,3 +716,68 @@ async def test_direct_pilot_placement_excludes_concurrent_rejection(review_setup
     async with database.unit_of_work() as uow:
         assert (await uow.submissions.get(submission.id)).status == "validated"
         assert await uow.threads.get_post_for_submission(submission.id) is not None
+
+
+@pytest.mark.parametrize("private_review", [True, False])
+async def test_isolation_gate_and_rejection_through_composed_application(
+    review_setup, private_review
+):
+    from aiogram.methods import SendVideo
+    from test_review_isolation import configured, readable_bot
+
+    from cats_channel.bot import create_bot_application
+    from cats_channel.errors import MediaError
+
+    database, submission, _, _, service = review_setup
+    item = await service.enqueue(submission.id)
+    session = RecordingSession()
+    bot = Bot("123456:TEST_TOKEN", session=session)
+    readable = readable_bot(public_review=not private_review)
+    bot.get_chat = readable.get_chat
+    bot.get_chat_member = readable.get_chat_member
+    app = create_bot_application(
+        configured(channel_id=str(DESTINATION)),
+        bot=bot,
+        persistence_unit_of_work=database.unit_of_work,
+    )
+    recovered = AsyncMock()
+
+    async def recovery_probe(**kwargs):
+        await recovered()
+
+    app.dispatcher.startup.register(recovery_probe)
+
+    async def poll(*args, **kwargs):
+        await app.dispatcher.emit_startup(bot=bot)
+        for number in (1, 2):
+            await app.dispatcher.feed_update(
+                bot,
+                Update(
+                    update_id=number,
+                    callback_query=CallbackQuery(
+                        id=str(number),
+                        from_user=User(id=42, is_bot=False, first_name="Fixture"),
+                        chat_instance="fixture",
+                        data=f"reviewreject:{item.id}:1",
+                        message=Message(
+                            message_id=99,
+                            date=datetime.now(UTC),
+                            chat=Chat(id=CHAT, type="channel"),
+                        ),
+                    ),
+                ),
+            )
+
+    app.dispatcher.start_polling = AsyncMock(side_effect=poll)
+    if private_review:
+        await app.start_polling()
+        recovered.assert_awaited_once()
+        await assert_rejected_without_effects(database, submission, service, item.id)
+    else:
+        with pytest.raises(MediaError) as error:
+            await app.start_polling()
+        assert error.value.code == "review_permissions_unverified"
+        recovered.assert_not_awaited()
+        app.dispatcher.start_polling.assert_not_awaited()
+        assert (await service.get(item.id)).decision_state == "pending"
+    assert not any(isinstance(method, SendVideo) for method in session.methods)
