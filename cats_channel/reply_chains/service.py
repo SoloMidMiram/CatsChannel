@@ -217,6 +217,7 @@ class ReplyChainService:
                     intent = await uow.intents.get(intent_id)
                     if intent is None:
                         raise ReplyChainError("reply_intent_not_found")
+                    await uow.submissions.lock(intent.submission_id)
                     thread = await self._thread(uow, intent.thread_id)
                     normal = intent.mode == "normal_append"
                     if (normal and intent.selected_parent_post_id is not None) or (

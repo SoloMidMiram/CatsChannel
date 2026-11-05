@@ -180,6 +180,7 @@ class ReviewService:
                 return item
             if item.version != version:
                 raise ReviewError("review_stale")
+            await uow.submissions.lock(item.submission_id)
             if await uow.threads.get_post_for_submission(item.submission_id) is not None:
                 raise ReviewError("review_already_placed")
             claimed = await uow.reviews.reject(item, actor_id, datetime.now(UTC), reason)

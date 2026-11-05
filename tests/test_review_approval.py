@@ -669,3 +669,50 @@ async def test_rejection_serializes_with_direct_pilot_placement(review_setup, mo
     assert isinstance(result, PublicationError)
     transport.send.assert_not_awaited()
     await assert_rejected_without_effects(database, submission, service, item.id)
+
+
+async def test_direct_pilot_placement_excludes_concurrent_rejection(review_setup, monkeypatch):
+    from cats_channel.publication.service import PublicationService
+
+    database, submission, _, _, service = review_setup
+    if database.engine.dialect.name != "postgresql":
+        pytest.skip("PostgreSQL concurrent placement contract")
+    item = await service.enqueue(submission.id)
+    checked, release = asyncio.Event(), asyncio.Event()
+    chains = ReplyChainService(database.unit_of_work, destination_chat_id=DESTINATION)
+    original = chains._submission
+
+    async def pause_before_placement(*args, **kwargs):
+        await original(*args, **kwargs)
+        checked.set()
+        await asyncio.wait_for(release.wait(), 10)
+
+    monkeypatch.setattr(chains, "_submission", pause_before_placement)
+    transport = AsyncMock()
+    transport.send.return_value = TelegramMessageRef(DESTINATION, 101)
+    publisher = PublicationService(
+        database.unit_of_work,
+        reply_chains=chains,
+        transport=transport,
+        destination_chat_id=DESTINATION,
+    )
+    publication = asyncio.create_task(publisher.approve_pilot(submission.id))
+    rejection = None
+    try:
+        await asyncio.wait_for(checked.wait(), 5)
+        rejection = asyncio.create_task(
+            service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99)
+        )
+        await asyncio.wait({rejection}, timeout=0.5)
+    finally:
+        release.set()
+        published = await publication
+        if rejection is not None:
+            result = (await asyncio.gather(rejection, return_exceptions=True))[0]
+    assert published.state == "confirmed"
+    assert isinstance(result, ReviewError) and result.code == "review_already_placed"
+    transport.send.assert_awaited_once()
+    assert (await service.get(item.id)).decision_state == "pending"
+    async with database.unit_of_work() as uow:
+        assert (await uow.submissions.get(submission.id)).status == "validated"
+        assert await uow.threads.get_post_for_submission(submission.id) is not None

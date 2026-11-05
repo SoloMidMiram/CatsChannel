@@ -227,6 +227,16 @@ class SqlAlchemySubmissionRepository:
         model = await self._session.get(CatVideoSubmissionModel, submission_id)
         return _submission(model) if model is not None else None
 
+    async def lock(self, submission_id: str) -> None:
+        # PostgreSQL locks this row through commit/rollback. SQLite retains its
+        # transaction snapshot and rejects a competing stale snapshot write.
+        await self._session.scalar(
+            select(CatVideoSubmissionModel)
+            .where(CatVideoSubmissionModel.id == submission_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
     async def get_by_source_media(
         self, source_provider: str, source_media_id: str
     ) -> CatVideoSubmission | None:

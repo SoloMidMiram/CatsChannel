@@ -42,6 +42,10 @@ class SubmissionRepository(Protocol):
 
     async def get(self, submission_id: str) -> CatVideoSubmission | None: ...
 
+    async def lock(self, submission_id: str) -> None:
+        """Serialize rejection and placement until this unit of work ends."""
+        ...
+
     async def get_by_source_media(
         self, source_provider: str, source_media_id: str
     ) -> CatVideoSubmission | None: ...

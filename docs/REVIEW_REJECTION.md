@@ -44,3 +44,18 @@ publisher, hosted-media and PostgreSQL migration suites remain gates.
 Public inspection/publication isolation is a separate Issue #8 slice and remains
 a release blocker. This change alone does not establish full moderation acceptance
 or public readiness.
+
+## Rejection and direct pilot placement ownership
+
+Review thread discussion_r4481215039 identified a race between rejection and the
+explicit pilot publication boundary. Both rejection and intent finalization now
+lock the submission row in their existing transaction before checking placement
+or eligibility. PostgreSQL uses a row lock. SQLite retains its transaction snapshot and
+rejects a competing stale snapshot write. Neither path changes the timestamp. The lock ends at commit or rollback, before
+any Telegram operation. If rejection commits first, finalization reads rejected
+status and refuses placement. If placement commits first, rejection finds the
+post and refuses the decision. Migration 0007 is unchanged.
+
+Barrier regressions in test_review_approval.py exercise both transaction orders
+on PostgreSQL using the real publication service. The rejection-first test failed
+on the prior implementation in CI run 42040284311, retaining evidence of the race.
