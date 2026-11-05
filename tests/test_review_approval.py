@@ -622,3 +622,50 @@ async def test_competing_dispatcher_approve_reject_has_one_terminal_owner(review
             await assert_rejected_without_effects(database, submission, service, item.id)
     finally:
         await bot.session.close()
+
+
+async def test_rejection_serializes_with_direct_pilot_placement(review_setup, monkeypatch):
+    from cats_channel.persistence.repositories import SqlAlchemyThreadRepository
+    from cats_channel.publication.errors import PublicationError
+    from cats_channel.publication.service import PublicationService
+
+    database, submission, _, _, service = review_setup
+    if database.engine.dialect.name != "postgresql":
+        pytest.skip("PostgreSQL concurrent placement contract")
+    item = await service.enqueue(submission.id)
+    checked, release = asyncio.Event(), asyncio.Event()
+    original = SqlAlchemyThreadRepository.get_post_for_submission
+
+    async def pause_after_check(repository, submission_id):
+        post = await original(repository, submission_id)
+        if asyncio.current_task().get_name() == "reject-before-placement":
+            checked.set()
+            await asyncio.wait_for(release.wait(), 10)
+        return post
+
+    monkeypatch.setattr(SqlAlchemyThreadRepository, "get_post_for_submission", pause_after_check)
+    transport = AsyncMock()
+    transport.send.return_value = TelegramMessageRef(DESTINATION, 101)
+    publisher = PublicationService(
+        database.unit_of_work,
+        reply_chains=ReplyChainService(database.unit_of_work, destination_chat_id=DESTINATION),
+        transport=transport,
+        destination_chat_id=DESTINATION,
+    )
+    rejection = asyncio.create_task(
+        service.reject(item.id, 1, actor_id=42, chat_id=CHAT, message_id=99),
+        name="reject-before-placement",
+    )
+    publication = None
+    try:
+        await asyncio.wait_for(checked.wait(), 5)
+        publication = asyncio.create_task(publisher.approve_pilot(submission.id))
+        await asyncio.wait({publication}, timeout=0.5)
+    finally:
+        release.set()
+        await rejection
+        if publication is not None:
+            result = (await asyncio.gather(publication, return_exceptions=True))[0]
+    assert isinstance(result, PublicationError)
+    transport.send.assert_not_awaited()
+    await assert_rejected_without_effects(database, submission, service, item.id)
