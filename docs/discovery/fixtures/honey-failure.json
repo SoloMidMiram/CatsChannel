@@ -1,0 +1,18 @@
+{
+  "evidence_kind": "historical_failure",
+  "source": "docs/YOUTUBE_DISCOVERY_INVESTIGATION.md",
+  "channel_id": "UC0o-_FwPhZS5Xr0XTmwqwkw",
+  "adapter": "yt_dlp_flat_shorts",
+  "observation_date_utc": "2026-11-02",
+  "observed_at": null,
+  "reason": "tls_eof",
+  "entry_budget": 10,
+  "retries": 0,
+  "page": {
+    "candidates": [],
+    "state": "failed",
+    "next_cursor": null,
+    "failure": "temporary_failure",
+    "retry_after_seconds": null
+  }
+}
