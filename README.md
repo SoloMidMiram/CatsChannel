@@ -102,6 +102,8 @@ prove submitter-facing publication acknowledgement.
 
 ## Documentation
 
+- [Repository map](docs/REPOSITORY_MAP.md), [workflow map](docs/WORKFLOW_MAP.md), [operational workflow](docs/OPERATIONS_WORKFLOW.md)
+- [YouTube Shorts discovery investigation](docs/YOUTUBE_DISCOVERY_INVESTIGATION.md)
 - [Documentation index](docs/README.md), [development](docs/DEVELOPMENT.md), [contributing](docs/CONTRIBUTING.md)
 - [Review approval](docs/REVIEW_APPROVAL.md), [hosted reuse](docs/TELEGRAM_HOSTED_REUSE.md), [publication validation](docs/PUBLICATION_VALIDATION.md)
 - [Transport](docs/BOT_API_TRANSPORT.md), [security](docs/SECURITY.md), [media library](docs/MEDIA_LIBRARY.md), [optional Telethon downloader](docs/TELEGRAM_DOWNLOADER.md)
