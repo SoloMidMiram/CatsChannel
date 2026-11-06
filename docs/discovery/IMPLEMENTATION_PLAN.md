@@ -62,3 +62,12 @@ channels, two pages each, failed-page recovery, independent channel progress and
 zero duplicates. Four-hour scheduler delivery follows this acceptance. The ordinary
 pytest suite runs the historical fixture replay; this gate proves DTO compatibility
 only. Live extraction and the recommended Data API adapter remain unqualified.
+
+## Final feasibility evidence, November 6
+
+[Final verdict E](FINAL_FEASIBILITY_VERDICT.md) records the newly authorized
+ten-entry extractor failure and currently blocked API/browser scopes. Start with
+an offline-testable production resolver; keep live qualification conditional. The
+yt-dlp production adapter and scheduler remain no-go until the blocker remedies
+are qualified. The D3 ledger can proceed using synthetic contracts. The new
+in-memory simulations cover failed-page recovery but prove no durable recovery.
