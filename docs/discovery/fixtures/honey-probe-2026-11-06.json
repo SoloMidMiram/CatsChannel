@@ -1,0 +1,18 @@
+{
+  "observed_at": "2026-11-06T08:00:47.394964+00:00",
+  "channel_id": "UC0o-_FwPhZS5Xr0XTmwqwkw",
+  "version": "2026.8.19",
+  "platform": "win32",
+  "entry_budget": 10,
+  "timeout_seconds": 60,
+  "retries": 0,
+  "proxy": "disabled",
+  "candidates": [],
+  "exit_code": 1,
+  "elapsed_seconds": 38.62,
+  "outcome": "failed",
+  "failure_category": "network_or_extractor_failure",
+  "failure_markers": [
+    "Unable to download"
+  ]
+}
