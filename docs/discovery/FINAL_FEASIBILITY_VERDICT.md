@@ -44,3 +44,21 @@ neither test alone proves unattended monitoring.
 
 See the [comparative matrix](PROVIDER_TEST_MATRIX.md), [blocker register](BLOCKER_REGISTER.md)
 and [live evidence](LIVE_PROBE_EVIDENCE.md). Historical Honey facts remain unchanged.
+
+## Completion audit
+
+| Brief requirement | Evidence and qualification |
+| --- | --- |
+| Latest baseline, PRs and issues | Fetched main 148cc4a; #45/#46 are merged; #17–#21 inspected and open. Production source contains the registry and DTOs only. |
+| Three distinct capabilities | Channel inspection, Shorts membership and incremental monitoring are separately evaluated in this verdict and the comparative matrix. |
+| Three provider methods | Current official API references inspected; authorized yt-dlp probe failed; new channel-browser inspection is explicitly blocked, with historical evidence labeled. |
+| Authorization and limits | Dated sanitized probe artifact records version, cap, timeout, retry/proxy policy and outcome. No further probe authorization is inferred from this continuation. |
+| Offline scenarios A–F | Automated tests cover terminal completion, failed second page, cursor-addressed recovery, two channels, repeated new IDs and four exhaustion categories. Persistence is explicitly in-memory. |
+| Failure diagnosis | B1–B6 register expected/actual behavior, environment, classification, reproducibility limits and minimum remedies. The extractor cause remains undetermined. |
+| Comparative verdict | Exact required nine-row table uses only PASS/PARTIAL/FAIL/BLOCKED/NOT SUPPORTED statuses, with all limitations explained. Primary verdict E is explicit. |
+| Six implementation decisions | GO/CONDITIONAL GO/NO-GO table identifies work, tests, external dependencies and missing evidence; scheduler is NO-GO. |
+| Artifacts and history | Four required reports, dated sanitized probe JSON and existing-convention synthetic tests are in draft #47. Original historical fixtures remain unmodified. |
+| Safety and verification | No production behavior, credentials, schedules, submissions or channel messages changed. Offline tests and head-specific CI are recorded in the PR. Independent media-byte measurement is unavailable and never claimed. |
+
+Completion here means a reproducible feasibility decision with explicitly blocked
+experiments, as allowed by the brief. It does not mean working live automation.

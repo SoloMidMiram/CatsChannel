@@ -57,6 +57,13 @@ Dictionary deduplication demonstrates the contract, not concurrent database
 uniqueness or durable recovery. Fencing, provider deletion semantics, real cursor
 expiry, host downtime and throttling remain implementation/evidence gaps.
 
+The simulation's provider pages are keyed by their input cursor. Its request log
+asserts the sequence initial/page-2/page-2 across failure and restart, so recovery
+must actually use the saved boundary. Page/request/runtime limits are checked
+before reading another simulated provider page. An unavailable next page produces
+partial status rather than synthetic terminal completion. These checks strengthen
+the simulation without converting it into a live or durable-recovery claim.
+
 Official references inspected with Playwright on November 6 are
 [channels.list](https://developers.google.com/youtube/v3/docs/channels/list),
 [playlistItems.list](https://developers.google.com/youtube/v3/docs/playlistItems/list)
