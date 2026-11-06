@@ -1,0 +1,53 @@
+{
+  "observed_at": "2026-11-06T14:40:42.693541+00:00",
+  "endpoint": "https://www.youtube.com/feeds/videos.xml?playlist_id=UUSH0o-_FwPhZS5Xr0XTmwqwkw",
+  "approved_channel_id": "UC0o-_FwPhZS5Xr0XTmwqwkw",
+  "requests": [
+    {
+      "url": "https://www.youtube.com/feeds/videos.xml?playlist_id=UUSH0o-_FwPhZS5Xr0XTmwqwkw",
+      "status": null,
+      "content_type": null
+    }
+  ],
+  "redirect_chain": [],
+  "records": [],
+  "xml_valid": null,
+  "limits": {
+    "http_requests": 3,
+    "seconds": 30,
+    "response_bytes": 262144,
+    "records": 10
+  },
+  "credentials_cookies_proxies_media_requests": false,
+  "response_byte_accounting": "decrypted HTTP response headers, body and framing; no read-ahead buffering",
+  "classification": "unknown",
+  "production_qualification": "BLOCKED",
+  "outcome": "bounded_stop",
+  "error": {
+    "type": "BudgetStop",
+    "message": "whole_probe_deadline"
+  },
+  "elapsed_seconds": 30.001,
+  "response_bytes_total": 0,
+  "http_request_attempts": 1,
+  "no_shorts_absence_inference": true,
+  "environment": {
+    "os_release": "PRETTY_NAME=\"Ubuntu 26.04 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"26.04\"\nVERSION=\"26.04 (Resolute Raccoon)\"\nVERSION_CODENAME=resolute\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=resolute\nLOGO=ubuntu-logo\n",
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "python": "3.14.4",
+    "openssl": "OpenSSL 3.5.5 27 Jan 2026",
+    "proxy_environment_present": {
+      "no_proxy": true,
+      "https_proxy": true,
+      "NO_PROXY": true,
+      "HTTPS_PROXY": true,
+      "HTTP_PROXY": true,
+      "http_proxy": true
+    },
+    "transport": "Python stdlib direct HTTPSConnection; environment proxies ignored",
+    "tls": "default certificate and hostname verification",
+    "network": "WSL default route and generated DNS present; actual public egress and transparent routing not measured"
+  },
+  "interpretation": "WSL DIAGNOSTIC INCONCLUSIVE / ACCESS NOT QUALIFIED. Failure phase and actual HTTP transmission unknown. No absence-of-Shorts inference. Production BLOCKED.",
+  "timer_note": "30-second signal deadline; measured 30.001 seconds includes handling and cleanup overhead"
+}

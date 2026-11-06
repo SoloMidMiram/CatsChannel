@@ -6,6 +6,11 @@ authorized extractor probe failed. API credentials/quota and a fresh channel
 browser probe were not authorized. This is an environment/evidence verdict, not
 proof of technical impossibility.
 
+Follow-up: the separately authorized WSL UUSH diagnostic also reached its
+30-second deadline without an observed HTTP response. See
+[bounded evidence and limitations](LIVE_PROBE_EVIDENCE.md#follow-up-bounded-wsl-uush-diagnostic).
+Verdict E is unchanged; the actual production Linux environment remains untested.
+
 Baseline main remains merged PR #46 at `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`,
 verified November 6, 2026. PR #45 is merged at `0d498a4`; Issues #17–#21 remain open.
 Implemented code is the canonical watchlist, authorization, resolver protocol,

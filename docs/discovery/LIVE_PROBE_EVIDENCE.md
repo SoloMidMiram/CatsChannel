@@ -1,5 +1,41 @@
 # Live probe evidence
 
+## Follow-up: bounded WSL UUSH diagnostic
+
+The separately authorized [November 6 WSL result](fixtures/honey-uush-wsl-2026-11-06.json)
+is **INCONCLUSIVE / ACCESS NOT QUALIFIED**, not Linux production PASS. Ubuntu
+26.04 WSL2, Python 3.14.4 and OpenSSL 3.5.5 attempted the exact approved public
+UUSH XML endpoint once. A 30-second signal deadline stopped the attempt; measured
+elapsed time was 30.001 seconds including handling/cleanup. No HTTP status,
+content type, redirect, response bytes or records were observed. XML validity,
+identity, timestamps and Shorts membership are therefore unknown. The failure
+phase (DNS/TCP/TLS/request/response) was not localized; the attempt count does not
+prove an HTTP request reached YouTube. This is not evidence of an empty channel
+or universal UUSH failure.
+
+The standalone stdlib transport ignores proxy environment settings, uses verified
+TLS, sends no cookies/authentication, retains no sessions and makes no retries or
+media requests. It restricts requests to the exact approved HTTPS feed URL, counts
+redirects against three requests, caps cumulative decrypted response reads at
+256 KiB, and reports at most ten entries. No redirect was observed. WSL had a
+default route and generated DNS configuration; public egress and transparent
+host/VPN routing were not measured. Python 3.14 here is diagnostic tooling, not
+qualification of the application's Python 3.11 runtime policy.
+
+PR #47 remains E. Recent monitoring, historical enumeration and unattended
+operation are all unqualified. UUSH's small implementation surface does not
+qualify provider stability, pagination or completeness. Even a successful finite
+recent feed would need an independent catch-up and recovery strategy. Naming a
+playlist UUSH would not alone establish verified Shorts membership.
+
+The smallest next experiment is the same bounded direct-HTTPS feed test on the
+actual deployment server, after separate host/access and test authorization,
+with stage timing to distinguish DNS, TCP, TLS and HTTP waits. No SSH, deployment,
+server probe, additional WSL probe, API/quota call or library extractor is
+authorized by this result. Retain nulls on failure and do not invent ten IDs.
+
+## Earlier extractor and documentation evidence
+
 One new yt-dlp probe was explicitly authorized and executed. No Data API probe or
 new Honey browser probe was authorized or executed. Official documentation reads
 used Playwright and are not API credential/quota experiments.

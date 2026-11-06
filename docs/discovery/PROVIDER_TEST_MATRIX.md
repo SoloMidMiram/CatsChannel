@@ -3,6 +3,12 @@
 Statuses apply to demonstrated capabilities in this investigation, including
 explicitly labeled historical evidence. Documentation alone does not establish PASS.
 
+Additional UUSH XML diagnostic: WSL access is INCONCLUSIVE (30-second deadline,
+one attempt, no observed HTTP response). Recent monitoring, historical enumeration
+and unattended operation remain unqualified; actual production-server access is
+BLOCKED pending separate authorization. No pagination or finite-window coverage
+was established. See [observed evidence](LIVE_PROBE_EVIDENCE.md#follow-up-bounded-wsl-uush-diagnostic).
+
 | Capability | Data API | yt-dlp Shorts | Browser inspection |
 |---|---|---|---|
 | Resolve channel identity | BLOCKED | FAIL | PARTIAL |
