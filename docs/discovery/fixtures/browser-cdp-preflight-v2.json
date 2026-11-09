@@ -1,0 +1,375 @@
+{
+  "status": "synthetic_observation",
+  "liveQualification": "BLOCKED",
+  "checks": {
+    "prohibitedRedirects": true,
+    "permittedRedirect": true,
+    "resourceDenials": true,
+    "admissionCap": true,
+    "attemptCutoff": true,
+    "strictAttemptCeiling": false,
+    "cancellation": true,
+    "childTargetCoverage": false,
+    "allContextsClosed": true,
+    "allDecisionsSucceeded": true
+  },
+  "reports": [
+    {
+      "name": "redirects",
+      "observed": [
+        "http://127.0.0.1:1/",
+        "http://127.0.0.1:1/deny",
+        "http://127.0.0.1:1/forbidden.mp4",
+        "http://127.0.0.1:1/cross",
+        "http://127.0.0.2:2/cross-forbidden.mp4",
+        "http://127.0.0.1:1/allow",
+        "http://127.0.0.1:1/metadata"
+      ],
+      "decisions": [
+        {
+          "url": "http://127.0.0.1:1/",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/deny",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/favicon.ico",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/forbidden.mp4",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/cross",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.2:2/cross-forbidden.mp4",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/allow",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/metadata",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        }
+      ],
+      "failures": [],
+      "admitted": 5,
+      "blocked": 3,
+      "fulfilledBodyBytes": 221,
+      "responseBytesObserved": 579,
+      "observedResponsesCounted": 5,
+      "observedResponsesUncounted": 0,
+      "cancelled": 0,
+      "childTargets": [],
+      "contextClosed": true,
+      "stoppedAtAttemptCap": false,
+      "attemptCap": 24,
+      "admissionCap": 12,
+      "cookiesEmpty": true,
+      "scriptResult": "metadata-ok",
+      "serviceWorkerCount": 0,
+      "pendingAtClose": 0,
+      "cdpAttempts": 8,
+      "uncontrolledObserved": [],
+      "cdpOnly": [
+        "http://127.0.0.1:1/favicon.ico"
+      ]
+    },
+    {
+      "name": "resources",
+      "observed": [
+        "http://127.0.0.1:1/",
+        "http://127.0.0.1:1/thumbnail.png",
+        "http://127.0.0.1:1/captions.vtt",
+        "http://127.0.0.1:1/media.mp4"
+      ],
+      "decisions": [
+        {
+          "url": "http://127.0.0.1:1/",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/thumbnail.png",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/captions.vtt",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/media.mp4",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/favicon.ico",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        }
+      ],
+      "failures": [],
+      "admitted": 1,
+      "blocked": 4,
+      "fulfilledBodyBytes": 155,
+      "responseBytesObserved": 195,
+      "observedResponsesCounted": 1,
+      "observedResponsesUncounted": 0,
+      "cancelled": 0,
+      "childTargets": [],
+      "contextClosed": true,
+      "stoppedAtAttemptCap": false,
+      "attemptCap": 24,
+      "admissionCap": 12,
+      "cookiesEmpty": true,
+      "scriptResult": [
+        {
+          "status": "rejected",
+          "reason": {
+            "name": "TypeError"
+          }
+        },
+        {
+          "status": "rejected",
+          "reason": {
+            "name": "TypeError"
+          }
+        },
+        {
+          "status": "rejected",
+          "reason": {
+            "name": "TypeError"
+          }
+        }
+      ],
+      "serviceWorkerCount": 0,
+      "pendingAtClose": 0,
+      "cdpAttempts": 5,
+      "uncontrolledObserved": [],
+      "cdpOnly": [
+        "http://127.0.0.1:1/favicon.ico"
+      ]
+    },
+    {
+      "name": "admission_cap",
+      "observed": [
+        "http://127.0.0.1:1/",
+        "http://127.0.0.1:1/allowed",
+        "http://127.0.0.1:1/overflow"
+      ],
+      "decisions": [
+        {
+          "url": "http://127.0.0.1:1/",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/allowed",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/favicon.ico",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": false
+        },
+        {
+          "url": "http://127.0.0.1:1/overflow",
+          "reason": "admission_cap",
+          "beforeAdmissionCap": false
+        }
+      ],
+      "failures": [],
+      "admitted": 2,
+      "blocked": 2,
+      "fulfilledBodyBytes": 151,
+      "responseBytesObserved": 189,
+      "observedResponsesCounted": 1,
+      "observedResponsesUncounted": 0,
+      "cancelled": 0,
+      "childTargets": [],
+      "contextClosed": true,
+      "stoppedAtAttemptCap": false,
+      "attemptCap": 24,
+      "admissionCap": 2,
+      "cookiesEmpty": true,
+      "serviceWorkerCount": 0,
+      "pendingAtClose": 0,
+      "cdpAttempts": 4,
+      "uncontrolledObserved": [],
+      "cdpOnly": [
+        "http://127.0.0.1:1/favicon.ico"
+      ]
+    },
+    {
+      "name": "attempt_cap",
+      "observed": [
+        "http://127.0.0.1:1/",
+        "http://127.0.0.1:1/denied1",
+        "http://127.0.0.1:1/denied2"
+      ],
+      "decisions": [
+        {
+          "url": "http://127.0.0.1:1/",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/denied1",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/favicon.ico",
+          "reason": "attempt_cap",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/denied2",
+          "reason": "attempt_cap",
+          "beforeAdmissionCap": true
+        }
+      ],
+      "failures": [],
+      "admitted": 1,
+      "blocked": 3,
+      "fulfilledBodyBytes": 204,
+      "responseBytesObserved": 244,
+      "observedResponsesCounted": 1,
+      "observedResponsesUncounted": 0,
+      "cancelled": 0,
+      "childTargets": [],
+      "contextClosed": true,
+      "stoppedAtAttemptCap": true,
+      "attemptCap": 3,
+      "admissionCap": 12,
+      "cookiesEmpty": true,
+      "pendingAtClose": 0,
+      "cdpAttempts": 4,
+      "uncontrolledObserved": [],
+      "cdpOnly": [
+        "http://127.0.0.1:1/favicon.ico"
+      ]
+    },
+    {
+      "name": "child_targets",
+      "observed": [
+        "http://127.0.0.1:1/",
+        "http://127.0.0.1:1/frame",
+        "http://127.0.0.2:2/cross-frame",
+        "http://127.0.0.1:1/popup"
+      ],
+      "decisions": [
+        {
+          "url": "http://127.0.0.1:1/",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/frame",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.2:2/cross-frame",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/favicon.ico",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        }
+      ],
+      "failures": [],
+      "admitted": 3,
+      "blocked": 1,
+      "fulfilledBodyBytes": 388,
+      "responseBytesObserved": 508,
+      "observedResponsesCounted": 3,
+      "observedResponsesUncounted": 0,
+      "cancelled": 0,
+      "childTargets": [
+        "frame",
+        "frame",
+        "popup"
+      ],
+      "contextClosed": true,
+      "stoppedAtAttemptCap": false,
+      "attemptCap": 24,
+      "admissionCap": 12,
+      "cookiesEmpty": true,
+      "serviceWorkerCount": 0,
+      "pendingAtClose": 0,
+      "cdpAttempts": 4,
+      "uncontrolledObserved": [
+        "http://127.0.0.1:1/popup"
+      ],
+      "cdpOnly": [
+        "http://127.0.0.1:1/favicon.ico"
+      ]
+    },
+    {
+      "name": "cancellation",
+      "observed": [
+        "http://127.0.0.1:1/",
+        "http://127.0.0.1:1/hold"
+      ],
+      "decisions": [
+        {
+          "url": "http://127.0.0.1:1/",
+          "reason": "fulfilled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/hold",
+          "reason": "cancelled",
+          "beforeAdmissionCap": true
+        },
+        {
+          "url": "http://127.0.0.1:1/favicon.ico",
+          "reason": "not_allowlisted",
+          "beforeAdmissionCap": true
+        }
+      ],
+      "failures": [],
+      "admitted": 1,
+      "blocked": 1,
+      "fulfilledBodyBytes": 148,
+      "responseBytesObserved": 188,
+      "observedResponsesCounted": 1,
+      "observedResponsesUncounted": 0,
+      "cancelled": 1,
+      "childTargets": [],
+      "contextClosed": true,
+      "stoppedAtAttemptCap": false,
+      "attemptCap": 24,
+      "admissionCap": 12,
+      "cookiesEmpty": true,
+      "serviceWorkerCount": 0,
+      "pendingAtClose": 0,
+      "cdpAttempts": 3,
+      "uncontrolledObserved": [],
+      "cdpOnly": [
+        "http://127.0.0.1:1/favicon.ico"
+      ]
+    }
+  ]
+}

@@ -28,3 +28,34 @@ No external transfer was authorized by the harness.
 
 Historical [PR #49](https://github.com/SoloMidMiram/CatsChannel/pull/49)
 evidence remains separate. Related [#19](https://github.com/SoloMidMiram/CatsChannel/issues/19).
+
+## Review follow-up
+
+The versioned harness now runs six independent cases. See the
+[v2 evidence](fixtures/browser-cdp-preflight-v2.json) for the fresh MCP run.
+The earlier fixture remains a historical record.
+
+- Prohibited same-origin and cross-origin redirect destinations and all three
+  resource denials reached CDP with spare admission budget. A permitted redirect
+  reached the synthetic metadata response.
+- The admission-cap case denied an otherwise allowed request. The separate
+  attempt-cap case stopped admitting at the cutoff, but observed four CDP attempts
+  against a ceiling of three during shutdown. A strict attempt ceiling failed.
+- The child case allowed two frames and an immediate popup. The parent session
+  recorded decisions for the same-origin and cross-origin frame requests. The
+  cross-origin frame's process isolation was not verified. The popup's initial
+  request was observed without a CDP decision. Target-wide coverage failed.
+- Cancellation explicitly aborted a paused request and recorded zero held
+  requests at closure. All six synthetic contexts closed.
+
+Playwright response sizes are partial accounting. The separate fulfilled-body
+counter covers synthetic payloads. Neither establishes a live wire-byte budget.
+The test suite validates recorded evidence. The executable regression still
+runs through the MCP command documented above. Live YouTube remains blocked.
+
+## Integration order
+
+Integrate PR #49's historical evidence first. When rebasing this PR, retain both
+facts and sources from the two branches, then run project-context validation
+and regenerate the overview from the combined records. The current draft
+remains independently based on main.
