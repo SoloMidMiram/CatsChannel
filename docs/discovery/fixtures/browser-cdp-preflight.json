@@ -1,0 +1,101 @@
+{
+  "status": "synthetic_observation",
+  "ceilingBlocked": true,
+  "childNetworkRejected": true,
+  "eventStreamsMatch": false,
+  "cookiesEmpty": true,
+  "serviceWorkerCount": 0,
+  "metadataLoaded": true,
+  "requiredBlocked": true,
+  "crossBlocked": true,
+  "accounted": true,
+  "popupRejected": true,
+  "childTargets": [
+    "frame"
+  ],
+  "heldBeforeClose": 1,
+  "admitted": 5,
+  "failures": [],
+  "observed": [
+    "http://127.0.0.1:1/",
+    "http://127.0.0.1:1/app.js",
+    "http://127.0.0.1:1/thumbnail.png",
+    "http://127.0.0.1:1/metadata",
+    "http://127.0.0.1:1/captions.vtt",
+    "http://127.0.0.1:1/redirect",
+    "http://127.0.0.1:1/cross",
+    "http://127.0.0.1:1/media.mp4",
+    "http://127.0.0.1:1/redirected.mp4",
+    "http://127.0.0.1:2/forbidden",
+    "http://127.0.0.1:1/overflow",
+    "http://127.0.0.1:1/hold"
+  ],
+  "enforced": [
+    {
+      "url": "http://127.0.0.1:1/",
+      "action": "fulfilled",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/app.js",
+      "action": "fulfilled",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/thumbnail.png",
+      "action": "blocked",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/metadata",
+      "action": "fulfilled",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/captions.vtt",
+      "action": "blocked",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/redirect",
+      "action": "fulfilled",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/cross",
+      "action": "fulfilled",
+      "after_ceiling": false
+    },
+    {
+      "url": "http://127.0.0.1:1/media.mp4",
+      "action": "blocked",
+      "after_ceiling": true
+    },
+    {
+      "url": "http://127.0.0.1:2/forbidden",
+      "action": "blocked",
+      "after_ceiling": true
+    },
+    {
+      "url": "http://127.0.0.1:1/redirected.mp4",
+      "action": "blocked",
+      "after_ceiling": true
+    },
+    {
+      "url": "http://127.0.0.1:1/favicon.ico",
+      "action": "blocked",
+      "after_ceiling": true
+    },
+    {
+      "url": "http://127.0.0.1:1/overflow",
+      "action": "blocked",
+      "after_ceiling": true
+    },
+    {
+      "url": "http://127.0.0.1:1/hold",
+      "action": "held_for_cancellation",
+      "after_ceiling": true
+    }
+  ],
+  "contextClosed": true
+}
