@@ -51,7 +51,7 @@ def test_blocked_preflight_preserves_unknowns_and_input_identity():
             assert row[field] is source is None
 
 
-def test_synthetic_redirect_proves_accounting_gap():
+def test_recorded_redirect_accounting_gap():
     result = fixture("result")
     preflight = result["preflight"]
     assert preflight["metadata_loaded"]
