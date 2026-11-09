@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "experiment": "triblettmarkou_metadata_pilot",
+  "observed_at": "2026-11-09T17:34:54.638753+00:00",
+  "baseline_commit": "148cc4ae906c79f3d42377e991ca7f5a630cfc2d",
+  "source": {
+    "page_url": "https://www.youtube.com/@TriblettMarkou/shorts",
+    "channel_id": null,
+    "channel_identity_status": "unverified"
+  },
+  "tab": {
+    "status": "not_run",
+    "scrolls": 0,
+    "observed_video_ids": [],
+    "supplied_id_matches": [],
+    "complete_listing": false
+  },
+  "videos": [
+    {
+      "requested_id": "jrKzQg_-p3c",
+      "requested_url": "https://www.youtube.com/shorts/jrKzQg_-p3c",
+      "canonical_url": "https://www.youtube.com/watch?v=jrKzQg_-p3c",
+      "returned_id": null,
+      "title": null,
+      "channel_id": null,
+      "channel_name": null,
+      "published_at": null,
+      "duration_seconds": null,
+      "field_sources": {
+        "returned_id": null,
+        "title": null,
+        "channel_id": null,
+        "channel_name": null,
+        "published_at": null,
+        "duration_seconds": null
+      },
+      "shorts_tab_observed": null,
+      "identity_status": "not_checked",
+      "channel_identity_status": "not_checked",
+      "metadata_status": "not_checked",
+      "failure_reason": "blocked_preflight"
+    },
+    {
+      "requested_id": "CYby8efzWOc",
+      "requested_url": "https://www.youtube.com/shorts/CYby8efzWOc",
+      "canonical_url": "https://www.youtube.com/watch?v=CYby8efzWOc",
+      "returned_id": null,
+      "title": null,
+      "channel_id": null,
+      "channel_name": null,
+      "published_at": null,
+      "duration_seconds": null,
+      "field_sources": {
+        "returned_id": null,
+        "title": null,
+        "channel_id": null,
+        "channel_name": null,
+        "published_at": null,
+        "duration_seconds": null
+      },
+      "shorts_tab_observed": null,
+      "identity_status": "not_checked",
+      "channel_identity_status": "not_checked",
+      "metadata_status": "not_checked",
+      "failure_reason": "blocked_preflight"
+    },
+    {
+      "requested_id": "YWXVezN5T-k",
+      "requested_url": "https://www.youtube.com/shorts/YWXVezN5T-k",
+      "canonical_url": "https://www.youtube.com/watch?v=YWXVezN5T-k",
+      "returned_id": null,
+      "title": null,
+      "channel_id": null,
+      "channel_name": null,
+      "published_at": null,
+      "duration_seconds": null,
+      "field_sources": {
+        "returned_id": null,
+        "title": null,
+        "channel_id": null,
+        "channel_name": null,
+        "published_at": null,
+        "duration_seconds": null
+      },
+      "shorts_tab_observed": null,
+      "identity_status": "not_checked",
+      "channel_identity_status": "not_checked",
+      "metadata_status": "not_checked",
+      "failure_reason": "blocked_preflight"
+    }
+  ],
+  "controls": {
+    "status": "blocked_preflight",
+    "max_top_level_navigations": 4,
+    "max_scrolls": 1,
+    "deadline_seconds": 90,
+    "max_attempted_requests": 150,
+    "observed_non_media_stop_bytes": 8388608,
+    "authorized_media_bytes": 0,
+    "request_accounting": "request_budget_unverified",
+    "youtube_navigations": 0,
+    "youtube_requests_attempted": 0,
+    "youtube_bytes_observed": 0
+  },
+  "preflight": {
+    "method": "playwright_mcp_synthetic",
+    "fresh_context": true,
+    "initial_cookie_count": 0,
+    "service_workers_blocked": true,
+    "active_service_workers": 0,
+    "accept_downloads": false,
+    "metadata_loaded": true,
+    "attempted": 8,
+    "intercepted": 7,
+    "blocked": 3,
+    "completed": 4,
+    "failed": 4,
+    "blocked_resource_kinds": [
+      "thumbnail",
+      "subtitles",
+      "media"
+    ],
+    "unintercepted_request_kind": "redirect_target",
+    "cdp_fetch_available": true,
+    "cdp_full_coverage_verified": false
+  },
+  "verdict": "BLOCKED",
+  "stop_reason": "redirect_target_bypassed_route_interception"
+}
