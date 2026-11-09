@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "channel_page_url": "https://www.youtube.com/@TriblettMarkou/shorts",
+  "videos": [
+    {
+      "requested_id": "jrKzQg_-p3c",
+      "requested_url": "https://www.youtube.com/shorts/jrKzQg_-p3c",
+      "canonical_url": "https://www.youtube.com/watch?v=jrKzQg_-p3c"
+    },
+    {
+      "requested_id": "CYby8efzWOc",
+      "requested_url": "https://www.youtube.com/shorts/CYby8efzWOc",
+      "canonical_url": "https://www.youtube.com/watch?v=CYby8efzWOc"
+    },
+    {
+      "requested_id": "YWXVezN5T-k",
+      "requested_url": "https://www.youtube.com/shorts/YWXVezN5T-k",
+      "canonical_url": "https://www.youtube.com/watch?v=YWXVezN5T-k"
+    }
+  ]
+}
