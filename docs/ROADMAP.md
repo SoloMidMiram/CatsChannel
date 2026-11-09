@@ -1,8 +1,8 @@
 # CatsChannel Roadmap
 
-## Verified status - 2026-11-02
+## Verified status - 2026-11-09
 
-Merged main: 54e88b0ec80ee0538c5b9cf673c2c96d73cd0dff. Foundations,
+Verified main baseline: `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`. Foundations,
 intake and reply domain #2-#6 are complete (#5 closed via PR #28).
 Durable publishing (#29), approve-only review (#36), reply-entry concurrency
 (#37) and hosted metadata reuse (#38) are implemented.
@@ -11,13 +11,23 @@ The November 1 receipt in [merged PR #39](https://github.com/SoloMidMiram/CatsCh
 records private review, actual admin approval, one exact-parent publication and
 its reply button. This is bounded private acceptance, not public readiness.
 #7 remains open for navigation interaction, submitter acknowledgement and recovery
-acceptance. #8 next: audited rejection, then enforced isolation, startup safeguards
-and complete moderation recovery. #9 retains sustained operational qualification.
+acceptance. #8 has audited rejection (#42) and fail-closed startup isolation (#43). Publication policy
+and recovery acceptance remain. #44 qualifies disposable restore tests. #9 owns host
+supervision and production migration, restore and rollback acceptance.
 PostgreSQL backend and CI already exist; public deployment remains unqualified.
 Redis is deferred until measured need. Discovery #17-#22 and optional tools #35
 remain independent. Phase lists below describe scope, not entirely absent work.
 
 See [reconciliation](evidence/post-pilot-reconciliation-2026-11-02.md).
+
+## Discovery delivery order
+
+Watchlist #45 and research #46 are merged. Draft #47 records verdict E.
+Start with known-video lookup (#19) and channel resolution (#18). Build uploads
+enumeration (#19) and the ledger (#20) against the shared contract, then integrate
+a one-shot scanner. Qualify Shorts-tab evidence independently. Scheduling (#21)
+and the permission-gated review bridge (#22) have separate acceptance gates.
+See the [acceptance matrix](discovery/DISCOVERY_ACCEPTANCE_MATRIX.md).
 
 ## Mission
 

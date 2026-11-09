@@ -1,5 +1,9 @@
 # Implementation plan
 
+The [current acceptance matrix](DISCOVERY_ACCEPTANCE_MATRIX.md) defines work
+package order and qualification gates. The research contracts below remain the
+provider and persistence design baseline.
+
 Research baseline `0d498a469f530eccd7b8b289a92334516f97d3a4` includes merged
 watchlist PR #45. The [provider comparison](PROVIDER_COMPARISON.md) recommends the
 Data API as the first identity/metadata adapter, subject to separately authorized
