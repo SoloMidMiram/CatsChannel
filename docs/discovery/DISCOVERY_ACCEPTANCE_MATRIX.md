@@ -7,7 +7,7 @@ Baseline main `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`, verified November 9, 2
 
 | Milestone | Offline gate | Live gate | Current status |
 | --- | --- | --- | --- |
-| M1a known-video lookup | URL variants converge, returned ID matches, missing/error preserves source, zero acquisition | L1 returns metadata for Honey ID `jFITGy24prE` | Planned. Live access blocked pending authorization and connectivity |
+| M1a known-video lookup | URL variants converge, returned ID matches, missing/error preserves source, zero acquisition | L1 returns metadata for Honey ID `jFITGy24prE` | Known-video lookup passes synthetic identity and missing/error fixtures. Live access gated |
 | M1b channel enumeration | Resolver rename/mismatch/quota tests and two-page listing with nullable metadata, duplicates and bad cursors | L2 resolves the approved Honey handle and stable ID, L3 returns real IDs and observed continuation | Watchlist merged. Resolver and listing adapters pass synthetic tests |
 | M2 Shorts-tab evidence | Keep uploads, candidate inference and direct observation distinct | L4 observes returned IDs on the verified channel tab and records provenance | Historical partial evidence. Offline UUSH harness prepared; live sample unqualified |
 | M3 repeatable monitoring | Two channels and two pages, replay, new item, failed-page recovery, fenced ownership and zero duplicates | L5 repeats a real scan and verifies ledger/checkpoint behavior. Record actual new uploads only if observed | Synthetic one-shot and durable recovery pass on the review stack |

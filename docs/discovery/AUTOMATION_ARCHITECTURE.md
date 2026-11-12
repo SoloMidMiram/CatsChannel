@@ -194,3 +194,9 @@ Uploads use the playlist returned by channel resolution. Experimental UUSH must
 be selected explicitly and reports shorts_playlist evidence separately from
 shorts_tab. Neither route is registered in runtime configuration. An empty page
 is an observed response and does not qualify UUSH against known Shorts.
+
+An explicit known-video lookup uses a single bounded videos.list request with
+the normalized video ID. It validates any expected channel ID and preserves the
+requested video ID on missing or failed responses without assigning a source.
+It returns nullable metadata and has no classification, ingestion or acquisition
+side effects. The fixture scanner never invokes this adapter automatically.

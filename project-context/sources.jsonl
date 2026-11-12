@@ -158,3 +158,4 @@
 {"id": "source-158", "kind": "document", "title": "Staged discovery acceptance and roadmap reconciliation", "locator": "docs/discovery/DISCOVERY_ACCEPTANCE_MATRIX.md", "captured_at": "2026-11-09", "freshness": "current", "last_verified_at": "2026-11-09"}
 {"id":"source-159","kind":"document","title":"YouTube API policy and retention decision","locator":"docs/discovery/YOUTUBE_API_POLICY_AND_RETENTION.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
 {"id":"source-183","kind":"document","title":"Weekly offline discovery acceptance","locator":"docs/discovery/WEEKLY_ACCEPTANCE_2026-11-18.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
+{"id":"source-185","kind":"document","title":"Known-video metadata lookup contract","locator":"docs/discovery/DISCOVERY_ACCEPTANCE_MATRIX.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
