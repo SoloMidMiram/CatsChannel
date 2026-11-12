@@ -27,6 +27,7 @@ from .models import (
 
 _MAX_HISTORY = 20
 _MAX_CURSORS = 100
+_RUN_RETENTION = timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ class ScanLease:
     version: int
     cursor: str | None
     state: str
+    started_at: datetime
 
 
 def _utc(value: datetime) -> datetime:
@@ -53,7 +55,13 @@ class SqlAlchemyDiscoveryLedger:
         return result.mappings().one_or_none()
 
     async def claim(
-        self, watchlist_id: str, *, provider: str, fingerprint: str, cycle: str
+        self,
+        watchlist_id: str,
+        *,
+        provider: str,
+        fingerprint: str,
+        cycle: str,
+        expected_watchlist_version: int | None = None,
     ) -> ScanLease:
         if not (
             re.fullmatch(r"[a-z][a-z0-9_]{0,31}", provider)
@@ -73,6 +81,8 @@ class SqlAlchemyDiscoveryLedger:
             or channel.evidence != "synthetic"
         ):
             raise WatchlistError("channel_not_scannable")
+        if expected_watchlist_version is not None and channel.version != expected_watchlist_version:
+            raise WatchlistError("scan_scope_changed")
         scope = self._scope(watchlist_id, provider)
         checkpoint = await self._row(checkpoints, *scope)
         run = await self._row(
@@ -101,13 +111,14 @@ class SqlAlchemyDiscoveryLedger:
                 or checkpoint.run_id != run.id
             ):
                 raise WatchlistError("scan_scope_changed")
+            started_at = _utc(run.expires_at) - _RUN_RETENTION
             if run.state == "completed":
-                return ScanLease(run.id, run.owner, run.version, None, run.state)
+                return ScanLease(run.id, run.owner, run.version, None, run.state, started_at)
             version = run.version + 1
             await self.session.execute(
                 update(runs).where(runs.c.id == run.id).values(owner=owner, version=version)
             )
-            return ScanLease(run.id, owner, version, checkpoint.cursor, run.state)
+            return ScanLease(run.id, owner, version, checkpoint.cursor, run.state, started_at)
 
         run_id = str(uuid4())
         await self.session.execute(
@@ -124,7 +135,7 @@ class SqlAlchemyDiscoveryLedger:
                 items=0,
                 attempts=0,
                 requests=0,
-                expires_at=now + timedelta(days=7),
+                expires_at=now + _RUN_RETENTION,
             )
         )
         state = {"run_id": run_id, "cursor": None, "seen_cursors": []}
@@ -134,7 +145,7 @@ class SqlAlchemyDiscoveryLedger:
             )
         else:
             await self.session.execute(update(checkpoints).where(*scope).values(**state))
-        return ScanLease(run_id, owner, 0, None, "pending")
+        return ScanLease(run_id, owner, 0, None, "pending", now)
 
     async def record_page(
         self,
@@ -233,7 +244,7 @@ class SqlAlchemyDiscoveryLedger:
         await self.session.execute(
             update(checkpoints).where(*scope).values(cursor=cursor, seen_cursors=seen, **progress)
         )
-        return ScanLease(run.id, lease.owner, version, cursor, state)
+        return ScanLease(run.id, lease.owner, version, cursor, state, lease.started_at)
 
     async def restart(self, lease: ScanLease) -> ScanLease:
         """Discard the cursor chain after expiry, preserving observations and coverage."""
@@ -262,7 +273,7 @@ class SqlAlchemyDiscoveryLedger:
         await self.session.execute(
             update(checkpoints).where(*scope).values(cursor=None, seen_cursors=[])
         )
-        return ScanLease(run.id, run.owner, version, None, run.state)
+        return ScanLease(run.id, run.owner, version, None, run.state, lease.started_at)
 
     async def coverage(
         self, watchlist_id: str, provider: str

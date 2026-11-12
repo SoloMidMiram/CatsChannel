@@ -15,6 +15,7 @@ class Status(StrEnum):
     AMBIGUOUS = "ambiguous"
     RATE_LIMITED = "rate_limited"
     TEMPORARY_FAILURE = "temporary_failure"
+    CURSOR_EXPIRED = "cursor_expired"
     INVALID_INPUT = "invalid_input"
 
 
@@ -246,6 +247,7 @@ class PageResult:
             Status.RATE_LIMITED,
             Status.TEMPORARY_FAILURE,
             Status.INVALID_INPUT,
+            Status.CURSOR_EXPIRED,
         }:
             raise ValueError("invalid_page_failure")
         if self.retry_after_seconds is not None and (

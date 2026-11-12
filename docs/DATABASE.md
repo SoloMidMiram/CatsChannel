@@ -147,3 +147,28 @@ retains already committed candidates and completed coverage. Real API ingestion
 requires the policy decision in #51, including retention of derived data and
 restored backups. Run-wide budgeting and operational invocation belong to the
 one-shot scanner.
+
+### Running the one-shot fixture
+
+Install the persistence extra, then run `cats-channel discover --once`. The default
+uses an in-memory SQLite database, a synthetic resolver and a synthetic listing
+provider. It ignores deployment database and credential settings.
+
+To exercise durable recovery, use a dedicated SQLite path and reuse the cycle ID.
+
+```text
+cats-channel discover --once --fixture-db discovery-fixture.sqlite3 --cycle recovery --simulate-failure
+cats-channel discover --once --fixture-db discovery-fixture.sqlite3 --cycle recovery
+```
+
+The first command exits 1 with a partial channel. The second resumes its safe
+page and skips the completed channel. It accepts only new or marked fixture
+databases. A new cycle starts a new scan. Provider configuration or watchlist
+version changes invalidate resume for the same cycle.
+
+The one-shot coordinator accounts separately for raw items, page attempts and
+request attempts, including a failed attempt. It allows one cursor restart
+per invocation within the same budgets. The ledger keeps the original scan start
+as the conservative coverage bound and uses that bound only after a terminal
+page. No live provider, schedule, download, moderation or Telegram action is
+registered by this CLI.

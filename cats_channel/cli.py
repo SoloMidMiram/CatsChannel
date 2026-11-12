@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import sys
 
 from pydantic import ValidationError
 
@@ -46,6 +47,10 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    if sys.argv[1:2] == ["discover"]:
+        from .discovery.cli import main as discover
+
+        return discover(sys.argv[2:])
     args = _parser().parse_args()
     operation = next(
         (
