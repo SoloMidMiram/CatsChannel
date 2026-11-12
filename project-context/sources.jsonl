@@ -152,3 +152,4 @@
 {"id": "source-152", "kind": "document", "title": "D1 approved channel watchlist contract", "locator": "docs/DISCOVERY_WATCHLIST.md", "captured_at": "2026-11-05", "freshness": "current", "last_verified_at": "2026-11-05"}
 {"id": "source-153", "kind": "document", "title": "YouTube metadata discovery research and automation design", "locator": "docs/discovery/IMPLEMENTATION_PLAN.md", "captured_at": "2026-11-05", "freshness": "current", "last_verified_at": "2026-11-05"}
 {"id":"source-180","kind":"document","title":"Offline YouTube playlist provider contract","locator":"docs/discovery/AUTOMATION_ARCHITECTURE.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
+{"id":"source-184","kind":"document","title":"Bounded UUSH qualification package","locator":"docs/discovery/UUSH_QUALIFICATION.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
