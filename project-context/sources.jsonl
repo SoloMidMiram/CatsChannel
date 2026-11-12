@@ -154,3 +154,4 @@
 {"id":"source-181","kind":"document","title":"Discovery ledger persistence contract","locator":"docs/DATABASE.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
 {"id":"source-182","kind":"document","title":"One-shot synthetic discovery recovery","locator":"docs/DATABASE.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
 {"id":"source-180","kind":"document","title":"Offline YouTube playlist provider contract","locator":"docs/discovery/AUTOMATION_ARCHITECTURE.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
+{"id":"source-184","kind":"document","title":"Bounded UUSH qualification package","locator":"docs/discovery/UUSH_QUALIFICATION.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
