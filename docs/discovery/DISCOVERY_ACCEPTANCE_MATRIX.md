@@ -43,3 +43,5 @@ leaves classification unknown. Preserve `shorts_tab`, `short_candidate` and
 - In parallel, #7/#8 own the publication-policy fence and review recovery. #9 owns exclusive poller supervision and production migration, restore and rollback. Merged audited rejection, startup isolation and disposable restore tests (#42–#44) are implementation or offline evidence. The bounded private receipt is separate from public release acceptance.
 
 Production API-backed discovery requires [#51's policy and retention decision](YOUTUBE_API_POLICY_AND_RETENTION.md) and separately authorized live qualification. Offline resolver, provider and generic ledger work can proceed with synthetic fixtures. Issue #52 tracks a deferred link-only review workflow.
+
+See the [design decisions](DESIGN_DECISIONS.md) and [weekly acceptance evidence](WEEKLY_ACCEPTANCE_2026-11-18.md).
