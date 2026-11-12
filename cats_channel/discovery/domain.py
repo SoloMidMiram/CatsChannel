@@ -16,6 +16,7 @@ class Status(StrEnum):
     RATE_LIMITED = "rate_limited"
     TEMPORARY_FAILURE = "temporary_failure"
     CONFIGURATION_ERROR = "configuration_error"
+    CURSOR_EXPIRED = "cursor_expired"
     INVALID_INPUT = "invalid_input"
 
 
@@ -202,6 +203,7 @@ class Candidate:
         if self.provider != "youtube" or self.classification not in {
             "unknown",
             "shorts_tab",
+            "shorts_playlist",
             "short_candidate",
             "not_short",
         }:
@@ -241,7 +243,13 @@ class PageResult:
     failure: Status | None = None
     retry_after_seconds: int | None = None
 
+    items_examined: int | None = None
+
     def __post_init__(self):
+        if self.items_examined is not None and (
+            type(self.items_examined) is not int or self.items_examined < len(self.candidates)
+        ):
+            raise ValueError("invalid_item_count")
         if self.state not in {"complete", "partial", "failed"}:
             raise ValueError("invalid_page_state")
         if self.next_cursor is not None and len(self.next_cursor) > 2048:
@@ -254,6 +262,8 @@ class PageResult:
             Status.RATE_LIMITED,
             Status.TEMPORARY_FAILURE,
             Status.INVALID_INPUT,
+            Status.CONFIGURATION_ERROR,
+            Status.CURSOR_EXPIRED,
         }:
             raise ValueError("invalid_page_failure")
         if self.retry_after_seconds is not None and (
