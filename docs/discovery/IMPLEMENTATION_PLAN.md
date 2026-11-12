@@ -66,3 +66,5 @@ channels, two pages each, failed-page recovery, independent channel progress and
 zero duplicates. Four-hour scheduler delivery follows this acceptance. The ordinary
 pytest suite runs the historical fixture replay; this gate proves DTO compatibility
 only. Live extraction and the recommended Data API adapter remain unqualified.
+
+The [policy and retention decision](YOUTUBE_API_POLICY_AND_RETENTION.md) gates live API-backed discovery under #51. Keep the #18 resolver, #19 provider and #20 ledger independently reviewable. Scheduling (#21), media acquisition (#22) and link-only review (#52) retain independent acceptance criteria.

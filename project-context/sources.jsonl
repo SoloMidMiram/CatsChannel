@@ -152,3 +152,4 @@
 {"id": "source-152", "kind": "document", "title": "D1 approved channel watchlist contract", "locator": "docs/DISCOVERY_WATCHLIST.md", "captured_at": "2026-11-05", "freshness": "current", "last_verified_at": "2026-11-05"}
 {"id": "source-153", "kind": "document", "title": "YouTube metadata discovery research and automation design", "locator": "docs/discovery/IMPLEMENTATION_PLAN.md", "captured_at": "2026-11-05", "freshness": "current", "last_verified_at": "2026-11-05"}
 {"id": "source-158", "kind": "document", "title": "Staged discovery acceptance and roadmap reconciliation", "locator": "docs/discovery/DISCOVERY_ACCEPTANCE_MATRIX.md", "captured_at": "2026-11-09", "freshness": "current", "last_verified_at": "2026-11-09"}
+{"id":"source-159","kind":"document","title":"YouTube API policy and retention decision","locator":"docs/discovery/YOUTUBE_API_POLICY_AND_RETENTION.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
