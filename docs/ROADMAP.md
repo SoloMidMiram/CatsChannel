@@ -23,10 +23,10 @@ See [reconciliation](evidence/post-pilot-reconciliation-2026-11-02.md).
 ## Discovery delivery order
 
 Watchlist #45 and research #46 are merged. Draft #47 records verdict E.
-Start with known-video lookup (#19) and channel resolution (#18). Build uploads
-enumeration (#19) and the ledger (#20) against the shared contract, then integrate
-a one-shot scanner. Qualify Shorts-tab evidence independently. Scheduling (#21)
-and the permission-gated review bridge (#22) have separate acceptance gates.
+The review stack contains the offline resolver (#18), listing adapters and UUSH
+qualification harness (#19), durable ledger (#20), and one-shot fixture scanner.
+Qualify the deployment route and Shorts-tab evidence after #51 clearance.
+Scheduling (#21) and the permission-gated review bridge (#22) have separate acceptance gates.
 See the [acceptance matrix](discovery/DISCOVERY_ACCEPTANCE_MATRIX.md).
 
 ## Mission

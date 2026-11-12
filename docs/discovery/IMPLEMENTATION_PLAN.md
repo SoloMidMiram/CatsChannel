@@ -35,8 +35,9 @@ Current sources are [discovery](../../cats_channel/discovery/),
 [SQLAlchemy registry](../../cats_channel/persistence/discovery_repositories.py),
 [model owner](../../cats_channel/persistence/models.py),
 [UoW](../../cats_channel/persistence/database.py),
-[migration](../../alembic/versions/0008_discovery_watchlist.py) and
-[tests](../../tests/test_discovery.py). Existing MediaService is single-video
+[watchlist migration](../../alembic/versions/0008_discovery_watchlist.py),
+[ledger migration](../../alembic/versions/0009_discovery_ledger.py) and
+[one-shot recovery tests](../../tests/test_discovery_scanner.py). Existing MediaService is single-video
 acquisition and must not enumerate channels. Bot intake, review, publication and
 their recovery owners remain independent of metadata discovery.
 
