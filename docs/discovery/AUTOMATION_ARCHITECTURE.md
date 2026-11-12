@@ -176,3 +176,9 @@ channel A's second page, complete B independently, then restart A and replay its
 failed page. Assert one candidate per provider/video, prior-page durability,
 unchanged A completion watermark until recovery, stale-owner CAS rejection and
 zero media/Telegram calls. Exercise item, page and request budgets independently.
+
+The opt-in YouTube channel resolver implements the existing watchlist port. It accepts an
+application-owned aiohttp session and a runtime key, makes one bounded channels.list request,
+and returns the stable channel identity and optional uploads playlist in its resolution.
+The registry retains its existing schema and version checks. The uploads reference is transient.
+Production wiring and use require #51 clearance and separately authorized live qualification.
