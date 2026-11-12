@@ -176,3 +176,21 @@ channel A's second page, complete B independently, then restart A and replay its
 failed page. Assert one candidate per provider/video, prior-page durability,
 unchanged A completion watermark until recovery, stale-owner CAS rejection and
 zero media/Telegram calls. Exercise item, page and request budgets independently.
+
+The opt-in YouTube channel resolver implements the existing watchlist port. It accepts an
+application-owned aiohttp session and a runtime key, makes one bounded channels.list request,
+and returns the stable channel identity and optional uploads playlist in its resolution.
+The registry retains its existing schema and version checks. The uploads reference is transient.
+Production wiring and use require #51 clearance and separately authorized live qualification.
+
+The offline playlist adapter shares the resolver's fixed-endpoint transport. Each page
+attempt permits at most one HTTP send, including aiohttp reconnect behavior. The
+caller supplies the remaining item allowance capped at 50 and counts the raw
+items_examined field before deduplication. Invalid or unverified items make a page
+partial, so it cannot advance the checkpoint. The scan coordinator owns run-wide
+request and page budgets, cursor binding, multi-page loop detection, and restart.
+
+Uploads use the playlist returned by channel resolution. Experimental UUSH must
+be selected explicitly and reports shorts_playlist evidence separately from
+shorts_tab. Neither route is registered in runtime configuration. An empty page
+is an observed response and does not qualify UUSH against known Shorts.
