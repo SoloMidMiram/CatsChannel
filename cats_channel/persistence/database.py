@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 
 from ..async_cleanup import complete_cleanup
 from ..config import Settings
+from .discovery_ledger import SqlAlchemyDiscoveryLedger
 from .discovery_repositories import SqlAlchemyWatchlistRepository
 from .models import Base
 from .publication_repositories import SqlAlchemyPublicationRepository
@@ -44,7 +45,14 @@ class SqlAlchemyUnitOfWork:
         self._reply_tokens: SqlAlchemyReplyTokenRepository | None = None
         self._publications: SqlAlchemyPublicationRepository | None = None
         self._reviews: SqlAlchemyReviewRepository | None = None
+        self._discovery: SqlAlchemyDiscoveryLedger | None = None
         self._watchlist: SqlAlchemyWatchlistRepository | None = None
+
+    @property
+    def discovery(self) -> SqlAlchemyDiscoveryLedger:
+        if self._discovery is None:
+            raise RuntimeError("Unit of work is not active")
+        return self._discovery
 
     @property
     def watchlist(self) -> SqlAlchemyWatchlistRepository:
@@ -111,6 +119,7 @@ class SqlAlchemyUnitOfWork:
         self._reply_tokens = None
         self._publications = None
         self._reviews = None
+        self._discovery = None
         self._watchlist = None
 
     async def __aenter__(self) -> Self:
@@ -129,6 +138,7 @@ class SqlAlchemyUnitOfWork:
             self._reply_tokens = SqlAlchemyReplyTokenRepository(session)
             self._publications = SqlAlchemyPublicationRepository(session)
             self._reviews = SqlAlchemyReviewRepository(session)
+            self._discovery = SqlAlchemyDiscoveryLedger(session)
             self._watchlist = SqlAlchemyWatchlistRepository(session)
         except BaseException:
             try:

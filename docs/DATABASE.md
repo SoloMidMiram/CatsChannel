@@ -131,3 +131,19 @@ registry, pending requests, serialization row and bounded history. Scanner input
 filters resolved/enabled/unretired channels; listing, ledger, scheduling and
 acquisition remain future work. This addition supersedes only the map's earlier
 claim that the watchlist is absent; historical observations remain intact.
+
+## Discovery ledger
+
+Migration 0009 adds candidate identity, bounded observations, scan runs and
+checkpoints keyed to the existing watchlist. The discovery unit-of-work repository
+serializes mutations with watchlist edits and fences page commits by run owner,
+version and input cursor. Completed coverage and the last successful full scan
+remain independent of safe page progress and backlog.
+
+The offline ledger accepts synthetic watchlist evidence and observations. It
+requires explicit observation expiry, suppresses expired candidates on reads and
+can purge expired candidates, observations and cursor state. A cursor restart
+retains already committed candidates and completed coverage. Real API ingestion
+requires the policy decision in #51, including retention of derived data and
+restored backups. Run-wide budgeting and operational invocation belong to the
+one-shot scanner.
