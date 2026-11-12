@@ -72,6 +72,7 @@ async def test_resolution_returns_stable_identity_and_uploads(reference, paramet
         pytest.param(200, "x" * 65536, Status.TEMPORARY_FAILURE, id="oversize"),
         (403, {"error": {"errors": [{"reason": "quotaExceeded"}]}}, Status.RATE_LIMITED),
         (403, {"error": {"message": "synthetic-key"}}, Status.CONFIGURATION_ERROR),
+        (400, {"error": {"errors": [{"reason": "keyInvalid"}]}}, Status.CONFIGURATION_ERROR),
         (429, {}, Status.RATE_LIMITED),
         (503, {}, Status.TEMPORARY_FAILURE),
         (302, {}, Status.TEMPORARY_FAILURE),

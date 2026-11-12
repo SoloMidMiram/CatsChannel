@@ -39,6 +39,7 @@ class YouTubeChannelResolver:
                     params=params,
                     headers={"X-Goog-Api-Key": self._api_key},
                     allow_redirects=False,
+                    raise_for_status=False,
                 ) as response,
             ):
                 if response.status == 429:
@@ -46,7 +47,7 @@ class YouTubeChannelResolver:
                 if response.status == 404:
                     return Resolution(Status.UNAVAILABLE, evidence="provider_unavailable")
                 status = response.status
-                if status not in {200, 401, 403}:
+                if status not in {200, 400, 401, 403}:
                     return Resolution(Status.TEMPORARY_FAILURE)
                 data = bytearray()
                 async for chunk in response.content.iter_chunked(8192):
