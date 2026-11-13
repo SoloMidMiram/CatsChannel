@@ -73,6 +73,8 @@ class SqlAlchemyDiscoveryLedger:
             or channel.evidence != "synthetic"
         ):
             raise WatchlistError("channel_not_scannable")
+        if provider != channel.provider:
+            raise WatchlistError("scan_provider_mismatch")
         scope = self._scope(watchlist_id, provider)
         checkpoint = await self._row(checkpoints, *scope)
         run = await self._row(
@@ -213,6 +215,8 @@ class SqlAlchemyDiscoveryLedger:
         for candidate in page.candidates:
             if candidate.discovery_method != "synthetic":
                 raise WatchlistError("discovery_data_category_unapproved")
+            if candidate.provider != run.provider:
+                raise WatchlistError("candidate_provider_mismatch")
             if candidate.channel_id != channel.channel_id:
                 raise WatchlistError("candidate_source_mismatch")
             await self._observe(run, candidate, expires_at, now)

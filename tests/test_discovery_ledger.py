@@ -235,3 +235,15 @@ async def test_observation_evidence_and_metadata_round_trip(chain_database):
     for key, value in {"duration_seconds": 12.5, "width": 720, "height": 1280}.items():
         assert history[0][key] == row["current"][key] == value
         assert history[1][key] is None
+
+
+async def test_claim_rejects_provider_outside_watchlist_scope(chain_database):
+    db = chain_database
+    entry = (await service(db, SyntheticResolver()).register(IDS[0], operator=OPERATOR)).entry
+    async with db.unit_of_work() as uow:
+        with pytest.raises(WatchlistError, match="scan_provider_mismatch"):
+            await uow.discovery.claim(
+                entry.id, provider="other", fingerprint="a" * 64, cycle="fixture"
+            )
+    lease = await claim(db, entry.id)
+    assert lease.state == "pending"
