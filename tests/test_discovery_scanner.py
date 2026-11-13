@@ -167,3 +167,35 @@ async def test_provider_cancellation_propagates(chain_database):
     provider = Pages(PageResult((), "complete"))
     [report] = await scanner(db, provider).scan(cycle="cancel")
     assert report.state == "completed" and provider.cursors == [None]
+
+
+@pytest.mark.parametrize("error_type", [OSError, ValueError])
+async def test_provider_exception_is_isolated_and_retains_progress(chain_database, error_type):
+    db = chain_database
+    watchlist, first = await setup(db)
+    second = (await watchlist.register(IDS[1], operator=OPERATOR)).entry
+    first, second = sorted((first, second), key=lambda entry: entry.id)
+
+    class Provider:
+        async def page(self, entry, cursor, *, limit):
+            if entry.id == first.id:
+                if cursor is None:
+                    return FetchedPage(PageResult((), "complete", next_cursor="next"), 0)
+                raise error_type("private provider details")
+            return FetchedPage(PageResult((), "complete"), 0)
+
+    failed, completed = await scanner(db, Provider()).scan(cycle="provider-failure")
+    assert (failed.watchlist_id, failed.state, failed.reason) == (
+        first.id,
+        "partial",
+        "temporary_failure",
+    )
+    assert failed.page_attempts == failed.request_attempts == 2
+    assert (completed.watchlist_id, completed.state) == (second.id, "completed")
+    async with db.unit_of_work() as uow:
+        assert await uow.discovery.coverage(first.id, "youtube") == (None, None)
+        assert (await uow.discovery.coverage(second.id, "youtube"))[0] is not None
+    retry = Pages(PageResult((), "complete"))
+    reports = await scanner(db, retry).scan(cycle="provider-failure")
+    assert [report.state for report in reports] == ["completed", "completed"]
+    assert retry.cursors == ["next"]

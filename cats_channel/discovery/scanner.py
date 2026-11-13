@@ -105,7 +105,7 @@ class OneShotScanner:
                 try:
                     async with asyncio.timeout(configuration.timeout_seconds):
                         fetched = await self._provider.page(entry, lease.cursor, limit=limit)
-                except TimeoutError:
+                except Exception:  # noqa: BLE001 -- isolate provider failures; cancellation propagates
                     fetched = FetchedPage(_failure(Status.TEMPORARY_FAILURE), 0)
                 items += fetched.items_examined
                 page = fetched.result
