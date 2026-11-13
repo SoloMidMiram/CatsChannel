@@ -41,7 +41,7 @@ class ScanLease:
 
 
 def _utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 class SqlAlchemyDiscoveryLedger:
@@ -83,6 +83,8 @@ class SqlAlchemyDiscoveryLedger:
             raise WatchlistError("channel_not_scannable")
         if expected_watchlist_version is not None and channel.version != expected_watchlist_version:
             raise WatchlistError("scan_scope_changed")
+        if provider != channel.provider:
+            raise WatchlistError("scan_provider_mismatch")
         scope = self._scope(watchlist_id, provider)
         checkpoint = await self._row(checkpoints, *scope)
         run = await self._row(
@@ -173,6 +175,9 @@ class SqlAlchemyDiscoveryLedger:
             )
         ):
             raise WatchlistError("invalid_page_accounting")
+        expires_at = expires_at.astimezone(UTC)
+        if coverage_through is not None:
+            coverage_through = coverage_through.astimezone(UTC)
         run = await self._row(runs, runs.c.id == lease.run_id)
         if (
             run is None
@@ -221,6 +226,8 @@ class SqlAlchemyDiscoveryLedger:
         for candidate in page.candidates:
             if candidate.discovery_method != "synthetic":
                 raise WatchlistError("discovery_data_category_unapproved")
+            if candidate.provider != run.provider:
+                raise WatchlistError("candidate_provider_mismatch")
             if candidate.channel_id != channel.channel_id:
                 raise WatchlistError("candidate_source_mismatch")
             await self._observe(run, candidate, expires_at, now)
@@ -290,6 +297,7 @@ class SqlAlchemyDiscoveryLedger:
         if now.tzinfo is None:
             raise WatchlistError("invalid_expiry_clock")
         await SqlAlchemyWatchlistRepository(self.session).lock()
+        now = now.astimezone(UTC)
         expired_runs = select(runs.c.id).where(runs.c.expires_at <= now)
         await self.session.execute(
             update(checkpoints)
@@ -305,7 +313,10 @@ class SqlAlchemyDiscoveryLedger:
             raise WatchlistError("invalid_candidate_query")
         result = await self.session.execute(
             select(candidates)
-            .where(candidates.c.watchlist_id == watchlist_id, candidates.c.expires_at > now)
+            .where(
+                candidates.c.watchlist_id == watchlist_id,
+                candidates.c.expires_at > now.astimezone(UTC),
+            )
             .order_by(candidates.c.last_seen.desc(), candidates.c.provider, candidates.c.video_id)
             .limit(limit)
         )
@@ -332,10 +343,17 @@ class SqlAlchemyDiscoveryLedger:
             "method": candidate.discovery_method,
             "classification": candidate.classification,
             "title": candidate.title,
-            "published_at": candidate.published_at.isoformat() if candidate.published_at else None,
+            "duration_seconds": candidate.duration_seconds,
+            "width": candidate.width,
+            "height": candidate.height,
+            "evidence": list(candidate.evidence),
+            "checkpoint_provenance": candidate.checkpoint_provenance,
+            "published_at": candidate.published_at.astimezone(UTC).isoformat()
+            if candidate.published_at
+            else None,
         }
         identity = {"provider": candidate.provider, "video_id": candidate.video_id}
-        seen = candidate.observed_at
+        seen = candidate.observed_at.astimezone(UTC)
         if current is None:
             await self.session.execute(
                 insert(candidates).values(
@@ -348,10 +366,14 @@ class SqlAlchemyDiscoveryLedger:
                 )
             )
         elif seen > _utc(current.last_seen):
+            projection = data.copy()
+            for field in ("title", "published_at", "duration_seconds", "width", "height"):
+                if projection[field] is None:
+                    projection[field] = current.current.get(field)
             await self.session.execute(
                 update(candidates)
                 .where(*key)
-                .values(last_seen=seen, expires_at=expires_at, current=data)
+                .values(last_seen=seen, expires_at=expires_at, current=projection)
             )
         elif seen < _utc(current.first_seen):
             await self.session.execute(update(candidates).where(*key).values(first_seen=seen))
