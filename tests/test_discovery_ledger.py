@@ -130,3 +130,57 @@ async def test_concurrent_reclaim_and_independent_full_coverage(chain_database):
         coverage, last_success = await uow.discovery.coverage(channel.id, "youtube")
     assert coverage == cutoff and last_success >= cutoff
     assert len(await list_candidates(db, channel.id)) == 1
+
+
+@pytest.mark.parametrize("offset", [0, 2])
+async def test_current_metadata_survives_nulls_and_offsets(chain_database, offset):
+    from dataclasses import replace
+    from datetime import timezone
+
+    from sqlalchemy import select
+
+    from cats_channel.persistence.models import discovery_observations
+
+    db = chain_database
+    entry = (await service(db, SyntheticResolver()).register(IDS[0], operator=OPERATOR)).entry
+    instant = datetime.now(UTC) - timedelta(minutes=3)
+    zone = timezone(timedelta(hours=offset))
+    first = replace(candidate(IDS[0]), observed_at=instant.astimezone(zone), published_at=instant)
+    newer = replace(
+        first, observed_at=instant + timedelta(minutes=1), title=None, published_at=None
+    )
+    lease = await claim(db, entry.id)
+    lease = await write(db, lease, PageResult((first,), "complete", next_cursor="next"))
+    expiry = datetime.now(UTC) + timedelta(minutes=20)
+    async with db.unit_of_work() as uow:
+        await uow.discovery.record_page(
+            lease,
+            PageResult((newer,), "complete"),
+            items_examined=1,
+            requests=1,
+            expires_at=expiry.astimezone(zone),
+            coverage_through=instant.astimezone(zone),
+        )
+    [row] = await list_candidates(db, entry.id)
+    assert row["last_seen"].replace(tzinfo=UTC) == newer.observed_at
+    assert row["current"]["title"] == first.title
+    assert row["current"]["published_at"] == instant.isoformat()
+    assert await list_candidates(db, entry.id, now=(expiry - timedelta(seconds=1)).astimezone(zone))
+    assert not await list_candidates(db, entry.id, now=expiry)
+    async with db.unit_of_work() as uow:
+        coverage, _ = await uow.discovery.coverage(entry.id, "youtube")
+    assert coverage == instant
+    async with db.engine.connect() as connection:
+        history = (
+            (
+                await connection.execute(
+                    select(discovery_observations.c.data).order_by(
+                        discovery_observations.c.observed_at
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert len(history) == 2
+    assert history[-1]["title"] is None and history[-1]["published_at"] is None
