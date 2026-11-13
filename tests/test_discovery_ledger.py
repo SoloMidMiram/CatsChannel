@@ -184,3 +184,54 @@ async def test_current_metadata_survives_nulls_and_offsets(chain_database, offse
         )
     assert len(history) == 2
     assert history[-1]["title"] is None and history[-1]["published_at"] is None
+
+
+async def test_observation_evidence_and_metadata_round_trip(chain_database):
+    from dataclasses import replace
+
+    from sqlalchemy import select
+
+    from cats_channel.persistence.models import discovery_observations
+
+    db = chain_database
+    entry = (await service(db, SyntheticResolver()).register(IDS[0], operator=OPERATOR)).entry
+    first = replace(
+        candidate(IDS[0]),
+        duration_seconds=12.5,
+        width=720,
+        height=1280,
+        evidence=("fixture-membership",),
+        checkpoint_provenance="fixture-page-1",
+    )
+    newer = replace(
+        candidate(IDS[0]),
+        observed_at=first.observed_at + timedelta(seconds=1),
+        checkpoint_provenance="fixture-page-2",
+    )
+    lease = await claim(db, entry.id)
+    lease = await write(db, lease, PageResult((first,), "complete", next_cursor="next"))
+    await write(db, lease, PageResult((newer,), "complete"), coverage=first.observed_at)
+    [row] = await list_candidates(db, entry.id)
+    async with db.engine.connect() as connection:
+        history = (
+            (
+                await connection.execute(
+                    select(discovery_observations.c.data).order_by(
+                        discovery_observations.c.observed_at
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert history[0]["evidence"] == ["fixture-membership"]
+    assert history[0]["checkpoint_provenance"] == "fixture-page-1"
+    assert history[1]["evidence"] == row["current"]["evidence"] == []
+    assert (
+        history[1]["checkpoint_provenance"]
+        == row["current"]["checkpoint_provenance"]
+        == "fixture-page-2"
+    )
+    for key, value in {"duration_seconds": 12.5, "width": 720, "height": 1280}.items():
+        assert history[0][key] == row["current"][key] == value
+        assert history[1][key] is None

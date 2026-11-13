@@ -328,6 +328,11 @@ class SqlAlchemyDiscoveryLedger:
             "method": candidate.discovery_method,
             "classification": candidate.classification,
             "title": candidate.title,
+            "duration_seconds": candidate.duration_seconds,
+            "width": candidate.width,
+            "height": candidate.height,
+            "evidence": list(candidate.evidence),
+            "checkpoint_provenance": candidate.checkpoint_provenance,
             "published_at": candidate.published_at.astimezone(UTC).isoformat()
             if candidate.published_at
             else None,
@@ -347,7 +352,7 @@ class SqlAlchemyDiscoveryLedger:
             )
         elif seen > _utc(current.last_seen):
             projection = data.copy()
-            for field in ("title", "published_at"):
+            for field in ("title", "published_at", "duration_seconds", "width", "height"):
                 if projection[field] is None:
                     projection[field] = current.current.get(field)
             await self.session.execute(
