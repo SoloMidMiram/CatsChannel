@@ -21,7 +21,7 @@ flowchart LR
   Claim --> Send[Bot API send]
   Send --> C[Confirmed destination projection]
   C --> M[Reply/navigation markup]
-  R -. proposed .-> Reject[Audited rejection: no placement or publication]
+  R --> Reject[Audited rejection: no placement or publication]
 ```
 
 [Intake.process](../cats_channel/intake/service.py) reconciles the private inbound
@@ -120,7 +120,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  W[PROPOSED #18 approved stable-ID watchlist] --> Scan[PROPOSED #19 metadata listing]
+  W[IMPLEMENTED #18 approved stable-ID watchlist] --> Scan[PROPOSED #19 metadata listing]
   Scan --> Class[Evidence-based classification or unknown]
   Class --> Ledger[PROPOSED #20 deduplicated candidates and safe checkpoints]
   Clock[PROPOSED #21 every four hours] --> Scan
@@ -143,7 +143,7 @@ uploads. Candidate discovery does not create a post or authorize media acquisiti
 | Local media acquisition | MediaService | validated atomic library artifact | yt-dlp/optional Telethon, local processes | bounded owned cleanup; no unreviewed publication |
 | Durable intake completion | ReviewService.enqueue | review delivery claim/binding | one private preview | unknown requires reconciliation, no blind resend |
 | Admin approve callback | ReviewService + repository | actor/time and decision ownership | invoke publisher, then caption/callback | duplicate/stale safe; notification failure cannot undo decision |
-| Admin reject callback | proposed PR B | proposed terminal audited rejection | terminal markup/notification only | zero post/publication/send; one decision CAS |
+| Admin reject callback | merged PR #42 | terminal audited rejection | terminal markup/notification only | zero post/publication/send; one decision CAS |
 | Approved publication | PublicationService | attempt/result/projection | channel video, then markup | uncertainty remains unknown; operator decision required |
 | Markup repair | publication admin/service | markup/token ownership | edit known confirmed message | repair only; never resend video |
 | Startup | BotApplication hooks | abandoned review/publication updates | identity lookup and polling | read-only identity retry; polling owns its backoff |
