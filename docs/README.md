@@ -1,6 +1,8 @@
 # Documentation
 
-Start with ROADMAP.md and ARCHITECTURE.md. Operational examples are in
+Start with [the roadmap](ROADMAP.md), [current status](ROADMAP_STATUS.md), and
+[architecture](ARCHITECTURE.md). For YouTube milestones and evidence gates, see
+[Discovery acceptance](discovery/DISCOVERY_ACCEPTANCE_MATRIX.md). Operational examples are in
 QUICKSTART.md, MEDIA_DIAGNOSTICS.md, and MEDIA_LIBRARY.md.
 Downloader error and cookie/container operations are in DOWNLOADER_ERRORS.md.
 Telethon user-account downloads through @whatsmusicbot are in TELEGRAM_DOWNLOADER.md.

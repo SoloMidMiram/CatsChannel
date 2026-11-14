@@ -14,8 +14,7 @@ approval and one confirmed exact-parent publication. Its
 [merged acceptance receipt](https://github.com/SoloMidMiram/CatsChannel/blob/645229aa3b150fed3231358c44c1d8209c5c5a74/docs/evidence/telegram-hosted-private-acceptance-2026-11-01.md)
 is recorded evidence, not an independently repeated run or sustained production acceptance.
 
-**Public deployment remains blocked** by incomplete moderation and enforced
-inspection/publication isolation. The private pilot used one restricted channel
+**Public deployment remains blocked** by outstanding publication-policy and operational acceptance. The private pilot used one restricted channel
 for both roles. Supported runtime scope is one application process.
 
 ## Features
@@ -43,7 +42,7 @@ flowchart LR
     D --> E[Authorized approval]
     E --> F[Durable publication]
     F --> G[Confirmed Telegram channel reply]
-    D -. planned .-> H[Audited rejection]
+    D --> H[Audited rejection]
 ```
 
 Review delivery does not finalize placement. Children require their exact parent's
@@ -80,12 +79,12 @@ uv run --frozen python tools/project_context.py generate --check
 | Workstream | Status |
 | --- | --- |
 | [Core publishing #7](https://github.com/SoloMidMiram/CatsChannel/issues/7) | Implemented; private acceptance recorded; remaining acceptance open |
-| [Complete moderation #8](https://github.com/SoloMidMiram/CatsChannel/issues/8) | Approve-only implemented; rejection, isolation and recovery remain |
+| [Complete moderation #8](https://github.com/SoloMidMiram/CatsChannel/issues/8) | Approval, audited rejection and startup isolation implemented. Policy and recovery acceptance remain |
 | [Reliability #9](https://github.com/SoloMidMiram/CatsChannel/issues/9) | Operational qualification and deployment readiness open |
-| [YouTube discovery #17–#22](https://github.com/SoloMidMiram/CatsChannel/issues/17) | Independent planned workstream |
+| [YouTube discovery #17–#22](https://github.com/SoloMidMiram/CatsChannel/issues/17) | Watchlist merged. Live discovery, ledger and scheduler pending |
 | [Developer tools #35](https://github.com/SoloMidMiram/CatsChannel/issues/35) | Optional integration independent of publishing |
 
-See the [roadmap](docs/ROADMAP.md) and [core epic](https://github.com/SoloMidMiram/CatsChannel/issues/1).
+See the [discovery acceptance matrix](docs/discovery/DISCOVERY_ACCEPTANCE_MATRIX.md), [roadmap](docs/ROADMAP.md) and [core epic](https://github.com/SoloMidMiram/CatsChannel/issues/1).
 
 ## Validation and limitations
 
