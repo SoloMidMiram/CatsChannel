@@ -120,14 +120,14 @@ async def qualify_uush(
     observed = tuple(dict.fromkeys(first + second))
     if not observed:
         return report("fail", "empty_playlist_with_known_shorts")
-    if pagination_expected and (not first or not second or not set(second).difference(first)):
+    second_only = next((video for video in second if video not in first), None)
+    if (pagination_expected or continuation_seen) and (not first or second_only is None):
         return report("pagination_unqualified", "missing_distinct_second_page")
     if not set(known_shorts).issubset(observed):
         outcome = "incomplete" if cursor else "fail"
         return report(outcome, "known_shorts_not_in_sample")
 
     # Include both sides of the observed boundary before filling from the first page.
-    second_only = next((video for video in second if video not in first), None)
     boundary = (first[0], first[-1], second_only) if first and second_only else ()
     sample = tuple(dict.fromkeys(boundary + observed))[:5]
     return report("manual_review_pending", "shorts_tab_sample_required", sample)
