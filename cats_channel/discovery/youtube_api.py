@@ -8,58 +8,58 @@ from aiohttp import ClientError, ClientSession
 
 from .domain import Resolution, Status, normalize
 
-_CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels"
+_API_URL = "https://www.googleapis.com/youtube/v3/"
 _MAX_RESPONSE_BYTES = 64 * 1024
 
 
-class YouTubeChannelResolver:
+class _YouTubeAPI:
     def __init__(self, session: ClientSession, *, api_key: str):
         self._session = session
         self._api_key = api_key
 
-    async def resolve(self, reference: str) -> Resolution:
-        try:
-            reference = normalize(reference)
-        except ValueError:
-            return Resolution(Status.INVALID_INPUT)
+    async def get(self, resource: str, params: dict[str, str]):
         if not self._api_key:
-            return Resolution(Status.CONFIGURATION_ERROR)
+            return None, Status.CONFIGURATION_ERROR
+        attempted = False
 
-        by_handle = reference.startswith("@")
-        params = {
-            "part": "snippet,contentDetails",
-            "fields": "items(id,snippet(title,customUrl),contentDetails(relatedPlaylists(uploads)))",
-            "forHandle" if by_handle else "id": reference,
-        }
+        async def send_once(request, handler):
+            # aiohttp may otherwise retry idempotent requests on a lost connection.
+            nonlocal attempted
+            if attempted:
+                raise ClientError("request_budget_exhausted")
+            attempted = True
+            return await handler(request)
+
         try:
             async with (
                 asyncio.timeout(10),
                 self._session.get(
-                    _CHANNELS_URL,
+                    _API_URL + resource,
                     params=params,
                     headers={"X-Goog-Api-Key": self._api_key},
                     allow_redirects=False,
                     raise_for_status=False,
+                    middlewares=(send_once,),
                 ) as response,
             ):
                 if response.status == 429:
-                    return Resolution(Status.RATE_LIMITED)
+                    return None, Status.RATE_LIMITED
                 if response.status == 404:
-                    return Resolution(Status.UNAVAILABLE, evidence="provider_unavailable")
+                    return None, Status.UNAVAILABLE
                 status = response.status
                 if status not in {200, 400, 401, 403}:
-                    return Resolution(Status.TEMPORARY_FAILURE)
+                    return None, Status.TEMPORARY_FAILURE
                 data = bytearray()
                 async for chunk in response.content.iter_chunked(8192):
                     data.extend(chunk)
                     if len(data) > _MAX_RESPONSE_BYTES:
-                        return Resolution(Status.TEMPORARY_FAILURE)
+                        return None, Status.TEMPORARY_FAILURE
                 try:
                     payload = json.loads(data)
                 except ValueError:
                     payload = None
         except (ClientError, TimeoutError, ValueError):
-            return Resolution(Status.TEMPORARY_FAILURE)
+            return None, Status.TEMPORARY_FAILURE
 
         if status != 200:
             error = payload.get("error") if isinstance(payload, dict) else None
@@ -70,8 +70,41 @@ class YouTubeChannelResolver:
                 in ("quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded")
                 for item in errors
             ):
-                return Resolution(Status.RATE_LIMITED)
-            return Resolution(Status.CONFIGURATION_ERROR)
+                return None, Status.RATE_LIMITED
+            if (
+                status == 400
+                and params.get("pageToken")
+                and isinstance(errors, list)
+                and any(
+                    isinstance(item, dict) and item.get("reason") == "invalidPageToken"
+                    for item in errors
+                )
+            ):
+                return None, Status.CURSOR_EXPIRED
+            return None, Status.CONFIGURATION_ERROR
+        return payload, None
+
+
+class YouTubeChannelResolver:
+    def __init__(self, session: ClientSession, *, api_key: str):
+        self._api = _YouTubeAPI(session, api_key=api_key)
+
+    async def resolve(self, reference: str) -> Resolution:
+        try:
+            reference = normalize(reference)
+        except ValueError:
+            return Resolution(Status.INVALID_INPUT)
+
+        by_handle = reference.startswith("@")
+        params = {
+            "part": "snippet,contentDetails",
+            "fields": "items(id,snippet(title,customUrl),contentDetails(relatedPlaylists(uploads)))",
+            "forHandle" if by_handle else "id": reference,
+        }
+        payload, failure = await self._api.get("channels", params)
+        if failure is not None:
+            evidence = "provider_unavailable" if failure == Status.UNAVAILABLE else "none"
+            return Resolution(failure, evidence=evidence)
         return _parse_channel(payload, reference, by_handle)
 
 
