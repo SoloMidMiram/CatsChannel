@@ -70,18 +70,23 @@ class YouTubePlaylistProvider:
 
         observed_at = datetime.now(UTC)
         candidates = {}
-        malformed = False
+        failure = None
         for item in items:
             candidate = self._candidate(item, observed_at)
             if candidate is None:
-                malformed = True
+                snippet = item.get("snippet") if isinstance(item, dict) else None
+                uploader = snippet.get("videoOwnerChannelId") if isinstance(snippet, dict) else None
+                if isinstance(uploader, str) and uploader and uploader != self._channel_id:
+                    failure = Status.AMBIGUOUS
+                elif failure is None:
+                    failure = Status.TEMPORARY_FAILURE
             else:
                 candidates.setdefault(candidate.video_id, candidate)
         return PageResult(
             tuple(candidates.values()),
-            "partial" if malformed else "complete",
-            next_cursor=None if malformed else next_cursor,
-            failure=Status.TEMPORARY_FAILURE if malformed else None,
+            "partial" if failure else "complete",
+            next_cursor=None if failure else next_cursor,
+            failure=failure,
             items_examined=len(items),
         )
 
