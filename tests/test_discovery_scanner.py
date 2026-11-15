@@ -5,6 +5,7 @@ import json
 import sqlite3
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -17,6 +18,7 @@ from test_reply_chains import chain_database as _chain_database
 
 from cats_channel.discovery.domain import PageResult, ProviderConfiguration, Status
 from cats_channel.discovery.scanner import FetchedPage, OneShotScanner
+from cats_channel.discovery.scheduler import OfflineDiscoveryScheduler
 
 chain_database = _chain_database
 
@@ -225,3 +227,48 @@ async def test_provider_exception_is_isolated_and_retains_progress(chain_databas
     reports = await scanner(db, retry).scan(cycle="provider-failure")
     assert [report.state for report in reports] == ["completed", "completed"]
     assert retry.cursors == ["next"]
+
+
+async def test_cancelled_scan_resumes_durable_cursor_and_isolates_failed_channel(chain_database):
+    db = chain_database
+    watchlist, first = await setup(db)
+    second = (await watchlist.register(IDS[1], operator=OPERATOR)).entry
+    first, second = sorted((first, second), key=lambda entry: entry.id)
+    calls = []
+
+    class Provider:
+        async def page(self, entry, cursor, *, limit):
+            calls.append((entry.id, cursor))
+            if len(calls) == 1:
+                return FetchedPage(PageResult((), "complete", next_cursor="resume"), 0)
+            if len(calls) == 2:
+                raise asyncio.CancelledError
+            if entry.id == first.id:
+                raise OSError("fixture provider unavailable")
+            return FetchedPage(PageResult((), "complete"), 0)
+
+    one_shot = scanner(db, Provider())
+    slot = datetime(2026, 11, 15, tzinfo=UTC)
+
+    def clock():
+        return slot
+
+    scheduler = OfflineDiscoveryScheduler(one_shot, clock=clock, first_slot=slot)
+    with pytest.raises(asyncio.CancelledError):
+        await scheduler.run_due(enabled=True)
+    restarted = OfflineDiscoveryScheduler(one_shot, clock=clock, first_slot=scheduler.next_due)
+    [run] = await restarted.run_due(enabled=True)
+    assert calls == [
+        (first.id, None),
+        (first.id, "resume"),
+        (first.id, "resume"),
+        (second.id, None),
+    ]
+    assert [(r.watchlist_id, r.state, r.reason) for r in run.channels] == [
+        (first.id, "partial", "temporary_failure"),
+        (second.id, "completed", None),
+    ]
+    async with db.unit_of_work() as uow:
+        assert await uow.discovery.coverage(first.id, "youtube") == (None, None)
+        assert (await uow.discovery.coverage(second.id, "youtube"))[0] is not None
+    assert restarted.next_due == slot + timedelta(hours=4)
