@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.11.*"
 
 [[package]]
@@ -211,6 +211,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
+    { name = "aiohttp" },
     { name = "aiohttp-socks" },
     { name = "pydantic-settings" },
     { name = "yt-dlp", extra = ["curl-cffi", "default"] },
@@ -241,6 +242,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiogram", specifier = ">=3.31,<4" },
+    { name = "aiohttp", specifier = ">=3.12,<4" },
     { name = "aiohttp-socks", specifier = ">=0.10,<1" },
     { name = "aiosqlite", marker = "extra == 'persistence'", specifier = ">=0.20,<1" },
     { name = "alembic", marker = "extra == 'persistence'", specifier = ">=1.13,<2" },

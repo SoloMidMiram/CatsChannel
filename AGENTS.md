@@ -59,3 +59,11 @@ any transport/policy/tool failures, and available tools left unused when relevan
 Never claim MCP usage merely because a server was configured. Use ordinary shell
 inspection and tests when they provide stronger or simpler verification. Do not
 make MCP calls solely to increase tool-use counts.
+
+## Source integration
+
+Follow the [solo-maintainer review policy](docs/MAINTAINER_REVIEW_POLICY.md).
+Collect technical review and applicable verification for the integration
+candidate, then present a recommendation to SoloMidMiram. The owner records
+acceptance and authorizes the source merge. Check the policy for separate
+operational authorization and qualification requirements.

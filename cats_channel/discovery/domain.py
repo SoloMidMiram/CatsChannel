@@ -15,6 +15,8 @@ class Status(StrEnum):
     AMBIGUOUS = "ambiguous"
     RATE_LIMITED = "rate_limited"
     TEMPORARY_FAILURE = "temporary_failure"
+    CONFIGURATION_ERROR = "configuration_error"
+    CURSOR_EXPIRED = "cursor_expired"
     INVALID_INPUT = "invalid_input"
 
 
@@ -82,6 +84,7 @@ class Resolution:
     display_name: str | None = None
     evidence: str = "none"
     retry_after_seconds: int | None = None
+    uploads_playlist_id: str | None = None
 
     def __post_init__(self):
         if not isinstance(self.status, Status):
@@ -91,6 +94,12 @@ class Resolution:
                 raise ValueError("invalid_channel_identity")
         elif self.channel_id is not None:
             raise ValueError("unexpected_channel_identity")
+        if self.uploads_playlist_id is not None and (
+            self.status != Status.RESOLVED
+            or not isinstance(self.uploads_playlist_id, str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", self.uploads_playlist_id)
+        ):
+            raise ValueError("invalid_uploads_playlist_id")
         if self.handle is not None and not re.fullmatch(
             r"@[A-Za-z0-9][A-Za-z0-9_.-]{2,29}", self.handle
         ):
@@ -194,6 +203,7 @@ class Candidate:
         if self.provider != "youtube" or self.classification not in {
             "unknown",
             "shorts_tab",
+            "shorts_playlist",
             "short_candidate",
             "not_short",
         }:
@@ -233,7 +243,13 @@ class PageResult:
     failure: Status | None = None
     retry_after_seconds: int | None = None
 
+    items_examined: int | None = None
+
     def __post_init__(self):
+        if self.items_examined is not None and (
+            type(self.items_examined) is not int or self.items_examined < len(self.candidates)
+        ):
+            raise ValueError("invalid_item_count")
         if self.state not in {"complete", "partial", "failed"}:
             raise ValueError("invalid_page_state")
         if self.next_cursor is not None and len(self.next_cursor) > 2048:
@@ -246,6 +262,8 @@ class PageResult:
             Status.RATE_LIMITED,
             Status.TEMPORARY_FAILURE,
             Status.INVALID_INPUT,
+            Status.CONFIGURATION_ERROR,
+            Status.CURSOR_EXPIRED,
         }:
             raise ValueError("invalid_page_failure")
         if self.retry_after_seconds is not None and (
