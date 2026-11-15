@@ -116,13 +116,13 @@ flowchart LR
   Confirm --> Repair[Repair markup independently]
 ```
 
-## Planned discovery — no implemented scheduler
+## Offline discovery and gated automation
 
 ```mermaid
 flowchart LR
-  W[IMPLEMENTED #18 approved stable-ID watchlist] --> Scan[PROPOSED #19 metadata listing]
+  W[IMPLEMENTED #18 approved stable-ID watchlist] --> Scan[OFFLINE #19 metadata listing]
   Scan --> Class[Evidence-based classification or unknown]
-  Class --> Ledger[PROPOSED #20 deduplicated candidates and safe checkpoints]
+  Class --> Ledger[OFFLINE #20 deduplicated candidates and safe checkpoints]
   Clock[PROPOSED #21 every four hours] --> Scan
   Ledger --> Eligible[PROPOSED #22 rights and eligibility gate]
   Eligible --> Acquire[Existing validated acquisition]
@@ -147,7 +147,7 @@ uploads. Candidate discovery does not create a post or authorize media acquisiti
 | Approved publication | PublicationService | attempt/result/projection | channel video, then markup | uncertainty remains unknown; operator decision required |
 | Markup repair | publication admin/service | markup/token ownership | edit known confirmed message | repair only; never resend video |
 | Startup | BotApplication hooks | abandoned review/publication updates | identity lookup and polling | read-only identity retry; polling owns its backoff |
-| Four-hour discovery | proposed #21 worker | proposed scan/candidate/checkpoint ledger | metadata-only YouTube reads | no overlap; bounded catch-up/retry categories |
+| Four-hour discovery | proposed #21 worker | offline-qualified scan/candidate/checkpoint ledger | gated metadata-only YouTube reads | no overlap; bounded catch-up/retry categories |
 | Recovery | explicit operator | evidence-based reconciliation | optional explicit repair or known-safe retry | exclusive stopped-bot ownership, never infer non-delivery from absence |
 
 ## D1 discovery addition

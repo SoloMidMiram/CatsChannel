@@ -15,3 +15,20 @@ The full local Windows run recorded 788 passes, 144 skips and one failure. The u
 The fixture CLI default uses an in-memory database. Its persistent fixture mode proves that channel A resumes page two, channel B is skipped after completion, and observations remain unique. The PostgreSQL job also covers owner fencing, before/after-commit recovery and migration rollback.
 
 Review #53 before #54. Review #55 independently. After those branches land, retarget #56 to main and revalidate the resulting head, including regenerated project context. The production release decision remains deferred.
+
+The cumulative integration PR also incorporates the policy and acceptance
+documents and [PR #57's qualification harness](https://github.com/SoloMidMiram/CatsChannel/pull/57).
+The original integration CI link above identifies the reviewed scanner baseline.
+The current cumulative result is tracked by [PR #56's checks](https://github.com/SoloMidMiram/CatsChannel/pull/56/checks).
+
+## Cumulative verification
+
+The offline code at commit 8eab36d5895da657a517599c6f06f1b403617af1 includes
+the known-video lookup and the complete fixture discovery stack. On Ubuntu WSL,
+a clean archive of that commit on the Linux filesystem passed the full local
+suite with CPython 3.11.16. It recorded 816 passes and 134 skips after
+`uv sync --locked --all-extras` and `uv run --frozen pytest -q --tb=short`.
+The Windows symlink privilege failure described above did not recur there.
+[Hosted CI on the same commit](https://github.com/SoloMidMiram/CatsChannel/actions/runs/43289954871)
+passed Ubuntu, Windows and disposable PostgreSQL. The evidence supports offline
+review. Live qualification and production use remain gated by #51.

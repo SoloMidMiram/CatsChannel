@@ -47,7 +47,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: uv sync --locked --all-extras
-      - run: uv run --frozen pytest tests/test_postgres_persistence.py tests/test_reply_chains.py tests/test_publication.py tests/test_publication_migrations.py tests/test_review_approval.py tests/test_telegram_hosted_reuse.py tests/test_backup_restore.py tests/test_discovery.py tests/test_discovery_migrations.py tests/test_discovery_ledger.py -q
+      - run: uv run --frozen pytest tests/test_postgres_persistence.py tests/test_reply_chains.py tests/test_publication.py tests/test_publication_migrations.py tests/test_review_approval.py tests/test_telegram_hosted_reuse.py tests/test_backup_restore.py tests/test_discovery.py tests/test_discovery_migrations.py tests/test_discovery_ledger.py tests/test_discovery_scanner.py -q
         env:
           # Service IDs exist in step context, after the job service has started.
           CATS_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}

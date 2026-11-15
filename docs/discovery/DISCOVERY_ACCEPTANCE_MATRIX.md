@@ -7,11 +7,11 @@ Baseline main `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`, verified November 9, 2
 
 | Milestone | Offline gate | Live gate | Current status |
 | --- | --- | --- | --- |
-| M1a known-video lookup | URL variants converge, returned ID matches, missing/error preserves source, zero acquisition | L1 returns metadata for Honey ID `jFITGy24prE` | Planned. Live access blocked pending authorization and connectivity |
-| M1b channel enumeration | Resolver rename/mismatch/quota tests and two-page listing with nullable metadata, duplicates and bad cursors | L2 resolves the approved Honey handle and stable ID, L3 returns real IDs and observed continuation | Watchlist merged. Production resolver and provider planned |
-| M2 Shorts-tab evidence | Keep uploads, candidate inference and direct observation distinct | L4 observes returned IDs on the verified channel tab and records provenance | Historical partial evidence only. Current provider unqualified |
-| M3 repeatable monitoring | Two channels and two pages, replay, new item, failed-page recovery, fenced ownership and zero duplicates | L5 repeats a real scan and verifies ledger/checkpoint behavior. Record actual new uploads only if observed | DTO simulations and fixture replay exist. Durable scanner planned |
-| Four-hour operation | Fake clock, exclusive ownership, bounded catch-up and failure isolation | Host operation and recovery qualification | Blocked on scanner and operational acceptance |
+| M1a known-video lookup | URL variants converge, returned ID matches, missing/error preserves source, zero acquisition | L1 returns metadata for Honey ID `jFITGy24prE` | Known-video lookup passes synthetic identity and missing/error fixtures. Live access gated |
+| M1b channel enumeration | Resolver rename/mismatch/quota tests and two-page listing with nullable metadata, duplicates and bad cursors | L2 resolves the approved Honey handle and stable ID, L3 returns real IDs and observed continuation | Watchlist merged. Resolver and listing adapters pass synthetic tests |
+| M2 Shorts-tab evidence | Keep uploads, candidate inference and direct observation distinct | L4 observes returned IDs on the verified channel tab and records provenance | Historical partial evidence. Offline UUSH harness prepared; live sample unqualified |
+| M3 repeatable monitoring | Two channels and two pages, replay, new item, failed-page recovery, fenced ownership and zero duplicates | L5 repeats a real scan and verifies ledger/checkpoint behavior. Record actual new uploads only if observed | Synthetic one-shot and durable recovery pass on the review stack |
+| Four-hour operation | Fake clock, exclusive ownership, bounded catch-up and failure isolation | Host operation and recovery qualification | Blocked on live scanner qualification and operational acceptance |
 
 ## Work packages
 
@@ -45,3 +45,6 @@ leaves classification unknown. Preserve `shorts_tab`, `short_candidate` and
 Production API-backed discovery requires [#51's policy and retention decision](YOUTUBE_API_POLICY_AND_RETENTION.md) and separately authorized live qualification. Offline resolver, provider and generic ledger work can proceed with synthetic fixtures. Issue #52 tracks a deferred link-only review workflow.
 
 See the [design decisions](DESIGN_DECISIONS.md) and [weekly acceptance evidence](WEEKLY_ACCEPTANCE_2026-11-18.md).
+
+The [bounded UUSH qualification package](UUSH_QUALIFICATION.md) is part of the
+cumulative offline review stack. Its live evidence remains pending.

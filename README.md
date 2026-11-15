@@ -81,7 +81,7 @@ uv run --frozen python tools/project_context.py generate --check
 | [Core publishing #7](https://github.com/SoloMidMiram/CatsChannel/issues/7) | Implemented; private acceptance recorded; remaining acceptance open |
 | [Complete moderation #8](https://github.com/SoloMidMiram/CatsChannel/issues/8) | Approval, audited rejection and startup isolation implemented. Policy and recovery acceptance remain |
 | [Reliability #9](https://github.com/SoloMidMiram/CatsChannel/issues/9) | Operational qualification and deployment readiness open |
-| [YouTube discovery #17–#22](https://github.com/SoloMidMiram/CatsChannel/issues/17) | Watchlist merged. Live discovery, ledger and scheduler pending |
+| [YouTube discovery #17–#22](https://github.com/SoloMidMiram/CatsChannel/issues/17) | Watchlist merged. Offline resolver, ledger and one-shot scanner under review. Live discovery and scheduling gated |
 | [Developer tools #35](https://github.com/SoloMidMiram/CatsChannel/issues/35) | Optional integration independent of publishing |
 
 See the [discovery acceptance matrix](docs/discovery/DISCOVERY_ACCEPTANCE_MATRIX.md), [roadmap](docs/ROADMAP.md) and [core epic](https://github.com/SoloMidMiram/CatsChannel/issues/1).
