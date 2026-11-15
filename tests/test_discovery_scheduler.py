@@ -5,7 +5,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from cats_channel.discovery.scheduler import OfflineDiscoveryScheduler
+from cats_channel.discovery.scanner import ScanReport
+from cats_channel.discovery.scheduler import OfflineDiscoveryScheduler, ScheduledScanError
 
 START = datetime(2026, 11, 15, tzinfo=UTC)
 INTERVAL = timedelta(hours=4)
@@ -84,20 +85,28 @@ async def test_overlapping_tick_returns_and_cancellation_releases_execution():
     assert scanner.cycles == ["scheduled-20261115T00Z"] * 2
 
 
-async def test_scan_failure_leaves_only_interrupted_slot_due():
+async def test_second_slot_failure_reports_first_slot_and_retries_only_the_second():
+    channels = (ScanReport("fixture-channel", "completed", None, items=10),)
+
     class FailingScanner(RecordingScanner):
         async def scan(self, *, cycle):
             await super().scan(cycle=cycle)
             if len(self.cycles) == 2:
                 raise OSError("fixture storage unavailable")
-            return ()
+            return channels
 
     clock = Clock()
     clock.now = START + INTERVAL
     scanner = FailingScanner()
     scheduler = OfflineDiscoveryScheduler(scanner, clock=clock, first_slot=START)
-    with pytest.raises(OSError, match="fixture storage unavailable"):
+    with pytest.raises(ScheduledScanError) as failure:
         await scheduler.run_due(enabled=True)
+    assert failure.value.failed_at == START + INTERVAL
+    assert isinstance(failure.value.__cause__, OSError)
+    assert str(failure.value.__cause__) == "fixture storage unavailable"
+    [completed] = failure.value.completed
+    assert completed.scheduled_at == START
+    assert completed.channels == channels
     assert scheduler.next_due == START + INTERVAL
     [run] = await scheduler.run_due(enabled=True)
     assert run.scheduled_at == START + INTERVAL

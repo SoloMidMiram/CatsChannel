@@ -15,6 +15,15 @@ class ScheduledScan:
     channels: tuple[ScanReport, ...]
 
 
+class ScheduledScanError(RuntimeError):
+    """A slot failed after earlier slots in the same tick returned reports."""
+
+    def __init__(self, failed_at: datetime, completed: tuple[ScheduledScan, ...]):
+        super().__init__(f"Scheduled scan failed for {failed_at.isoformat()}")
+        self.failed_at = failed_at
+        self.completed = completed
+
+
 def _utc(value: datetime) -> datetime:
     if value.utcoffset() is None:
         raise ValueError("scheduler_requires_aware_datetime")
@@ -58,6 +67,9 @@ class OfflineDiscoveryScheduler:
         Concurrent calls return immediately. Partial channel reports consume a
         scheduled attempt. An exception or cancellation leaves that slot due,
         so a retry uses the same cycle and can resume durable scanner progress.
+        If a scan fails after earlier slots returned reports, ScheduledScanError
+        carries those reports and chains the original exception. Cancellation
+        propagates directly.
         """
         if not enabled or self._running:
             return ()
@@ -69,7 +81,12 @@ class OfflineDiscoveryScheduler:
                 slot = self._next_due
                 if slot > now:
                     break
-                channels = await self._scanner.scan(cycle=slot.strftime("scheduled-%Y%m%dT%HZ"))
+                try:
+                    channels = await self._scanner.scan(cycle=slot.strftime("scheduled-%Y%m%dT%HZ"))
+                except Exception as error:
+                    if not reports:
+                        raise
+                    raise ScheduledScanError(slot, tuple(reports)) from error
                 self._next_due = slot + _INTERVAL
                 reports.append(ScheduledScan(slot, channels))
             return tuple(reports)
