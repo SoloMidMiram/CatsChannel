@@ -1,6 +1,6 @@
 # CatsChannel Roadmap
 
-## Verified status - 2026-11-09
+## Verified status - 2026-11-15
 
 Verified main baseline: `ad653687a91e9b0a2c4c770bc23606fadebe5cbf`. Foundations,
 intake and reply domain #2-#6 are complete (#5 closed via PR #28).

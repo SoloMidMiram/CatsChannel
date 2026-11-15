@@ -1,6 +1,6 @@
 # Weekly discovery acceptance for November 18
 
-Evidence cut on 2026-11-12. This is an early acceptance record for the November 18 milestone.
+## Historical review-stack evidence (November 12, 2026)
 
 | State | Evidence and disposition |
 | --- | --- |
@@ -13,6 +13,8 @@ Evidence cut on 2026-11-12. This is an early acceptance record for the November 
 The full local Windows run recorded 788 passes, 144 skips and one failure. The unchanged MCP symlink test requires a Windows privilege unavailable on this account (WinError 1314). Hosted Windows CI passed on the same integration head.
 
 The fixture CLI default uses an in-memory database. Its persistent fixture mode proves that channel A resumes page two, channel B is skipped after completion, and observations remain unique. The PostgreSQL job also covers owner fencing, before/after-commit recovery and migration rollback.
+
+## Merge confirmation (November 15, 2026)
 
 The component reviews and final integration are complete. SoloMidMiram accepted
 `e3f887dbe9856ac56816be1361c23df7c56e3371` for source merge, and PR #56 landed on
