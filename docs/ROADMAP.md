@@ -2,7 +2,7 @@
 
 ## Verified status - 2026-11-09
 
-Verified main baseline: `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`. Foundations,
+Verified main baseline: `ad653687a91e9b0a2c4c770bc23606fadebe5cbf`. Foundations,
 intake and reply domain #2-#6 are complete (#5 closed via PR #28).
 Durable publishing (#29), approve-only review (#36), reply-entry concurrency
 (#37) and hosted metadata reuse (#38) are implemented.
@@ -23,9 +23,11 @@ See [reconciliation](evidence/post-pilot-reconciliation-2026-11-02.md).
 ## Discovery delivery order
 
 Watchlist #45 and research #46 are merged. Draft #47 records verdict E.
-The review stack contains the offline resolver (#18), listing adapters and UUSH
+Main includes the offline resolver (#18), listing adapters and UUSH
 qualification harness (#19), durable ledger (#20), and one-shot fixture scanner.
-Qualify the deployment route and Shorts-tab evidence after #51 clearance.
+PR #56 completed the offline integration at `ad65368`. Post-merge CI passed on
+Ubuntu, Windows and disposable PostgreSQL. Written clearance in #51 and separate
+authorization remain prerequisites for live qualification and production ingestion.
 Scheduling (#21) and the permission-gated review bridge (#22) have separate acceptance gates.
 See the [acceptance matrix](discovery/DISCOVERY_ACCEPTANCE_MATRIX.md).
 
