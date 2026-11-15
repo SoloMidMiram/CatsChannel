@@ -21,13 +21,14 @@ class Responses(FakeSession):
             yield response
 
 
-async def collect(session):
+async def collect(session, *, pagination_expected=True):
     return await qualify_uush(
         session,
         api_key="fixture-key",
         reference=CHANNEL,
         expected_channel_id=CHANNEL,
         known_shorts=VIDEOS[:5],
+        pagination_expected=pagination_expected,
     )
 
 
@@ -80,3 +81,26 @@ async def test_rejects_cookie_enabled_session_before_any_request():
     async with ClientSession() as session:
         with pytest.raises(ValueError, match="requires_isolated_session"):
             await collect(session)
+
+
+@pytest.mark.parametrize("second_page", [None, VIDEOS[:5], VIDEOS[5:6]])
+async def test_optional_pagination_validates_observed_continuation(second_page):
+    first = {"items": [item(video) for video in VIDEOS[:5]]}
+    responses = [(200, first)]
+    if second_page is not None:
+        first["nextPageToken"] = "next"
+        responses.append((200, {"items": [item(video) for video in second_page]}))
+    session = Responses(*responses)
+    result = await collect(session, pagination_expected=False)
+    if second_page == VIDEOS[:5]:
+        assert (result.outcome, result.reason) == (
+            "pagination_unqualified",
+            "missing_distinct_second_page",
+        )
+        with pytest.raises(ValueError, match="not_pending"):
+            review_sample(result, dict.fromkeys(VIDEOS[:5], True))
+    else:
+        assert result.outcome == "manual_review_pending"
+        if second_page:
+            assert VIDEOS[5] in result.sample_ids
+    assert len(session.calls) == (2 if second_page is None else 3)
