@@ -159,3 +159,4 @@
 {"id":"source-181","kind":"document","title":"Discovery ledger persistence contract","locator":"docs/DATABASE.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
 {"id":"source-182","kind":"document","title":"One-shot synthetic discovery recovery","locator":"docs/DATABASE.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
 {"id":"source-185","kind":"document","title":"Known-video metadata lookup contract","locator":"docs/discovery/DISCOVERY_ACCEPTANCE_MATRIX.md","captured_at":"2026-11-12","freshness":"current","last_verified_at":"2026-11-12"}
+{"id":"source-186","kind":"document","title":"PR 56 repeated-cursor review finding","locator":"https://github.com/SoloMidMiram/CatsChannel/pull/56#discussion_r4578943031","captured_at":"2026-11-15","freshness":"current","last_verified_at":"2026-11-15"}

@@ -12,6 +12,7 @@ pytest.importorskip("sqlalchemy")
 pytest.importorskip("aiosqlite")
 
 from test_discovery import IDS, OPERATOR, SyntheticResolver, service
+from test_discovery_ledger import candidate, list_candidates
 from test_reply_chains import chain_database as _chain_database
 
 from cats_channel.discovery.domain import PageResult, ProviderConfiguration, Status
@@ -80,6 +81,8 @@ class Pages:
         page = next(self.pages)
         if isinstance(page, BaseException):
             raise page
+        if isinstance(page, FetchedPage):
+            return page
         return FetchedPage(page, 0)
 
 
@@ -133,6 +136,29 @@ async def test_cursor_restart_is_bounded_and_preserves_run_start(chain_database,
     async with db.unit_of_work() as uow:
         coverage, last_success = await uow.discovery.coverage(entry.id, "youtube")
     assert coverage < last_success
+
+
+async def test_repeated_cursor_preserves_observations_at_budget_limit(chain_database):
+    db = chain_database
+    _, entry = await setup(db)
+    observed = candidate(entry.channel_id)
+    provider = Pages(
+        PageResult((), "complete", next_cursor="next"),
+        FetchedPage(PageResult((observed,), "complete", next_cursor="next"), 1),
+    )
+    [report] = await scanner(db, provider).scan(cycle="repeated-cursor")
+    assert (report.state, report.reason) == ("partial", "budget_exhausted")
+    assert (report.items, report.page_attempts, report.request_attempts) == (1, 2, 2)
+    assert provider.cursors == [None, "next"]
+    async with db.unit_of_work() as uow:
+        assert await uow.discovery.coverage(entry.id, "youtube") == (None, None)
+    assert [row["video_id"] for row in await list_candidates(db, entry.id)] == [observed.video_id]
+
+    retry = Pages(PageResult((), "complete"))
+    [report] = await scanner(db, retry).scan(cycle="repeated-cursor")
+    assert report.state == "completed"
+    assert retry.cursors == [None]
+    assert [row["video_id"] for row in await list_candidates(db, entry.id)] == [observed.video_id]
 
 
 @pytest.mark.parametrize("committed", [False, True])

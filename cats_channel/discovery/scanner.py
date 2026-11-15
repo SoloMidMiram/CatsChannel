@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
@@ -120,7 +120,9 @@ class OneShotScanner:
                     if str(error) != "scan_cursor_restart_required":
                         raise
                     restart = True
-                    page = _failure(Status.TEMPORARY_FAILURE)
+                    page = replace(
+                        page, state="partial", next_cursor=None, failure=Status.TEMPORARY_FAILURE
+                    )
                     lease = await self._record(
                         lease, page, fetched.items_examined, coverage_through
                     )
