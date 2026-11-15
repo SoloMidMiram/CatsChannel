@@ -1,6 +1,6 @@
 # Discovery acceptance matrix
 
-Baseline main `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`, verified November 9, 2026.
+Baseline main `ad653687a91e9b0a2c4c770bc23606fadebe5cbf`, verified November 15, 2026.
 [PR #45](https://github.com/SoloMidMiram/CatsChannel/pull/45) merged the authorized watchlist and migration 0008.
 [PR #46](https://github.com/SoloMidMiram/CatsChannel/pull/46) merged research contracts and offline fixture replay.
 [Draft PR #47](https://github.com/SoloMidMiram/CatsChannel/pull/47) records verdict E, inconclusive/blocked, and a supervised diagnostic. Historical Honey observations (48 loaded Shorts links) show partial tab evidence at capture time. They provide neither a current reference set nor complete channel coverage. Direct WSL and configured proxy experiments have distinct scopes. Production access requires separate evidence from the deployment host.
@@ -10,8 +10,8 @@ Baseline main `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`, verified November 9, 2
 | M1a known-video lookup | URL variants converge, returned ID matches, missing/error preserves source, zero acquisition | L1 returns metadata for Honey ID `jFITGy24prE` | Known-video lookup passes synthetic identity and missing/error fixtures. Live access gated |
 | M1b channel enumeration | Resolver rename/mismatch/quota tests and two-page listing with nullable metadata, duplicates and bad cursors | L2 resolves the approved Honey handle and stable ID, L3 returns real IDs and observed continuation | Watchlist merged. Resolver and listing adapters pass synthetic tests |
 | M2 Shorts-tab evidence | Keep uploads, candidate inference and direct observation distinct | L4 observes returned IDs on the verified channel tab and records provenance | Historical partial evidence. Offline UUSH harness prepared; live sample unqualified |
-| M3 repeatable monitoring | Two channels and two pages, replay, new item, failed-page recovery, fenced ownership and zero duplicates | L5 repeats a real scan and verifies ledger/checkpoint behavior. Record actual new uploads only if observed | Synthetic one-shot and durable recovery pass on the review stack |
-| Four-hour operation | Fake clock, exclusive ownership, bounded catch-up and failure isolation | Host operation and recovery qualification | Blocked on live scanner qualification and operational acceptance |
+| M3 repeatable monitoring | Two channels and two pages, replay, new item, failed-page recovery, fenced ownership and zero duplicates | L5 repeats a real scan and verifies ledger/checkpoint behavior. Record actual new uploads only if observed | Synthetic one-shot and durable recovery passed on main at `ad65368` |
+| Four-hour operation | Fake clock, exclusive ownership, bounded catch-up and failure isolation | Host operation and recovery qualification | Offline scheduler tests can proceed under #21. Live operation requires scanner and host qualification |
 
 ## Work packages
 
@@ -24,7 +24,7 @@ Baseline main `148cc4ae906c79f3d42377e991ca7f5a630cfc2d`, verified November 9, 2
 | E Ledger and checkpoints | #20 | Develop alongside D after freezing the shared scan envelope |
 | F Shorts-tab evidence | #19 | Optional provider after B/C, independently qualified from E |
 | G One-shot scanner | #19/#20 | Combine D/E. Dry run by default, with an explicit durable mode. Candidate-only operation is possible without F |
-| H Four-hour scheduling | #21 | After G and host qualification. One scheduler with bounded catch-up |
+| H Four-hour scheduling | #21 | Use offline fixtures from G to test one scheduler with bounded catch-up. Enable live operation only after host qualification |
 | I Acquisition to review | #22 | After G and #7/#8 policy and recovery gates. Scheduling is independent |
 
 Honey is the initial approved research source (`@HoneyTheGingerGirlCat`,
@@ -47,4 +47,4 @@ Production API-backed discovery requires [#51's policy and retention decision](Y
 See the [design decisions](DESIGN_DECISIONS.md) and [weekly acceptance evidence](WEEKLY_ACCEPTANCE_2026-11-18.md).
 
 The [bounded UUSH qualification package](UUSH_QUALIFICATION.md) is part of the
-cumulative offline review stack. Its live evidence remains pending.
+landed offline implementation. Its live evidence remains pending.
