@@ -33,7 +33,7 @@ def test_upgrade_downgrade_and_schema_parity(tmp_path, monkeypatch):
 
     with sqlite3.connect(path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0008_discovery_watchlist",
+            "0009_discovery_ledger",
         )
         assert "uq_destination_post_chat" in {
             r[1] for r in connection.execute("PRAGMA index_list(telegram_message_refs)")
@@ -77,7 +77,7 @@ def test_rejection_upgrade_retains_audit_and_blocks_lossy_downgrade(tmp_path, mo
             "SELECT decision_state, decision_action, rejection_reason FROM review_items"
         ).fetchone() == ("rejected", "reject", "unsuitable")
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0008_discovery_watchlist",
+            "0009_discovery_ledger",
         )
 
 

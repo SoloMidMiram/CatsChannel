@@ -78,7 +78,7 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy(migrated_database):
     command.upgrade(config, "head")
     command.check(config)
     assert asyncio.run(execute("SELECT version_num FROM alembic_version", fetch=True)) == [
-        ("0008_discovery_watchlist",)
+        ("0009_discovery_ledger",)
     ]
     assert asyncio.run(execute("SELECT version FROM watchlist_control WHERE id=1", fetch=True)) == [
         (0,)
@@ -124,5 +124,26 @@ def test_fresh_upgrade_and_interrupted_ddl_are_atomic(migrated_database, monkeyp
     command.upgrade(config, "head")
     command.check(config)
     command.downgrade(config, "base")
+    command.upgrade(config, "head")
+    command.check(config)
+
+
+def test_ledger_migration_rollback_preserves_watchlist(migrated_database):
+    config, execute, _, _ = migrated_database
+    command.upgrade(config, "0008_discovery_watchlist")
+    asyncio.run(execute("UPDATE watchlist_control SET version=7 WHERE id=1"))
+    command.upgrade(config, "0009_discovery_ledger")
+    command.check(config)
+    for table in (
+        "discovery_candidates",
+        "discovery_observations",
+        "discovery_scan_runs",
+        "discovery_checkpoints",
+    ):
+        assert asyncio.run(execute(f"SELECT COUNT(*) FROM {table}", fetch=True)) == [(0,)]
+    command.downgrade(config, "0008_discovery_watchlist")
+    assert asyncio.run(execute("SELECT version FROM watchlist_control WHERE id=1", fetch=True)) == [
+        (7,)
+    ]
     command.upgrade(config, "head")
     command.check(config)
