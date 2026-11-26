@@ -136,3 +136,23 @@ def test_generation_is_idempotent_and_retains_record_index(tmp_path, monkeypatch
     second = context_render.write_generated(tmp_path)
     assert before == {path: path.read_bytes() for path in second}
     assert context_render.check_generated(tmp_path) == []
+
+
+def test_malformed_source_id_produces_diagnostic_not_dependency_index_crash(monkeypatch):
+    taxonomy, sources, records = deepcopy(context_store.load_context(ROOT))
+    sources[0]["id"] = ["invalid-source-id"]
+    monkeypatch.setattr(context_store, "load_context", lambda root: (taxonomy, sources, records))
+    assert any("invalid source ID" in error for error in context_store.validate_repository(ROOT))
+
+
+@pytest.mark.parametrize("invalid_freshness", [[], {}])
+def test_malformed_dependency_freshness_returns_diagnostic(monkeypatch, invalid_freshness):
+    taxonomy, sources, records = deepcopy(context_store.load_context(ROOT))
+    next(source for source in sources if source["id"] == "source-193")["freshness"] = (
+        invalid_freshness
+    )
+    monkeypatch.setattr(context_store, "load_context", lambda root: (taxonomy, sources, records))
+    assert any(
+        "source-193: unknown freshness" in error
+        for error in context_store.validate_repository(ROOT)
+    )

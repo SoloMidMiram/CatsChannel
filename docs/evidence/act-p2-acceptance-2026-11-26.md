@@ -1,7 +1,8 @@
 # ACT-P2 candidate evidence — 2026-11-26
 
-Verdict at local preparation: **REVISE — fresh hosted CI and independent technical
-review pending**. This is not maintainer source acceptance or production approval.
+Verdict at final preparation: **BLOCKED — hosted jobs cannot start under the
+account billing/spending condition**. This is not maintainer source acceptance
+or production approval. Separate technical review passed after findings were fixed.
 Issue: https://github.com/SoloMidMiram/CatsChannel/issues/61.
 
 Branch `fix/act-p2-context-freshness` targets main, based on
@@ -59,6 +60,13 @@ plugin. Filesystem permissions and outbound networking are not isolated.
 | `uv run --frozen python tools/regress.py run --profile context --repeat 2 --timeout 120` | PASS, exit 0; both repetitions passed |
 | Baseline inventory replay and original evidence/ID comparison | PASS |
 
+After the independent-review fixes, the final full local run passed **838 tests,
+152 skipped**, with zero failures/errors (110.599 pytest seconds, 125.422 launcher
+seconds). All listed lint, formatting, validation, generated checks and both
+context regressions were repeated successfully on the corrected code. Explicit
+November 26 CLI replay also exited 0. The earlier 835-pass result above is retained
+as the pre-push candidate's measurement, not substituted for this final run.
+
 The initial run is retained separately: 824 passed, 7 failed, 152 skipped.
 The seven failures exposed incorrectly pinned live README/CLI files; receipt pins
 were narrowed to evidence, not disabled. Ruff's nested-condition finding was also
@@ -86,9 +94,27 @@ generation. Existing future-date, source-path and cycle tests remain intact.
 | Current roadmap integration without production promotion | PASS; fact-089 is limited to offline implementation and outstanding gates |
 | Focused and full local checks | PASS on Windows; platform skips recorded |
 | Fresh hosted Ubuntu, Windows and PostgreSQL on final head | BLOCKED at preparation; obtain after draft PR creation |
-| Independent technical review and owner source acceptance | BLOCKED at preparation; neither is inferred from passing tests |
+| Independent technical review | PASS after reproducing and fixing malformed source-ID/freshness dependency-index crashes; regression evidence retained |
+| Owner source acceptance | Pending explicit maintainer decision; not inferred from tests or technical review |
 
 ## Risks and next review
+
+Draft PR #62 was opened from the initial candidate
+`4d103d8ebafc26a012fc70422074bede906dd810`. Its fresh hosted run
+[45876686092](https://github.com/SoloMidMiram/CatsChannel/actions/runs/45876686092)
+executed no steps: Ubuntu and PostgreSQL annotations report recent account payment
+failure or a spending-limit block; Windows was cancelled by matrix fail-fast.
+This is missing platform qualification, not a failed executed pytest assertion.
+No billing/security settings were changed and no workflow was manually rerun.
+
+Final review reproduced malformed source IDs and malformed dependency freshness
+([]/{}) raising TypeError in the added dependency index. A string-ID guard and
+tuple membership now retain ordinary validation diagnostics instead of crashing.
+The separate read-only AI technical review rechecked those fixes and reported
+PASS with no remaining material findings. It did not execute tests or authorize
+merging. The final reviewed head and subsequent hosted outcome belong to the
+PR metadata and completion report; the earlier successful run above remains
+dated evidence for its own candidate, not an assertion about unrun platforms.
 
 Current claims still expire by design; future dates may require real reverification.
 Historical scoping preserves old implementation details that must not be read as

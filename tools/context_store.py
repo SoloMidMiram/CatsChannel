@@ -362,7 +362,7 @@ def validate_repository(root: Path = ROOT, *, today: date | None = None) -> list
     if duplicate_records:
         errors.append(f"records: duplicate IDs {duplicate_records}")
     known_sources = set(source_ids)
-    source_by_id = {source["id"]: source for source in sources if "id" in source}
+    source_by_id = {source["id"]: source for source in sources if isinstance(source.get("id"), str)}
     known_records = set(record_ids)
     for record in records:
         errors.extend(_validate_record(record, known_sources, taxonomy, today))
@@ -373,7 +373,7 @@ def validate_repository(root: Path = ROOT, *, today: date | None = None) -> list
                     if (
                         isinstance(reference, str)
                         and reference in source_by_id
-                        and source_by_id[reference].get("freshness") in {"stale", "unknown"}
+                        and source_by_id[reference].get("freshness") in ("stale", "unknown")
                     ):
                         errors.append(
                             f"{record.get('id')}: current claim depends on {reference} "
