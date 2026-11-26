@@ -20,7 +20,8 @@
     "captured_at": {"type": "string", "format": "date"},
     "freshness": {"enum": ["current", "stable", "historical", "stale", "unknown"]},
     "last_verified_at": {"type": "string", "format": "date"},
-    "notes": {"type": "string"}
+    "notes": {"type": "string"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   },
   "additionalProperties": false
 }
