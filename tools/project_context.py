@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 # Preserve the documented file entry point as well as python -m tools.project_context.
@@ -56,6 +57,12 @@ def _print_errors(errors: list[str]) -> None:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument(
+        "--as-of",
+        type=date.fromisoformat,
+        metavar="YYYY-MM-DD",
+        help="explicit historical replay date; default is today's strict validation",
+    )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("validate", help="validate taxonomy, sources, records, and evidence")
     generate = actions.add_parser("generate", help="write or check generated context")
@@ -74,7 +81,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def _run(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     root = args.root.resolve()
-    errors = validate_repository(root)
+    errors = validate_repository(root, today=args.as_of)
     if errors:
         _print_errors(errors)
         return 1

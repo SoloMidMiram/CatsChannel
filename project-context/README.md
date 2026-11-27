@@ -81,6 +81,34 @@ not the rendered Markdown.
 
 ## Current-status rule
 
+For explicit historical replay, use:
+
+```bash
+uv run --frozen python tools/project_context.py --as-of 2026-11-26 validate
+uv run --frozen python tools/context_inventory.py --ref 1d066c1e30b91798f642c2b28666ed72f5e56bdf --as-of 2026-11-26
+```
+
+The default validation clock remains today. A successful as-of replay is not
+current acceptance; dates before captured evidence still reject future entries.
+The inventory reads immutable Git objects without checking out or executing them.
+
+Local text sources may pin `content_sha256`: SHA-256 of UTF-8 text after universal
+newline normalization (CRLF/CR become LF). Validation rejects changed receipts.
+When a cataloged source comes from a maintained document, pin a dedicated
+snapshot and record its original path and revision.
+The [ACT-P2 document snapshots](evidence/act-p2-doc-snapshots-2026-11-27/README.md)
+use this layout so historical receipts survive ordinary documentation edits.
+This checks byte-content provenance after that normalization, not claim truth,
+remote freshness or external service availability. It is not a binary-media hash.
+A current record depending on a stale/unknown source is rejected; historical
+sources can support an explicitly dated historical event without pretending to
+have re-observed it. Source and verification references remain mandatory.
+
+The [November 26 reconciliation](evidence/act-p2-inventory-2026-11-26.json)
+preserves the baseline's 166 expired entries, their individual dispositions and
+original claims. The November 18 ledger remains its own dated evidence, not a new
+verification date. Original historical receipts are retained unchanged.
+
 Memory helps locate evidence and explains why a choice was made. It is insufficient
 proof for questions such as “is this fixed?” or “are we ready?”. For those, select
 the relevant records and then check the current branch, code, tests, commit, issue,

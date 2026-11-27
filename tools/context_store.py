@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -48,7 +49,7 @@ _SOURCE_REQUIRED = {
     "freshness",
     "last_verified_at",
 }
-_SOURCE_ALLOWED = _SOURCE_REQUIRED | {"notes"}
+_SOURCE_ALLOWED = _SOURCE_REQUIRED | {"notes", "content_sha256"}
 _MEMORY_TEXT_SUFFIXES = {".json", ".jsonl", ".md", ".yaml", ".yml"}
 _SENSITIVE_LOCAL_ROOTS = {".env", ".secrets", ".runtime", ".cache", "library"}
 
@@ -216,6 +217,23 @@ def _validate_source(
             elif not (root / locator).is_file():
                 errors.append(f"{source_id}: local evidence does not exist: {locator}")
     captured = _parse_date(source.get("captured_at"), "captured_at", source_id, errors)
+    digest = source.get("content_sha256")
+    if digest is not None:
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            errors.append(f"{source_id}: content_sha256 must be lowercase SHA-256")
+        elif (
+            not isinstance(locator, str)
+            or _is_remote(locator)
+            or source.get("kind") == "code_revision"
+        ):
+            errors.append(f"{source_id}: content_sha256 requires a local text receipt")
+        elif _local_locator_error(root, locator) is None and (root / locator).is_file():
+            try:
+                content = (root / locator).read_text(encoding="utf-8").encode("utf-8")
+                if hashlib.sha256(content).hexdigest() != digest:
+                    errors.append(f"{source_id}: local receipt content_sha256 mismatch")
+            except (OSError, UnicodeError):
+                errors.append(f"{source_id}: local receipt cannot be read safely")
     verified = _validate_freshness(source, source_id, taxonomy, today, errors)
     if captured is not None and captured > today:
         errors.append(f"{source_id}: captured_at cannot be in the future")
@@ -344,9 +362,23 @@ def validate_repository(root: Path = ROOT, *, today: date | None = None) -> list
     if duplicate_records:
         errors.append(f"records: duplicate IDs {duplicate_records}")
     known_sources = set(source_ids)
+    source_by_id = {source["id"]: source for source in sources if isinstance(source.get("id"), str)}
     known_records = set(record_ids)
     for record in records:
         errors.extend(_validate_record(record, known_sources, taxonomy, today))
+        if record.get("freshness") == "current":
+            references = record.get("verified_against", [])
+            if isinstance(references, list):
+                for reference in [record.get("source"), *references]:
+                    if (
+                        isinstance(reference, str)
+                        and reference in source_by_id
+                        and source_by_id[reference].get("freshness") in ("stale", "unknown")
+                    ):
+                        errors.append(
+                            f"{record.get('id')}: current claim depends on {reference} "
+                            "with stale/unknown evidence"
+                        )
         supersedes = record.get("supersedes")
         if isinstance(supersedes, str):
             if supersedes not in known_records:

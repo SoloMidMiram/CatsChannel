@@ -14,6 +14,6 @@ YOUTUBE_PROXY is an yt-dlp route; TELEGRAM_PROXY is a Telethon route. Failure pr
 
 ## Evidence
 
-- `source-004` — [Historical media-foundation review](../../docs/FOUNDATION_REVIEW.md)
+- `source-004` — [Historical media-foundation review](../evidence/act-p2-doc-snapshots-2026-11-27/FOUNDATION_REVIEW.txt)
 - `source-003` — [Media foundation architecture and invariants](../../docs/ARCHITECTURE.md)
 - `source-010` — [PR #13 cancelled-disconnect lifecycle fix](https://github.com/SoloMidMiram/CatsChannel/commit/a36766a65e08f7aafff0292ddb401d9a4894b1a9)

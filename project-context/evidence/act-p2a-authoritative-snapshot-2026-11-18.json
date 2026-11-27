@@ -1,0 +1,388 @@
+{
+  "review_date": "2026-11-18",
+  "baseline": "1d066c1e30b91798f642c2b28666ed72f5e56bdf",
+  "github": {
+    "verified_on": "2026-11-18",
+    "read_only": true,
+    "items": [
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/13",
+        "number": 13,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-17T05:36:16Z",
+        "merge_commit_sha": "5192e443b7e51ff09042b636ecebe6119738a96d",
+        "updated_at": "2026-10-17T05:36:17Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/13"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/1",
+        "number": 1,
+        "state": "open",
+        "updated_at": "2026-11-09T16:25:42Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/1"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/14",
+        "number": 14,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-17T11:37:01Z",
+        "merge_commit_sha": "69dded62f6050acbd7f3f4d95ced7bafcc6553e1",
+        "updated_at": "2026-10-17T11:37:01Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/14"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/4",
+        "number": 4,
+        "state": "closed",
+        "updated_at": "2026-10-17T13:58:11Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/4"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/15",
+        "number": 15,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-17T13:58:09Z",
+        "merge_commit_sha": "0dca318848b886f6b77cddc127d32e5f265fbabf",
+        "updated_at": "2026-10-17T13:58:10Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/15"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/5",
+        "number": 5,
+        "state": "closed",
+        "updated_at": "2026-10-22T04:08:18Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/5"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/3",
+        "number": 3,
+        "state": "closed",
+        "updated_at": "2026-10-17T18:27:15Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/3"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/6",
+        "number": 6,
+        "state": "closed",
+        "updated_at": "2026-10-18T02:11:07Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/6"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/16",
+        "number": 16,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-17T17:10:36Z",
+        "merge_commit_sha": "3ba1b2baa09d6567815969bf0129564a62cda47b",
+        "updated_at": "2026-10-17T17:10:36Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/16"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/17",
+        "number": 17,
+        "state": "open",
+        "updated_at": "2026-11-15T15:43:49Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/17"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/22",
+        "number": 22,
+        "state": "open",
+        "updated_at": "2026-11-12T17:12:19Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/22"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/7",
+        "number": 7,
+        "state": "open",
+        "updated_at": "2026-11-09T16:25:46Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/7"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/23",
+        "number": 23,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-17T18:27:14Z",
+        "merge_commit_sha": "c9f2b20f717174eaaf47125b36d7c1ec012b2a0e",
+        "updated_at": "2026-10-17T18:27:14Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/23"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/2",
+        "number": 2,
+        "state": "closed",
+        "updated_at": "2026-10-18T00:43:24Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/2"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/24",
+        "number": 24,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-17T19:20:03Z",
+        "merge_commit_sha": "2f6f37027fef3dbf8dbd3093ae217797222b0956",
+        "updated_at": "2026-10-17T19:20:03Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/24"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/25",
+        "number": 25,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-18T01:12:47Z",
+        "merge_commit_sha": "a6a0c8574239121006342d37f3b6e9fbe68d0ff7",
+        "updated_at": "2026-10-18T01:12:48Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/25"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/26",
+        "number": 26,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-18T01:50:55Z",
+        "merge_commit_sha": "e0f9c2c6fe8aa483f0f9ee4a2c0a694342c05e98",
+        "updated_at": "2026-10-18T01:50:55Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/26"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/issues/9",
+        "number": 9,
+        "state": "open",
+        "updated_at": "2026-11-09T16:25:53Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/9"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/pulls/27",
+        "number": 27,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-10-18T02:11:06Z",
+        "merge_commit_sha": "f63d3825291388c07e7479358caf172bdd0e3d96",
+        "updated_at": "2026-10-18T02:11:06Z",
+        "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/27"
+      }
+    ]
+  },
+  "runs": {
+    "reviewed_on": "2026-11-18",
+    "runs": [
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39056666903",
+        "id": 39056666903,
+        "head_sha": "1407d7693c5d2ddd1aeba07e75951cbbb1037263",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T18:06:44Z",
+        "updated_at": "2026-10-17T18:07:37Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39062008254",
+        "id": 39062008254,
+        "head_sha": "2f6f37027fef3dbf8dbd3093ae217797222b0956",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:20:06Z",
+        "updated_at": "2026-10-17T19:21:10Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39058152067",
+        "id": 39058152067,
+        "head_sha": "c9f2b20f717174eaaf47125b36d7c1ec012b2a0e",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T18:27:16Z",
+        "updated_at": "2026-10-17T18:28:12Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39054536111",
+        "id": 39054536111,
+        "head_sha": "f8941e0af19f8d8abc59abe1a24686b1a8bf9fa2",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T17:36:59Z",
+        "updated_at": "2026-10-17T17:37:57Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39060865382",
+        "id": 39060865382,
+        "head_sha": "8b58185df02ad74c36e23e133cde57afb388ff01",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:04:31Z",
+        "updated_at": "2026-10-17T19:05:35Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39087800103",
+        "id": 39087800103,
+        "head_sha": "248fc63f3544bc43afcd6b7837f968505386e7a3",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-18T01:48:19Z",
+        "updated_at": "2026-10-18T01:49:36Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39038358632",
+        "id": 39038358632,
+        "head_sha": "c12107fbaed4b0e0bfb0fa358fca58d94c0fc7f9",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T13:52:28Z",
+        "updated_at": "2026-10-17T13:53:10Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39085655919",
+        "id": 39085655919,
+        "head_sha": "a6a0c8574239121006342d37f3b6e9fbe68d0ff7",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-18T01:12:50Z",
+        "updated_at": "2026-10-18T01:14:04Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39030449505",
+        "id": 39030449505,
+        "head_sha": "e1df82d667840a12d69f2ea607781247dee5dd36",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T11:54:10Z",
+        "updated_at": "2026-10-17T11:54:58Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/38946185144",
+        "id": 38946185144,
+        "head_sha": "a36766a65e08f7aafff0292ddb401d9a4894b1a9",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-16T18:17:25Z",
+        "updated_at": "2026-10-16T18:18:16Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39057289843",
+        "id": 39057289843,
+        "head_sha": "ace5af178c67e9eb4f57c7032011e34d88570b8d",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T18:15:21Z",
+        "updated_at": "2026-10-17T18:23:52Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39059649102",
+        "id": 39059649102,
+        "head_sha": "aabca924e65d646395ce752993731c35543fb4f3",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T18:47:32Z",
+        "updated_at": "2026-10-17T18:48:39Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39088673527",
+        "id": 39088673527,
+        "head_sha": "c34d337d87c4a868902910a56ea00cd203836d25",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-18T02:02:55Z",
+        "updated_at": "2026-10-18T02:03:48Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39087167565",
+        "id": 39087167565,
+        "head_sha": "92944545c70bca9349a0c90bfe779f7b1e8ab8ef",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-18T01:37:30Z",
+        "updated_at": "2026-10-18T01:38:31Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39051918855",
+        "id": 39051918855,
+        "head_sha": "c2998a24a7b9bdac27b09d977e5379b868c9a4a7",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T17:01:13Z",
+        "updated_at": "2026-10-17T17:03:46Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39063095212",
+        "id": 39063095212,
+        "head_sha": "3840bb498be892453ec4cbf35660bb3a4a80b400",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:35:07Z",
+        "updated_at": "2026-10-17T19:36:13Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39052603130",
+        "id": 39052603130,
+        "head_sha": "3ba1b2baa09d6567815969bf0129564a62cda47b",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T17:10:38Z",
+        "updated_at": "2026-10-17T17:11:44Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39087954845",
+        "id": 39087954845,
+        "head_sha": "e0f9c2c6fe8aa483f0f9ee4a2c0a694342c05e98",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-18T01:50:57Z",
+        "updated_at": "2026-10-18T01:51:53Z"
+      },
+      {
+        "url": "https://api.github.com/repos/SoloMidMiram/CatsChannel/actions/runs/39089183973",
+        "id": 39089183973,
+        "head_sha": "f63d3825291388c07e7479358caf172bdd0e3d96",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-18T02:11:08Z",
+        "updated_at": "2026-10-18T02:12:20Z"
+      }
+    ]
+  },
+  "additional": [
+    {
+      "path": "branches/main",
+      "head_sha": "1d066c1e30b91798f642c2b28666ed72f5e56bdf"
+    },
+    {
+      "path": "issues/5",
+      "state": "closed",
+      "closed_at": "2026-10-22T04:08:18Z",
+      "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/5",
+      "updated_at": "2026-10-22T04:08:18Z"
+    },
+    {
+      "path": "issues/8",
+      "state": "open",
+      "closed_at": null,
+      "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/8",
+      "updated_at": "2026-11-09T16:25:50Z"
+    },
+    {
+      "path": "pulls/47",
+      "state": "open",
+      "closed_at": null,
+      "merged": false,
+      "html_url": "https://github.com/SoloMidMiram/CatsChannel/pull/47",
+      "updated_at": "2026-11-07T15:01:35Z"
+    },
+    {
+      "path": "issues/21",
+      "state": "open",
+      "closed_at": null,
+      "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/21",
+      "updated_at": "2026-11-15T15:44:12Z"
+    },
+    {
+      "path": "issues/51",
+      "state": "open",
+      "closed_at": null,
+      "html_url": "https://github.com/SoloMidMiram/CatsChannel/issues/51",
+      "updated_at": "2026-11-15T15:44:18Z"
+    }
+  ]
+}

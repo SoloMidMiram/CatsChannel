@@ -19,4 +19,4 @@ Original evidence stays in Git, GitHub, checked-in documents, test reports, and 
 - `source-016` — [Project context operating contract](../README.md)
 - `source-017` — [Project context validator, generator, and selector](../../tools/project_context.py)
 - `source-018` — [Project context regression suite](../../tests/test_project_context.py)
-- `source-128` — [Repeatable offline regression and log contracts](../../docs/OFFLINE_CHECKS.md)
+- `source-128` — [Repeatable offline regression and log contracts](../evidence/act-p2-doc-snapshots-2026-11-27/OFFLINE_CHECKS.txt)
