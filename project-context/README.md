@@ -94,6 +94,10 @@ The inventory reads immutable Git objects without checking out or executing them
 
 Local text sources may pin `content_sha256`: SHA-256 of UTF-8 text after universal
 newline normalization (CRLF/CR become LF). Validation rejects changed receipts.
+When a cataloged source comes from a maintained document, pin a dedicated
+snapshot and record its original path and revision.
+The [ACT-P2 document snapshots](evidence/act-p2-doc-snapshots-2026-11-27/README.md)
+use this layout so historical receipts survive ordinary documentation edits.
 This checks byte-content provenance after that normalization, not claim truth,
 remote freshness or external service availability. It is not a binary-media hash.
 A current record depending on a stale/unknown source is rejected; historical

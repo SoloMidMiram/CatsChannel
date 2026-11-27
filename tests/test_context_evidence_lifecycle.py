@@ -69,6 +69,35 @@ def test_receipt_digest_detects_tampering_across_platform_newlines(tmp_path, new
     )
 
 
+@pytest.mark.parametrize(
+    "source_id,document",
+    [
+        ("source-004", "docs/FOUNDATION_REVIEW.md"),
+        ("source-005", "docs/ROADMAP_STATUS.md"),
+        ("source-128", "docs/OFFLINE_CHECKS.md"),
+        ("source-137", "docs/REVIEW_APPROVAL.md"),
+    ],
+)
+def test_historical_receipt_survives_living_document_update(tmp_path, source_id, document):
+    taxonomy, sources, _ = context_store.load_context(ROOT)
+    source = next(source for source in sources if source["id"] == source_id)
+    receipt = tmp_path / source["locator"]
+    receipt.parent.mkdir(parents=True)
+    receipt.write_bytes((ROOT / source["locator"]).read_bytes())
+    today = date(2026, 11, 26)
+    assert context_store._validate_source(source, tmp_path, taxonomy, today) == []
+
+    living_doc = tmp_path / document
+    living_doc.parent.mkdir(parents=True, exist_ok=True)
+    living_doc.write_bytes((ROOT / document).read_bytes() + b"\n## Later maintenance update\n")
+    assert context_store._validate_source(source, tmp_path, taxonomy, today) == []
+
+    receipt.write_bytes(receipt.read_bytes() + b"\nChanged historical receipt.\n")
+    assert f"{source_id}: local receipt content_sha256 mismatch" in context_store._validate_source(
+        source, tmp_path, taxonomy, today
+    )
+
+
 @pytest.mark.parametrize("freshness", ["stale", "unknown"])
 def test_current_record_rejects_unsubstantiated_dependencies(monkeypatch, freshness):
     taxonomy, sources, records = deepcopy(context_store.load_context(ROOT))

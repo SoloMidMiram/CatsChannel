@@ -129,3 +129,23 @@ At every subsequent review iteration record branch/PR/head, actual checks,
 findings and disposition. This branch changes only directly affected context
 representations; the separate uncommitted repository-map/roadmap branch remains
 untouched. A source merge and closing issue #61 require explicit owner acceptance.
+
+## November 27 hosted retry and receipt revision
+
+[Attempt 2 of run #45878889513](https://github.com/SoloMidMiram/CatsChannel/actions/runs/45878889513/attempts/2)
+completed successfully on the unchanged PR #62 head
+`0a57b60d8919c248b052853c2d26c641610c28a4`. Ubuntu, Windows and PostgreSQL
+passed. This clears the earlier hosted-job blocker for that commit and run.
+[Attempt 1](https://github.com/SoloMidMiram/CatsChannel/actions/runs/45878889513/attempts/1)
+remains part of the record. The successful retry provides evidence for that run
+alone.
+
+The follow-up review found that editing a maintained document could invalidate
+its historical receipt. Sources 004, 005, 128 and 137 now point to
+[dedicated snapshots](../../project-context/evidence/act-p2-doc-snapshots-2026-11-27/README.md).
+The snapshots preserve the Git blob contents and reuse the existing SHA-256
+digests. The regression tests cover changes to each maintained document and
+detect changes to its corresponding historical receipt.
+
+Hosted verification must run again for the receipt revision. Maintainer
+acceptance, including semantic review of the evidence dispositions, is pending.
